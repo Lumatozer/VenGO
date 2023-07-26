@@ -1,0 +1,26 @@
+00 set                                # Setting value to a constant number
+01 refset                             # Setting value to a referenced variable number
+02 jump                               # Jumping to a line number
+03 equals                             # Verifying if numbers are equal
+04 greater (a>b)                      # Verifying if a > b
+05 add                                # Adding a + b and store value in c
+06 sub                                # Subtracting a - b and storing the value in c
+07 mult                               # Multiplying a * b and storing the value in c
+08 div                                # Dividing a / b and storing the value in c
+09 power                              # Powering a ** b and storing the value in c
+10 floor                              # Flooring a // b and storing the value in c
+11 mod                                # Modding a % b and storing the value in c
+12 str.set                            # Set a variable as a string value
+14 str.add                            # Add 2 strings a + b and store value in string c
+15 str.mult                           # Multiplying 2 strings a * b and storing the value in c
+16 str.refset                         # Setting value to a referenced string variable
+17 define.jump                        # Defines the line to be a jumpable reference
+18 jump.def                           # Jump to a definition 
+19 endx                               # stop the program
+20 and                                # and operation of two boolean value a and b and store the value in c
+21 or                                 # or operation of two boolean values a or b and storing the value in c
+22 not                                # not operation of two boolean values a not b and storing value in c
+23 xor                                # xoring a ^ b and storing the value in c
+24 xor.num                            # xoring numbers a ^ b and storing the value in c
+25 in                                 # recursive check of whether an object is inside an array a in b and storing the value in c
+26 round                              # round a to b number of decimals and store value in c
