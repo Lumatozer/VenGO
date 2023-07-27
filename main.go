@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"strings"
-	"strconv"
 	"math"
-
+	"os"
+	"strconv"
+	"strings"
 )
 
 // func do_nothing(x interface{}) {}
@@ -155,8 +154,10 @@ func main() {
 				return
 			}
 			var intopcode int;
-			if (opcode=="refset") {intopcode=1}
-			if (opcode=="jump") {intopcode=2}
+			switch opcode {
+			case "refset":intopcode=1
+			case "jump":intopcode=2
+			}
 			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "equals","greater","add","sub","mult","div","floor","mod","power","xor.num","round":
