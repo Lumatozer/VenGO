@@ -42,6 +42,10 @@ func plain_in_arr_VI_Object(obj VI_Object, arr []VI_Object, field string ) map[s
 	res:=make(map[string]int)
 	for i := 0; i < len(arr); i++ {
 		current_obj:=arr[i]
+		res["error"]=0
+		if (strings.Join(current_obj.object_type[:],",")!=strings.Join(obj.object_type[:],",")) {
+			res["error"]=1
+		}
 		switch field {
 		case "var_name":
 			if (current_obj.var_name==obj.var_name) {
@@ -65,6 +69,7 @@ func plain_in_arr_VI_Object(obj VI_Object, arr []VI_Object, field string ) map[s
 	}
 	res["index"]=-1
 	res["result"]=0
+	res["error"]=0
 	return res
 }
 
@@ -103,6 +108,51 @@ func round_float64(num float64, decimals uint) float64 {
     return math.Round(num * ratio) / ratio
 }
 
+func file_parser(dat string) map[string][]string {
+	data_lines:=strings.Split(dat, "\n")
+	mode:=""
+	code_lines:=make([]string,0)
+	data_constants:=make([]string,0)
+	for i := 0; i < len(data_lines); i++ {
+		current_line:=data_lines[i]
+		if (current_line=="") {
+			continue
+		}
+		if (current_line==".code") {
+			mode="code"
+			continue
+		} else if (current_line==".data") {
+			mode="data"
+			continue
+		}
+		if (mode=="data") {
+			data_constants = append(data_constants, strings.Trim(strings.Trim(current_line," "),"\""))
+		} else if (mode=="code") {
+			code_lines = append(code_lines, strings.Trim(current_line," "))
+		}
+	}
+	res:=make(map[string][]string,0)
+	res["code_lines"]=code_lines
+	res["data_constants"]=data_constants
+	return res
+}
+
+func num_to_bool(num float64) bool {
+	if num==0 {
+		return false
+	} else {
+		return true
+	}
+}
+
+func bool_to_num(x bool) float64 {
+	if x {
+		return 1
+	} else {
+		return 0
+	}
+}
+
 func main() {
 	dat, err := os.ReadFile("alu.vi")
 
@@ -111,12 +161,15 @@ func main() {
 		return
 	}
 	code:=string(dat)
-	codex := strings.Split(code, "\n")
+	
+	parse_results:=file_parser(code)
+	codex,string_consts:=parse_results["code_lines"],parse_results["data_constants"]
 
 	var num_constants []float64;
 
 	byte_code:=make([][]int,0)
 	symbol_table:=make([]VI_Object,0)
+	jump_table:=make(map[string]int,0)
 	gas_limit:=0
 	current_gas:=1
 
@@ -135,7 +188,11 @@ func main() {
 				num_constants = append(num_constants, num)
 				index["index"]=len(num_constants)-1
 			}
-			res:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			res:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if res["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
 			if res["result"]==0 {
 				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: get_plain_type("num")})
 				res["index"]=len(symbol_table)-1
@@ -143,14 +200,22 @@ func main() {
 			current_byte_code = append(current_byte_code, 0,res["index"],index["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "refset","jump":
-			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
-			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
+			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
+			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if set_var["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
 				return
 			}
+			if set_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
 			if reference["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			if reference["error"]==1 {
+				fmt.Println("Data types did not match")
 				return
 			}
 			var intopcode int;
@@ -160,10 +225,14 @@ func main() {
 			}
 			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
-		case "equals","greater","add","sub","mult","div","floor","mod","power","xor.num","round":
-			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
-			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
-			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
+		case "equals","greater","add","sub","mult","div","floor","mod","power","round","and","or","xor":
+			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
+			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
+			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if var_1["error"]==1 || var_2["error"]==1 || var_res["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
 			if var_1["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
 				return
@@ -187,10 +256,104 @@ func main() {
 			case "power":intopcode=9
 			case "floor":intopcode=10
 			case "mod":intopcode=11
-			case "xor.num":intopcode=24
-			case "round":intopcode=26
+			case "round":intopcode=25
+			case "and":intopcode=20
+			case "or":intopcode=21
+			case "xor":intopcode=23
 			}
 			current_byte_code = append(current_byte_code, intopcode, var_1["index"], var_2["index"], var_res["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str.set":
+			num,err:=strconv.ParseInt(args[1],10,64)
+			if err!=nil {
+				fmt.Println(err)
+				return
+			}
+			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if var_1["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if var_1["result"]==0 {
+				var_1["index"]=len(symbol_table)
+				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: get_plain_type("string")})
+			}
+			current_byte_code = append(current_byte_code, 12, var_1["index"], int(num))
+			byte_code = append(byte_code, current_byte_code)
+		case "str.add","str.mult":
+			var_2_type:=make([]string,0)
+			switch opcode {
+			case "str.add":var_2_type=get_plain_type("string")
+			case "str.mult":var_2_type=get_plain_type("num")
+			}
+			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: var_2_type},symbol_table,"var_name")
+			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if var_1["error"]==1 || var_2["error"]==1 || var_res["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if var_1["index"]==-1 {
+				fmt.Println("Variable",args[0],"has not been initialised yet")
+				return
+			}
+			if var_2["index"]==-1 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			if var_res["index"]==-1 {
+				fmt.Println("Variable",args[2],"has not been initialised yet")
+				return
+			}
+			var intopcode int;
+			switch opcode {
+			case "str.add":intopcode=14
+			case "str.mult":intopcode=15
+			}
+			current_byte_code = append(current_byte_code, intopcode, var_1["index"], var_2["index"], var_res["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str.refset":
+			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if set_var["index"]==-1 {
+				fmt.Println("Variable",args[0],"has not been initialised yet")
+				return
+			}
+			if set_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if reference["index"]==-1 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			if reference["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			var intopcode int;
+			intopcode=16
+			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "define.jump":
+			num,err:=strconv.ParseInt(args[0],10,64)
+			if err!=nil {
+				fmt.Println(err)
+				return
+			}
+			jump_table[string_consts[num]]=i
+			current_byte_code = append(current_byte_code, 17,int(num),i)
+			byte_code = append(byte_code, current_byte_code)
+		case "jump.def":
+			num,err:=strconv.ParseInt(args[0],10,64)
+			if err!=nil {
+				fmt.Println(err)
+				return
+			}
+			current_byte_code = append(current_byte_code, 18,int(num))
+			byte_code = append(byte_code, current_byte_code)
+		case "endx":
+			current_byte_code = append(current_byte_code, 19)
 			byte_code = append(byte_code, current_byte_code)
 		}
 	}
@@ -236,6 +399,26 @@ func main() {
 			symbol_table[current_byte_code[3]].num_value=math.Floor(symbol_table[current_byte_code[1]].num_value / symbol_table[current_byte_code[2]].num_value)
 		case 11:
 			symbol_table[current_byte_code[3]].num_value=math.Mod(symbol_table[current_byte_code[1]].num_value, symbol_table[current_byte_code[2]].num_value)
+		case 12:
+			symbol_table[current_byte_code[1]].str_value=string_consts[current_byte_code[2]]
+		case 14:
+			symbol_table[current_byte_code[3]].str_value=symbol_table[current_byte_code[1]].str_value + symbol_table[current_byte_code[2]].str_value
+		case 15:
+			symbol_table[current_byte_code[3]].str_value=strings.Repeat(symbol_table[current_byte_code[1]].str_value, int(symbol_table[current_byte_code[2]].num_value))
+		case 16:
+			symbol_table[current_byte_code[1]].str_value=symbol_table[current_byte_code[2]].str_value
+		case 18:
+			i=jump_table[string_consts[current_byte_code[1]]]-1
+		case 19:
+			return
+		case 20:
+			symbol_table[current_byte_code[3]].num_value=bool_to_num(num_to_bool(symbol_table[current_byte_code[1]].num_value) && num_to_bool(symbol_table[current_byte_code[2]].num_value))
+		case 21:
+			symbol_table[current_byte_code[3]].num_value=bool_to_num(num_to_bool(symbol_table[current_byte_code[1]].num_value) || num_to_bool(symbol_table[current_byte_code[2]].num_value))
+		case 23:
+			symbol_table[current_byte_code[3]].num_value=float64(int(symbol_table[current_byte_code[1]].num_value) ^ int(symbol_table[current_byte_code[2]].num_value))
+		case 25:
+			symbol_table[current_byte_code[3]].num_value=round_float64(symbol_table[current_byte_code[1]].num_value,uint(symbol_table[current_byte_code[2]].num_value))
 		}
 	}
 	fmt.Println(symbol_table,num_constants)

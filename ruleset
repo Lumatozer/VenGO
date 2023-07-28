@@ -21,6 +21,5 @@
 21 or                                 # or operation of two boolean values a or b and storing the value in c
 22 not                                # not operation of two boolean values a not b and storing value in c
 23 xor                                # xoring a ^ b and storing the value in c
-24 xor.num                            # xoring numbers a ^ b and storing the value in c
-25 in                                 # recursive check of whether an object is inside an array a in b and storing the value in c
-26 round                              # round a to b number of decimals and store value in c
+24 in                                 # recursive check of whether an object is inside an array a in b and storing the value in c
+25 round                              # round a to b number of decimals and store value in c
