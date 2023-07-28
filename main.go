@@ -114,7 +114,7 @@ func file_parser(dat string) map[string][]string {
 	code_lines:=make([]string,0)
 	data_constants:=make([]string,0)
 	for i := 0; i < len(data_lines); i++ {
-		current_line:=data_lines[i]
+		current_line:=strings.Trim(data_lines[i]," ")
 		if (current_line=="") {
 			continue
 		}
@@ -174,7 +174,12 @@ func main() {
 	current_gas:=1
 
 	for i := 0; i < len(codex); i++ {
-        args:=strings.Split(strings.Split(codex[i], " ")[1], ",")
+		args:=strings.Split(codex[i], " ")
+		if len(args)>=2 {
+			args=strings.Split(args[1], ",")
+		} else {
+			args=make([]string, 0)
+		}
 		current_byte_code:=make([]int,0)
 		switch opcode:=strings.Split(codex[i], " ")[0]; opcode {
 		case "set":
@@ -199,7 +204,7 @@ func main() {
 			}
 			current_byte_code = append(current_byte_code, 0,res["index"],index["index"])
 			byte_code = append(byte_code, current_byte_code)
-		case "refset","jump":
+		case "refset","jump","not":
 			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
 			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if set_var["index"]==-1 {
@@ -222,6 +227,7 @@ func main() {
 			switch opcode {
 			case "refset":intopcode=1
 			case "jump":intopcode=2
+			case "not":intopcode=22
 			}
 			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
@@ -256,7 +262,7 @@ func main() {
 			case "power":intopcode=9
 			case "floor":intopcode=10
 			case "mod":intopcode=11
-			case "round":intopcode=25
+			case "round":intopcode=24
 			case "and":intopcode=20
 			case "or":intopcode=21
 			case "xor":intopcode=23
@@ -346,11 +352,20 @@ func main() {
 			byte_code = append(byte_code, current_byte_code)
 		case "jump.def":
 			num,err:=strconv.ParseInt(args[0],10,64)
+			condition_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if condition_var["index"]==-1 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			if condition_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
 			if err!=nil {
 				fmt.Println(err)
 				return
 			}
-			current_byte_code = append(current_byte_code, 18,int(num))
+			current_byte_code = append(current_byte_code, 18,int(num),condition_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "endx":
 			current_byte_code = append(current_byte_code, 19)
@@ -358,10 +373,11 @@ func main() {
 		}
 	}
 	fmt.Println(byte_code)
+	continute_exec:=true
 	for i := 0; i < len(byte_code); i++ {
 		current_gas+=1
-		if current_gas<gas_limit {
-			return
+		if current_gas<gas_limit || !continute_exec {
+			break
 		}
 		current_byte_code:=byte_code[i]
 		switch opcode:=current_byte_code[0]; opcode {
@@ -371,7 +387,7 @@ func main() {
 			symbol_table[current_byte_code[1]].num_value=symbol_table[current_byte_code[2]].num_value
 		case 2:
 			if symbol_table[current_byte_code[2]].num_value!=0 {
-				i=int(symbol_table[current_byte_code[1]].num_value)-2
+				i=int(symbol_table[current_byte_code[1]].num_value)-3
 			}
 		case 3:
 			if symbol_table[current_byte_code[1]].num_value == symbol_table[current_byte_code[2]].num_value {
@@ -408,16 +424,20 @@ func main() {
 		case 16:
 			symbol_table[current_byte_code[1]].str_value=symbol_table[current_byte_code[2]].str_value
 		case 18:
-			i=jump_table[string_consts[current_byte_code[1]]]-1
+			if (symbol_table[current_byte_code[2]].num_value!=0) {
+				i=jump_table[string_consts[current_byte_code[1]]]
+			}
 		case 19:
-			return
+			continute_exec=false
 		case 20:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(num_to_bool(symbol_table[current_byte_code[1]].num_value) && num_to_bool(symbol_table[current_byte_code[2]].num_value))
 		case 21:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(num_to_bool(symbol_table[current_byte_code[1]].num_value) || num_to_bool(symbol_table[current_byte_code[2]].num_value))
+		case 22:
+			symbol_table[current_byte_code[2]].num_value=bool_to_num(!num_to_bool(symbol_table[current_byte_code[1]].num_value))
 		case 23:
 			symbol_table[current_byte_code[3]].num_value=float64(int(symbol_table[current_byte_code[1]].num_value) ^ int(symbol_table[current_byte_code[2]].num_value))
-		case 25:
+		case 24:
 			symbol_table[current_byte_code[3]].num_value=round_float64(symbol_table[current_byte_code[1]].num_value,uint(symbol_table[current_byte_code[2]].num_value))
 		}
 	}
