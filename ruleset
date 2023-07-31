@@ -23,4 +23,9 @@
 23 xor                                # xoring a ^ b and storing the value in c
 24 round                              # round a to b number of decimals and store value in c
 25 arr.init                           # initialises an array a of type x string split by ","
-26 in                                 # recursive check of whether an object is inside an array a in b and storing the value in c
+26 arr.push                           # insert an item x into an array y of similar type
+27 arr.pull                           # lookups the value of variable a as index of array b and stores the value in c
+28 arr.remove                         # removes the index of variable a from array b
+29 arr.index.set                      # sets value of array a at index b to value of c with similar type
+30 arr.length                         # gets the length of array and stores the value in variable b
+26 arr.includes                       # recursive check of whether an object a is inside an array b and storing the value in c

@@ -86,16 +86,9 @@ func get_init_arr_type(obj_type string) []string {
 	return res
 }
 
-func add_arr_depth(current_obj_type []string) []string {
-	res:=make([]string,0)
-	res = append([]string{"arr"}, current_obj_type...)
-	return res
-}
-
-func create_array_type(object_type string) []string {
-	res:=make([]string,0)
-	res = append([]string{"arr"}, strings.Split(strings.Replace(object_type," ","",0), ",")...)
-	return res
+func remove_VI_Object_from_index(slice []VI_Object, i int) []VI_Object {
+	copy(slice[i:], slice[i+1:])
+	return slice[:len(slice)-1]
 }
 
 type VI_Object struct {
@@ -159,6 +152,14 @@ func bool_to_num(x bool) float64 {
 	}
 }
 
+func arr_supports_type(arr_type []string,obj_type []string) bool {
+	if strings.Join(arr_type[1:],"")==strings.Join(obj_type,"") {
+		return true
+	} else {
+		return false
+	}
+}
+
 func main() {
 	dat, err := os.ReadFile("alu.vi")
 
@@ -172,6 +173,7 @@ func main() {
 	codex,string_consts:=parse_results["code_lines"],parse_results["data_constants"]
 
 	var num_constants []float64;
+	var arr_constants []VI_Object;
 
 	byte_code:=make([][]int,0)
 	symbol_table:=make([]VI_Object,0)
@@ -376,6 +378,111 @@ func main() {
 		case "endx":
 			current_byte_code = append(current_byte_code, 19)
 			byte_code = append(byte_code, current_byte_code)
+		case "arr.init":
+			num,err:=strconv.ParseFloat(args[1],64)
+			if err!=nil {
+				fmt.Println(err)
+				return
+			}
+			arr_type:=get_init_arr_type(string_consts[int(num)])
+			index:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: arr_type},arr_constants,"var_name")
+			if index["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			arr_default:=VI_Object{var_name: args[0],object_type: arr_type}
+			if index["result"]==0 {
+				index["index"]=len(arr_constants)
+				arr_constants = append(arr_constants, arr_default)
+			}
+			res:=plain_in_arr_VI_Object(arr_default,symbol_table,"var_name")
+			if res["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if res["result"]==0 {
+				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: arr_type})
+				res["index"]=len(symbol_table)-1
+			}
+			current_byte_code = append(current_byte_code, 25,res["index"],index["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "arr.push":
+			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if arr_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
+				return
+			}
+			if symbol_table[arr_var["index"]].object_type[0]!="arr" {
+				fmt.Println("Variable",args[0],"is not an array")
+				return
+			}
+			push_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
+			if push_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			if !arr_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[push_var["index"]].object_type) {
+				fmt.Println("Object type if not supported by array",args[0])
+				return
+			}
+			current_byte_code = append(current_byte_code, 26,arr_var["index"],push_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "arr.pull","arr.index.set":
+			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if arr_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
+				return
+			}
+			if symbol_table[arr_var["index"]].object_type[0]!="arr" {
+				fmt.Println("Variable",args[0],"is not an array")
+				return
+			}
+			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if index_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			if index_var["error"]==1 {
+				fmt.Println("Index variable needs to be a number")
+				return
+			}
+			pull_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
+			if pull_var["result"]==0 {
+				fmt.Println("Variable",args[2],"has not been initialised yet")
+				return
+			}
+			if !arr_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[pull_var["index"]].object_type) {
+				fmt.Println("Object type does not match array",args[0],"object type")
+				return
+			}
+			opcode_num:=0
+			switch opcode {
+			case "arr.pull":opcode_num=27
+			case "arr.index.set":opcode_num=29
+			}
+			current_byte_code = append(current_byte_code, opcode_num,arr_var["index"],index_var["index"],pull_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "arr.remove":
+			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if arr_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
+				return
+			}
+			if symbol_table[arr_var["index"]].object_type[0]!="arr" {
+				fmt.Println("Variable",args[0],"is not an array")
+				return
+			}
+			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if index_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			if index_var["error"]==1 {
+				fmt.Println("Arrya index is required to be of type number")
+				return
+			}
+			current_byte_code = append(current_byte_code, 28,arr_var["index"],index_var["index"])
+			byte_code = append(byte_code, current_byte_code)
 		}
 	}
 	fmt.Println(byte_code)
@@ -445,6 +552,18 @@ func main() {
 			symbol_table[current_byte_code[3]].num_value=float64(int(symbol_table[current_byte_code[1]].num_value) ^ int(symbol_table[current_byte_code[2]].num_value))
 		case 24:
 			symbol_table[current_byte_code[3]].num_value=round_float64(symbol_table[current_byte_code[1]].num_value,uint(symbol_table[current_byte_code[2]].num_value))
+		case 25:
+			symbol_table[current_byte_code[1]]=arr_constants[current_byte_code[2]]
+		case 26:
+			symbol_table[current_byte_code[1]].children = append(symbol_table[current_byte_code[1]].children, symbol_table[current_byte_code[2]])
+		case 27:
+			temp_var:=symbol_table[current_byte_code[1]].children[int(symbol_table[current_byte_code[2]].num_value)]
+			temp_var.var_name=symbol_table[current_byte_code[3]].var_name
+			symbol_table[current_byte_code[3]]=temp_var
+		case 28:
+			symbol_table[current_byte_code[1]].children=remove_VI_Object_from_index(symbol_table[current_byte_code[1]].children,int(symbol_table[current_byte_code[2]].num_value))
+		case 29:
+			symbol_table[current_byte_code[1]].children[int(symbol_table[current_byte_code[2]].num_value)]=symbol_table[current_byte_code[3]]
 		}
 	}
 	fmt.Println(symbol_table,num_constants)
