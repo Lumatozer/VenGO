@@ -43,7 +43,7 @@ func plain_in_arr_VI_Object(obj VI_Object, arr []VI_Object, field string ) map[s
 	for i := 0; i < len(arr); i++ {
 		current_obj:=arr[i]
 		res["error"]=0
-		if (current_obj.object_type!=obj.object_type) {
+		if (strings.Join(current_obj.object_type[:],",")!=strings.Join(obj.object_type[:],",")) {
 			res["error"]=1
 		}
 		switch field {
@@ -73,6 +73,12 @@ func plain_in_arr_VI_Object(obj VI_Object, arr []VI_Object, field string ) map[s
 	return res
 }
 
+func get_plain_type(obj_type string) []string {
+	res:=make([]string,0)
+	res = append(res, obj_type)
+	return res
+}
+
 func get_init_arr_type(obj_type string) []string {
 	res:=make([]string,0)
 	res = append(res, "arr")
@@ -90,7 +96,7 @@ type VI_Object struct {
 	var_name string
 	num_value float64
 	str_value string
-	object_type string
+	object_type []string
 	children []VI_Object
 	dict_keys []string
 }
@@ -187,20 +193,20 @@ func main() {
 				num_constants = append(num_constants, num)
 				index["index"]=len(num_constants)-1
 			}
-			res:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: "num"},symbol_table,"var_name")
+			res:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if res["error"]==1 {
 				fmt.Println("Data types did not match")
 				return
 			}
 			if res["result"]==0 {
-				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: "num"})
+				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: get_plain_type("num")})
 				res["index"]=len(symbol_table)-1
 			}
 			current_byte_code = append(current_byte_code, 0,res["index"],index["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "refset","jump","not":
-			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: "num"},symbol_table,"var_name")
-			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: "num"},symbol_table,"var_name")
+			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
+			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if set_var["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
 				return
@@ -226,9 +232,9 @@ func main() {
 			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "equals","greater","add","sub","mult","div","floor","mod","power","round","and","or","xor":
-			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: "num"},symbol_table,"var_name")
-			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: "num"},symbol_table,"var_name")
-			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: "num"},symbol_table,"var_name")
+			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
+			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
+			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if var_1["error"]==1 || var_2["error"]==1 || var_res["error"]==1 {
 				fmt.Println("Data types did not match")
 				return
@@ -269,26 +275,26 @@ func main() {
 				fmt.Println(err)
 				return
 			}
-			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: "string"},symbol_table,"var_name")
+			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if var_1["error"]==1 {
 				fmt.Println("Data types did not match")
 				return
 			}
 			if var_1["result"]==0 {
 				var_1["index"]=len(symbol_table)
-				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: "string"})
+				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: get_plain_type("string")})
 			}
 			current_byte_code = append(current_byte_code, 12, var_1["index"], int(num))
 			byte_code = append(byte_code, current_byte_code)
 		case "str.add","str.mult":
-			var_2_type:=""
+			var_2_type:=make([]string,0)
 			switch opcode {
-			case "str.add":var_2_type="string"
-			case "str.mult":var_2_type="num"
+			case "str.add":var_2_type=get_plain_type("string")
+			case "str.mult":var_2_type=get_plain_type("num")
 			}
-			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: "string"},symbol_table,"var_name")
+			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: var_2_type},symbol_table,"var_name")
-			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: "string"},symbol_table,"var_name")
+			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if var_1["error"]==1 || var_2["error"]==1 || var_res["error"]==1 {
 				fmt.Println("Data types did not match")
 				return
@@ -313,8 +319,8 @@ func main() {
 			current_byte_code = append(current_byte_code, intopcode, var_1["index"], var_2["index"], var_res["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.refset":
-			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: "string"},symbol_table,"var_name")
-			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: "string"},symbol_table,"var_name")
+			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if set_var["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
 				return
@@ -346,7 +352,7 @@ func main() {
 			byte_code = append(byte_code, current_byte_code)
 		case "jump.def":
 			num,err:=strconv.ParseInt(args[0],10,64)
-			condition_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: "num"},symbol_table,"var_name")
+			condition_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if condition_var["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
 				return
