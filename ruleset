@@ -22,4 +22,5 @@
 22 not                                # not operation of two boolean values a not b and storing value in c
 23 xor                                # xoring a ^ b and storing the value in c
 24 round                              # round a to b number of decimals and store value in c
-25 in                                 # recursive check of whether an object is inside an array a in b and storing the value in c
+25 arr.init                           # initialises an array a of type x string split by ","
+26 in                                 # recursive check of whether an object is inside an array a in b and storing the value in c

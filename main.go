@@ -92,6 +92,12 @@ func add_arr_depth(current_obj_type []string) []string {
 	return res
 }
 
+func create_array_type(object_type string) []string {
+	res:=make([]string,0)
+	res = append([]string{"arr"}, strings.Split(strings.Replace(object_type," ","",0), ",")...)
+	return res
+}
+
 type VI_Object struct {
 	var_name string
 	num_value float64
