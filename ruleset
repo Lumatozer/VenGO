@@ -2,7 +2,7 @@
 01 refset                             # Setting value to a referenced variable number
 02 jump                               # Jumping to a line number
 03 equals                             # Verifying if numbers are equal
-04 greater (a>b)                      # Verifying if a > b
+04 greater                            # Verifying if a > b
 05 add                                # Adding a + b and store value in c
 06 sub                                # Subtracting a - b and storing the value in c
 07 mult                               # Multiplying a * b and storing the value in c
@@ -28,4 +28,7 @@
 28 arr.remove                         # removes the index of variable a from array b
 29 arr.index.set                      # sets value of array a at index b to value of c with similar type
 30 arr.length                         # gets the length of array and stores the value in variable b
-26 arr.includes                       # recursive check of whether an object a is inside an array b and storing the value in c
+31 arr.refset                         # set value of array a as value of array b with same children
+32 arr.includes                       # recursive check of whether an object a is inside an array b and storing the value in c
+33 obj.equals                         # recursive check of whether an array a is equal to an array b and storing the value in c
+34 str.equals                         # checks whether string a is equal to string b and stores the value in cC
