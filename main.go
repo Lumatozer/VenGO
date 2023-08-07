@@ -114,6 +114,15 @@ func recursive_VI_Object_match(obj1 VI_Object, obj2 VI_Object) bool {
 	return true
 }
 
+func str_index_in_arr(str_obj string, string_arr []string) int {
+	for i := 0; i < len(string_arr); i++ {
+		if string_arr[i]==str_obj {
+			return i
+		}
+	}
+	return -1
+}
+
 func get_plain_type(obj_type string) []string {
 	res:=make([]string,0)
 	res = append(res, obj_type)
@@ -123,6 +132,13 @@ func get_plain_type(obj_type string) []string {
 func get_init_arr_type(obj_type string) []string {
 	res:=make([]string,0)
 	res = append(res, "arr")
+	res = append(res, strings.Split(strings.ReplaceAll(obj_type," ",""),",")...)
+	return res
+}
+
+func get_init_dict_type(obj_type string) []string {
+	res:=make([]string,0)
+	res = append(res, "dict")
 	res = append(res, strings.Split(strings.ReplaceAll(obj_type," ",""),",")...)
 	return res
 }
@@ -193,7 +209,7 @@ func bool_to_num(x bool) float64 {
 	}
 }
 
-func arr_supports_type(arr_type []string,obj_type []string) bool {
+func obj_supports_type(arr_type []string,obj_type []string) bool {
 	if strings.Join(arr_type[1:],"")==strings.Join(obj_type,"") {
 		return true
 	} else {
@@ -215,6 +231,7 @@ func main() {
 
 	var num_constants []float64;
 	var arr_constants []VI_Object;
+	var dict_constants []VI_Object;
 
 	byte_code:=make([][]int,0)
 	symbol_table:=make([]VI_Object,0)
@@ -462,7 +479,7 @@ func main() {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
 				return
 			}
-			if !arr_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[push_var["index"]].object_type) {
+			if !obj_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[push_var["index"]].object_type) {
 				fmt.Println("Object type is not supported by array",args[0])
 				return
 			}
@@ -492,7 +509,7 @@ func main() {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
 				return
 			}
-			if !arr_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[pull_var["index"]].object_type) {
+			if !obj_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[pull_var["index"]].object_type) {
 				fmt.Println("Object type does not match array",args[0],"object type")
 				return
 			}
@@ -574,7 +591,7 @@ func main() {
 				fmt.Println("Result index variable needs to be a number")
 				return
 			}
-			if !arr_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[check_var["index"]].object_type) {
+			if !obj_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[check_var["index"]].object_type) {
 				fmt.Println("Object type does not match array",args[0],"object type")
 				return
 			}
@@ -627,6 +644,63 @@ func main() {
 				return
 			}
 			current_byte_code = append(current_byte_code, 34, var_1["index"], var_2["index"], var_res["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "dict.init":
+			num,err:=strconv.ParseFloat(args[1],64)
+			if err!=nil {
+				fmt.Println(err)
+				return
+			}
+			dict_type:=get_init_dict_type(string_consts[int(num)])
+			index:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: dict_type},dict_constants,"var_name")
+			if index["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			dict_default:=VI_Object{var_name: args[0],object_type: dict_type}
+			if index["result"]==0 {
+				index["index"]=len(dict_constants)
+				dict_constants = append(dict_constants, dict_default)
+			}
+			res:=plain_in_arr_VI_Object(dict_default,symbol_table,"var_name")
+			if res["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if res["result"]==0 {
+				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: dict_type})
+				res["index"]=len(symbol_table)-1
+			}
+			current_byte_code = append(current_byte_code, 35,res["index"],index["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "dict.key.set":
+			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if dict_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
+				return
+			}
+			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
+				fmt.Println("Variable",args[0],"is not a dict")
+				return
+			}
+			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if key_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if key_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
+			if value_var["result"]==0 {
+				fmt.Println("Variable",args[2],"has not been initialised yet")
+				return
+			}
+			if !obj_supports_type(symbol_table[dict_var["index"]].object_type,symbol_table[value_var["index"]].object_type) {
+				fmt.Println("Object type is not supported by array",args[0])
+				return
+			}
+			current_byte_code = append(current_byte_code, 36,dict_var["index"],key_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		}
 	}
@@ -728,6 +802,16 @@ func main() {
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(recursive_VI_Object_match(symbol_table[current_byte_code[1]],symbol_table[current_byte_code[2]]))
 		case 34:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(symbol_table[current_byte_code[1]].str_value==symbol_table[current_byte_code[2]].str_value)
+		case 35:
+			symbol_table[current_byte_code[1]]=dict_constants[current_byte_code[2]]
+		case 36:
+			index:=str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)
+			if index==-1 {
+				symbol_table[current_byte_code[1]].dict_keys = append(symbol_table[current_byte_code[1]].dict_keys, symbol_table[current_byte_code[2]].str_value)
+				symbol_table[current_byte_code[1]].children = append(symbol_table[current_byte_code[1]].children, symbol_table[current_byte_code[3]])
+			} else {
+				symbol_table[current_byte_code[1]].children[index]=symbol_table[current_byte_code[3]]
+			}
 		}
 	}
 	fmt.Println(symbol_table,num_constants)
