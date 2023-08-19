@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"github.com/lumatozer/VenGO/database"
 )
 
 // func do_nothing(x interface{}) {}
@@ -148,6 +149,11 @@ func remove_VI_Object_from_index(slice []VI_Object, i int) []VI_Object {
 	return slice[:len(slice)-1]
 }
 
+func remove_string_from_index(slice []string, i int) []string {
+	copy(slice[i:], slice[i+1:])
+	return slice[:len(slice)-1]
+}
+
 type VI_Object struct {
 	var_name string
 	num_value float64
@@ -217,7 +223,21 @@ func obj_supports_type(arr_type []string,obj_type []string) bool {
 	}
 }
 
+func type_evaluator(obj_type []string) bool {
+	if obj_type[len(obj_type)-1]!="string" && obj_type[len(obj_type)-1]!="num" {
+		return false
+	}
+	check_arr:=remove_string_from_index(obj_type,len(obj_type)-1)
+	for i := 0; i < len(check_arr); i++ {
+		if check_arr[i]=="string" || check_arr[i]=="num" {
+			return false
+		}
+	}
+	return true
+}
+
 func main() {
+	database.Yes()
 	dat, err := os.ReadFile("alu.vi")
 
 	if (err!=nil) {
@@ -443,6 +463,10 @@ func main() {
 				return
 			}
 			arr_type:=get_init_arr_type(string_consts[int(num)])
+			if !type_evaluator(arr_type) {
+				fmt.Println("Invalid type for initialising an array")
+				return
+			}
 			index:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: arr_type},arr_constants,"var_name")
 			if index["error"]==1 {
 				fmt.Println("Data types did not match")
@@ -652,6 +676,10 @@ func main() {
 				return
 			}
 			dict_type:=get_init_dict_type(string_consts[int(num)])
+			if !type_evaluator(dict_type) {
+				fmt.Println("Invalid type for initialising a dict")
+				return
+			}
 			index:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: dict_type},dict_constants,"var_name")
 			if index["error"]==1 {
 				fmt.Println("Data types did not match")
@@ -673,7 +701,7 @@ func main() {
 			}
 			current_byte_code = append(current_byte_code, 35,res["index"],index["index"])
 			byte_code = append(byte_code, current_byte_code)
-		case "dict.key.set":
+		case "dict.key.set","dict.pull":
 			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if dict_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
@@ -697,10 +725,135 @@ func main() {
 				return
 			}
 			if !obj_supports_type(symbol_table[dict_var["index"]].object_type,symbol_table[value_var["index"]].object_type) {
-				fmt.Println("Object type is not supported by array",args[0])
+				fmt.Println("Object type is not supported by dict",args[0])
 				return
 			}
-			current_byte_code = append(current_byte_code, 36,dict_var["index"],key_var["index"],value_var["index"])
+			var int_opcode int;
+			switch opcode {
+			case "dict.key.set":int_opcode=36
+			case "dict.pull":int_opcode=37
+			}
+			current_byte_code = append(current_byte_code, int_opcode,dict_var["index"],key_var["index"],value_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "dict.delete":
+			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if dict_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
+				return
+			}
+			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
+				fmt.Println("Variable",args[0],"is not a dict")
+				return
+			}
+			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if key_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if key_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			current_byte_code = append(current_byte_code, 38,dict_var["index"],key_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "dict.keys":
+			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if dict_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
+				return
+			}
+			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
+				fmt.Println("Variable",args[0],"is not a dict")
+				return
+			}
+			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_init_arr_type("string")},symbol_table,"var_name")
+			if arr_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if arr_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type array[string] has not been initialised yet")
+				return
+			}
+			current_byte_code = append(current_byte_code, 39,dict_var["index"],arr_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "dict.refset":
+			dict1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if dict1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
+				return
+			}
+			if symbol_table[dict1_var["index"]].object_type[0]!="dict" {
+				fmt.Println("Variable",args[0],"is not a dict")
+				return
+			}
+			dict2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
+			if dict2_var["result"]==0 {
+				fmt.Println("Variable",args[1],"of type dict has not been initialised yet")
+				return
+			}
+			if symbol_table[dict2_var["index"]].object_type[0]!="dict" {
+				fmt.Println("Variable",args[1],"is not a dict")
+				return
+			}
+			if !string_arr_compare(symbol_table[dict1_var["index"]].object_type,symbol_table[dict2_var["index"]].object_type) {
+				fmt.Println("Dictionaries are of different types")
+				return
+			}
+			current_byte_code = append(current_byte_code, 40,dict1_var["index"],dict2_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "dict.key.includes":
+			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
+			if dict_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
+				return
+			}
+			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
+				fmt.Println("Variable",args[0],"is not a dict")
+				return
+			}
+			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if key_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if key_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if value_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if value_var["result"]==0 {
+				fmt.Println("Variable",args[2],"has not been initialised yet")
+				return
+			}
+			current_byte_code = append(current_byte_code, 41,dict_var["index"],key_var["index"],value_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str.includes":
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str2_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if str2_var["result"]==0 {
+				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
+				return
+			}
+			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if value_var["error"]==1 {
+				fmt.Println("Data types did not match")
+			}
+			if value_var["result"]==0 {
+				fmt.Println("Variable",args[2],"has not been initialised yet")
+				return
+			}
+			current_byte_code = append(current_byte_code, 42,str1_var["index"],str2_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		}
 	}
@@ -755,6 +908,8 @@ func main() {
 			symbol_table[current_byte_code[3]].str_value=strings.Repeat(symbol_table[current_byte_code[1]].str_value, int(symbol_table[current_byte_code[2]].num_value))
 		case 16:
 			symbol_table[current_byte_code[1]].str_value=symbol_table[current_byte_code[2]].str_value
+		case 17:
+			jump_table[string_consts[current_byte_code[1]]]=current_byte_code[2]
 		case 18:
 			if (symbol_table[current_byte_code[2]].num_value!=0) {
 				i=jump_table[string_consts[current_byte_code[1]]]
@@ -812,6 +967,28 @@ func main() {
 			} else {
 				symbol_table[current_byte_code[1]].children[index]=symbol_table[current_byte_code[3]]
 			}
+		case 37:
+			temp_pull_index:=str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)
+			temp_pull:=symbol_table[current_byte_code[1]].children[temp_pull_index]
+			temp_pull.var_name=symbol_table[current_byte_code[3]].var_name
+			symbol_table[current_byte_code[3]]=temp_pull
+		case 38:
+			temp_pull_index:=str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)
+			symbol_table[current_byte_code[1]].dict_keys=remove_string_from_index(symbol_table[current_byte_code[1]].dict_keys,temp_pull_index)
+			symbol_table[current_byte_code[1]].children=remove_VI_Object_from_index(symbol_table[current_byte_code[1]].children,temp_pull_index)
+		case 39:
+			keys_arr_VI_Object:=make([]VI_Object,0)
+			for i := 0; i < len(symbol_table[current_byte_code[1]].dict_keys); i++ {
+				keys_arr_VI_Object = append(keys_arr_VI_Object, VI_Object{object_type: get_plain_type("string"),str_value: symbol_table[current_byte_code[1]].dict_keys[i]})
+			}
+			symbol_table[current_byte_code[2]].children=keys_arr_VI_Object
+		case 40:
+			symbol_table[current_byte_code[1]].children=symbol_table[current_byte_code[2]].children
+			symbol_table[current_byte_code[1]].dict_keys=symbol_table[current_byte_code[2]].dict_keys
+		case 41:
+			symbol_table[current_byte_code[3]].num_value=bool_to_num(str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)!=-1)
+		case 42:
+			symbol_table[current_byte_code[3]].num_value=bool_to_num(strings.Contains(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value))
 		}
 	}
 	fmt.Println(symbol_table,num_constants)
