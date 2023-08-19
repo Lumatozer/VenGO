@@ -67,13 +67,14 @@ func remove_free_space_index(remove_index int) {
 }
 
 func DB_get(key string) string {
-	db_mapping_raw_read.Seek(db_mapping[key][0],0)
+	db_read.Seek(db_mapping[key][0],0)
 	constx:=int(db_mapping[key][1])
 	header:=make([]byte,constx)
 	n, err := io.ReadFull(db_read, header[:])
 	if err != nil || n==-1 {
 		return ""
 	}
+	db_read.Seek(0,0)
 	return string(header)
 }
 
