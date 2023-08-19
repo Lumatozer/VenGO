@@ -118,6 +118,8 @@ func DB_set(key string,val string) {
 }
 
 func Init() int {
+	os.OpenFile("database/db.vx",os.O_CREATE, 0644)
+	os.OpenFile("database/mapping.vx",os.O_CREATE, 0644)
 	db_read, err = os.OpenFile("database/db.vx",os.O_APPEND, 0644)
 	fi, err = db_read.Stat()
 	db_write, err = os.OpenFile("database/db.vx",os.O_WRONLY, 0644)
