@@ -237,7 +237,13 @@ func type_evaluator(obj_type []string) bool {
 }
 
 func main() {
-	database.Yes()
+	if (database.Init())==0 {
+		return
+	}
+	// database.DB_set("alu","heyy")
+	// database.DB_set("alu","hey")
+	// fmt.Println(database.DB_get("alu"))
+
 	dat, err := os.ReadFile("alu.vi")
 
 	if (err!=nil) {
