@@ -151,6 +151,9 @@ func DB_get(key string) string {
 }
 
 func DB_set(key string,val string) {
+	if len(val)==0 {
+		return
+	}
 	fi, err := os.Stat("database/db.vx")
 	if err != nil {
 		fmt.Println(err)
@@ -226,6 +229,16 @@ func DB_set(key string,val string) {
 			}
 		}
 	}
+	save_mapping_and_free()
+}
+
+func DB_delete(key string) {
+	if db_mapping[key]==nil {
+		return
+	}
+	local_db_mapping:=db_mapping[key]
+	free = append(free, []int64{local_db_mapping[0],local_db_mapping[1]})
+	delete(db_mapping,key)
 	save_mapping_and_free()
 }
 

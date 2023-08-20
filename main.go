@@ -244,6 +244,7 @@ func main() {
 	// database.DB_set("alux","bb")
 	// database.DB_set("alu","a")
 	// database.DB_set("alu","aa")
+	// database.DB_delete("alux")
 
 	// fmt.Println(database.DB_get("alu"))
 
