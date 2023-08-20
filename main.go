@@ -107,10 +107,17 @@ func recursive_VI_Object_match(obj1 VI_Object, obj2 VI_Object) bool {
 			return false
 		}
 		for i := 0; i < len(obj1.children); i++ {
-			if !(recursive_VI_Object_match(obj1.children[i],obj2.children[i])) {
+			isok:=false
+			for j := 0; j < len(obj1.children); j++ {
+				if (recursive_VI_Object_match(obj1.children[i],obj2.children[j])) {
+					isok=true
+				}
+			}
+			if !(isok) {
 				return false
 			}
 		}
+		return true
 	}
 	return true
 }
