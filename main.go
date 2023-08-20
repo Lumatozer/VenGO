@@ -240,9 +240,12 @@ func main() {
 	if (database.Init())==0 {
 		return
 	}
-	database.DB_set("alu","heyyxxxxxxxxxxxx")
-	database.DB_set("alux","heyasfasdfasdf")
-	fmt.Println(database.DB_get("alux"))
+	// database.DB_set("alu","aa")
+	// database.DB_set("alux","bb")
+	// database.DB_set("alu","a")
+	// database.DB_set("alu","aa")
+
+	// fmt.Println(database.DB_get("alu"))
 
 	dat, err := os.ReadFile("alu.vi")
 
