@@ -103,8 +103,16 @@ func recursive_VI_Object_match(obj1 VI_Object, obj2 VI_Object) bool {
 		if len(obj1.children)!=len(obj2.children) {
 			return false
 		}
-		if !(string_arr_compare(obj1.dict_keys,obj2.dict_keys)) {
-			return false
+		for i := 0; i < len(obj1.dict_keys); i++ {
+			isok:=false
+			for j := 0; j < len(obj1.dict_keys); j++ {
+				if (obj1.dict_keys[i]==obj2.dict_keys[j]) {
+					isok=true
+				}
+			}
+			if !(isok) {
+				return false
+			}
 		}
 		for i := 0; i < len(obj1.children); i++ {
 			isok:=false
