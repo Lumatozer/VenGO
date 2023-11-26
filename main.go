@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/lumatozer/VenGO/database"
+	"os"
+	"fmt"
 )
 
 func main() {
@@ -14,5 +16,12 @@ func main() {
 	// database.DB_set("alu","aa")
 	// database.DB_delete("alux")
 	// fmt.Println(database.DB_get("alu"))
-	Vengine()
+	dat, err := os.ReadFile("alu.vi")
+
+	if (err!=nil) {
+		fmt.Println(err)
+		return
+	}
+	code:=string(dat)
+	Vengine(code)
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"math"
@@ -173,6 +172,7 @@ type VI_Object struct {
 	object_type []string
 	children []VI_Object
 	dict_keys []string
+	scope int
 }
 
 func (object *VI_Object) fill_defaults() {}
@@ -180,6 +180,26 @@ func (object *VI_Object) fill_defaults() {}
 func round_float64(num float64, decimals uint) float64 {
     ratio := math.Pow(10, float64(decimals))
     return math.Round(num * ratio) / ratio
+}
+
+func str_parser(dat string) string {
+	output:=""
+	for i := 0; i < len(dat); i++ {
+		if string(dat[i])=="\\" {
+			if i+1==len(dat) {
+				output+="\\"
+			} else {
+				switch string(dat[i+1]) {
+				case "n":
+					output+="\n"
+				}
+				i+=1
+			}
+		} else {
+			output+=string(dat[i])
+		}
+	}
+	return output
 }
 
 func file_parser(dat string) map[string][]string {
@@ -200,7 +220,9 @@ func file_parser(dat string) map[string][]string {
 			continue
 		}
 		if (mode=="data") {
-			data_constants = append(data_constants, strings.Trim(strings.Trim(current_line," "),"\""))
+			data_string:=strings.Trim(current_line," ")[1:]
+			data_string=str_parser(data_string[:len(data_string)-1])
+			data_constants = append(data_constants, data_string)
 		} else if (mode=="code") {
 			code_lines = append(code_lines, strings.Trim(current_line," "))
 		}
@@ -228,7 +250,7 @@ func bool_to_num(x bool) float64 {
 }
 
 func obj_supports_type(arr_type []string,obj_type []string) bool {
-	if strings.Join(arr_type[1:],"")==strings.Join(obj_type,"") {
+	if strings.Join(arr_type[1:],",")==strings.Join(obj_type,",") {
 		return true
 	} else {
 		return false
@@ -248,15 +270,7 @@ func type_evaluator(obj_type []string) bool {
 	return true
 }
 
-func Vengine() {
-	dat, err := os.ReadFile("alu.vi")
-
-	if (err!=nil) {
-		fmt.Println(err)
-		return
-	}
-	code:=string(dat)
-	
+func Vengine(code string) {
 	parse_results:=file_parser(code)
 	codex,string_consts:=parse_results["code_lines"],parse_results["data_constants"]
 
@@ -265,7 +279,10 @@ func Vengine() {
 	var dict_constants []VI_Object;
 
 	byte_code:=make([][]int,0)
-	symbol_table:=make([]VI_Object,0)
+	global_table:=make([][]VI_Object,0)
+	global_table = append(global_table, make([]VI_Object,0))
+	symbol_table:=global_table[0]
+	scope_count:=0
 	jump_table:=make(map[string]int,0)
 	gas_limit:=0
 	current_gas:=1
@@ -725,6 +742,7 @@ func Vengine() {
 			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if key_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if key_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
@@ -759,6 +777,7 @@ func Vengine() {
 			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if key_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if key_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
@@ -779,6 +798,7 @@ func Vengine() {
 			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_init_arr_type("string")},symbol_table,"var_name")
 			if arr_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if arr_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array[string] has not been initialised yet")
@@ -824,6 +844,7 @@ func Vengine() {
 			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if key_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if key_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
@@ -832,6 +853,7 @@ func Vengine() {
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if value_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
@@ -843,6 +865,7 @@ func Vengine() {
 			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str1_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if str1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
@@ -851,6 +874,7 @@ func Vengine() {
 			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str2_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if str2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
@@ -859,6 +883,7 @@ func Vengine() {
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if value_var["error"]==1 {
 				fmt.Println("Data types did not match")
+				return
 			}
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
@@ -866,19 +891,193 @@ func Vengine() {
 			}
 			current_byte_code = append(current_byte_code, 42,str1_var["index"],str2_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
+		case "str.replace":
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str2_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str2_var["result"]==0 {
+				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
+				return
+			}
+			str3_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str3_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str3_var["result"]==0 {
+				fmt.Println("Variable",args[2],"of type string has not been initialised yet")
+				return
+			}
+			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[3],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if value_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if value_var["result"]==0 {
+				fmt.Println("Variable",args[3],"has not been initialised yet")
+				return
+			}
+			current_byte_code = append(current_byte_code, 43,str1_var["index"],str2_var["index"],str3_var["index"],value_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str.index":
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str2_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str2_var["result"]==0 {
+				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
+				return
+			}
+			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if value_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if value_var["result"]==0 {
+				fmt.Println("Variable",args[2],"has not been initialised yet")
+				return
+			}
+			current_byte_code = append(current_byte_code, 44,str1_var["index"],str2_var["index"],value_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str.split":
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str2_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str2_var["result"]==0 {
+				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
+				return
+			}
+			arr1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
+			if arr1_var["result"]==0 {
+				fmt.Println("Variable",args[2],"of type array has not been initialised yet")
+				return
+			}
+			if symbol_table[arr1_var["index"]].object_type[0]!="arr" {
+				fmt.Println("Variable",args[2],"is not an array")
+				return
+			}
+			if !obj_supports_type(symbol_table[arr1_var["index"]].object_type,symbol_table[str2_var["index"]].object_type) {
+				fmt.Println("Object type is not supported by array",args[2])
+				return
+			}
+			current_byte_code = append(current_byte_code, 45,str1_var["index"],str2_var["index"],arr1_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str.pull":
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if index_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if index_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if value_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if value_var["result"]==0 {
+				fmt.Println("Variable",args[2],"has not been initialised yet")
+				return
+			}
+			current_byte_code = append(current_byte_code, 46,str1_var["index"],index_var["index"],value_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str.slice_n":
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return
+			}
+			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if index_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return
+			}
+			if index_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return
+			}
+			arr1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
+			if arr1_var["result"]==0 {
+				fmt.Println("Variable",args[2],"of type array has not been initialised yet")
+				return
+			}
+			if symbol_table[arr1_var["index"]].object_type[0]!="arr" {
+				fmt.Println("Variable",args[2],"is not an array")
+				return
+			}
+			if !obj_supports_type(symbol_table[arr1_var["index"]].object_type,symbol_table[str1_var["index"]].object_type) {
+				fmt.Println("Object type is not supported by array",args[2])
+				return
+			}
+			current_byte_code = append(current_byte_code, 47,str1_var["index"],index_var["index"],arr1_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "scope.new":
+			current_byte_code = append(current_byte_code, 48)
+			byte_code = append(byte_code, current_byte_code)
+		case "scope.exit":
+			current_byte_code = append(current_byte_code, 49)
+			byte_code = append(byte_code, current_byte_code)
 		}
 	}
 	fmt.Println(byte_code)
-	continute_exec:=true
+	continue_exec:=true
 	for i := 0; i < len(byte_code); i++ {
 		current_gas+=1
-		if current_gas<gas_limit || !continute_exec {
+		if current_gas<gas_limit || !continue_exec {
 			break
 		}
 		current_byte_code:=byte_code[i]
 		switch opcode:=current_byte_code[0]; opcode {
 		case 0:
 			symbol_table[current_byte_code[1]].num_value=num_constants[current_byte_code[2]]
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 1:
 			symbol_table[current_byte_code[1]].num_value=symbol_table[current_byte_code[2]].num_value
 		case 2:
@@ -913,6 +1112,7 @@ func Vengine() {
 			symbol_table[current_byte_code[3]].num_value=math.Mod(symbol_table[current_byte_code[1]].num_value, symbol_table[current_byte_code[2]].num_value)
 		case 12:
 			symbol_table[current_byte_code[1]].str_value=string_consts[current_byte_code[2]]
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 14:
 			symbol_table[current_byte_code[3]].str_value=symbol_table[current_byte_code[1]].str_value + symbol_table[current_byte_code[2]].str_value
 		case 15:
@@ -926,7 +1126,7 @@ func Vengine() {
 				i=jump_table[string_consts[current_byte_code[1]]]
 			}
 		case 19:
-			continute_exec=false
+			continue_exec=false
 		case 20:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(num_to_bool(symbol_table[current_byte_code[1]].num_value) && num_to_bool(symbol_table[current_byte_code[2]].num_value))
 		case 21:
@@ -949,6 +1149,7 @@ func Vengine() {
 			symbol_table[current_byte_code[1]].children=remove_VI_Object_from_index(symbol_table[current_byte_code[1]].children,int(symbol_table[current_byte_code[2]].num_value))
 		case 29:
 			symbol_table[current_byte_code[1]].children[int(symbol_table[current_byte_code[2]].num_value)]=symbol_table[current_byte_code[3]]
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 30:
 			symbol_table[current_byte_code[2]].num_value=float64(len(symbol_table[current_byte_code[1]].children))
 		case 31:
@@ -978,6 +1179,7 @@ func Vengine() {
 			} else {
 				symbol_table[current_byte_code[1]].children[index]=symbol_table[current_byte_code[3]]
 			}
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 37:
 			temp_pull_index:=str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)
 			temp_pull:=symbol_table[current_byte_code[1]].children[temp_pull_index]
@@ -1000,7 +1202,49 @@ func Vengine() {
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)!=-1)
 		case 42:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(strings.Contains(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value))
+		case 43:
+			fmt.Println(current_byte_code)
+			symbol_table[current_byte_code[4]].str_value=strings.ReplaceAll(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[3]].str_value)
+		case 44:
+			symbol_table[current_byte_code[3]].num_value=float64(strings.Index(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value))
+		case 45:
+			splitted_string:=strings.Split(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value)
+			splitted_strings_objects:=make([]VI_Object,0)
+			for _,string:=range splitted_string {
+				splitted_strings_objects = append(splitted_strings_objects, VI_Object{object_type: get_plain_type("string"), str_value: string})
+			}
+			symbol_table[current_byte_code[3]].children=splitted_strings_objects
+		case 46:
+			symbol_table[current_byte_code[3]].str_value=string(symbol_table[current_byte_code[1]].str_value[int(symbol_table[current_byte_code[2]].num_value)])
+		case 47:
+			symbol_table[current_byte_code[3]].children=[]VI_Object{
+				VI_Object{object_type: get_plain_type("string"), str_value: symbol_table[current_byte_code[1]].str_value[:int(symbol_table[current_byte_code[2]].num_value)]},
+				VI_Object{object_type: get_plain_type("string"), str_value: symbol_table[current_byte_code[1]].str_value[int(symbol_table[current_byte_code[2]].num_value):]}}
+		case 48:
+			global_table[scope_count]=symbol_table
+			scope_count+=1
+			previous_scope:=make([]VI_Object,0)
+			for _,object:=range symbol_table {
+				previous_scope = append(previous_scope, VI_Object{var_name: object.var_name, num_value: object.num_value, str_value: object.str_value, object_type: object.object_type, children: object.children, scope: object.scope, dict_keys: object.dict_keys})
+			}
+			global_table = append(global_table, previous_scope)
+			symbol_table=previous_scope
+		case 49:
+			if scope_count==0 {
+				continue
+			}
+			for i,variable:=range symbol_table {
+				if variable.scope<scope_count {
+					global_table[scope_count-1][i]=variable
+				}
+			}
+			global_table=global_table[:len(global_table)-1]
+			scope_count-=1
+			symbol_table=global_table[scope_count]
 		}
 	}
-	fmt.Println(symbol_table,num_constants)
+	for current_global_table_index:=range global_table {
+		fmt.Println(global_table[current_global_table_index],"?")
+	}
+	fmt.Println(num_constants)
 }

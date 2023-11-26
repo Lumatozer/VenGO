@@ -40,3 +40,10 @@
 40 dict.refset                        # Set dict x to be equal to dict y
 41 dict.key.includes                  # Check whether dictionary a includes a key b and store value in c
 42 str.includes                       # Check whether str a includes str b as a sub string and store result in c
+43 str.replace                        # Replace all occurance of str b in str a with str c and stores result in str d
+44 str.index                          # Find index of str a in str b and stores index in c
+45 str.split                          # Split str a at all occurances of str b and stores the array in c
+46 str.pull                           # Get string byte in str a at index b and store the byte in str c
+47 str.slice_n                        # Slice the str a in two parts at position n and store array in str array c
+48 scope.new                          # Add a new local scope to memory (all variables of last scope are copied over to new scope)
+49 scope.exit                         # Exit out of current scope and go back to last scope (variables in last scope (the one exited to) will be rewritten with values of them in inner scope and local variables in current scope are not copied over)
