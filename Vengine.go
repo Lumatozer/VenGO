@@ -270,7 +270,7 @@ func type_evaluator(obj_type []string) bool {
 	return true
 }
 
-func Vengine(code string) {
+func Vengine(code string) int64 {
 	parse_results:=file_parser(code)
 	codex,string_consts:=parse_results["code_lines"],parse_results["data_constants"]
 
@@ -284,8 +284,8 @@ func Vengine(code string) {
 	symbol_table:=global_table[0]
 	scope_count:=0
 	jump_table:=make(map[string]int,0)
-	gas_limit:=0
-	current_gas:=1
+	gas_limit:=int64(0)
+	current_gas:=int64(0)
 
 	for i := 0; i < len(codex); i++ {
 		args:=strings.Split(codex[i], " ")
@@ -297,10 +297,14 @@ func Vengine(code string) {
 		current_byte_code:=make([]int,0)
 		switch opcode:=strings.Split(codex[i], " ")[0]; opcode {
 		case "set":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			num,err:=strconv.ParseFloat(args[1],64)
 			if err!=nil {
 				fmt.Println(err)
-				return
+				return current_gas
 			}
 			index:=contains_float64(num,num_constants)
 			if index["contains"]==0 {
@@ -310,7 +314,7 @@ func Vengine(code string) {
 			res:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if res["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if res["result"]==0 {
 				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: get_plain_type("num")})
@@ -319,23 +323,27 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, 0,res["index"],index["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "refset","jump","not":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
 			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if set_var["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if set_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if reference["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if reference["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			var intopcode int;
 			switch opcode {
@@ -346,24 +354,28 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "equals","greater","add","sub","mult","div","floor","mod","power","round","and","or","xor":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("num")},symbol_table,"var_name")
 			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if var_1["error"]==1 || var_2["error"]==1 || var_res["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if var_1["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if var_2["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if var_res["index"]==-1 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			var intopcode int;
 			switch opcode {
@@ -384,15 +396,19 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, intopcode, var_1["index"], var_2["index"], var_res["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.set":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			num,err:=strconv.ParseInt(args[1],10,64)
 			if err!=nil {
 				fmt.Println(err)
-				return
+				return current_gas
 			}
 			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if var_1["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if var_1["result"]==0 {
 				var_1["index"]=len(symbol_table)
@@ -401,6 +417,10 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, 12, var_1["index"], int(num))
 			byte_code = append(byte_code, current_byte_code)
 		case "str.add","str.mult":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			var_2_type:=make([]string,0)
 			switch opcode {
 			case "str.add":var_2_type=get_plain_type("string")
@@ -411,19 +431,19 @@ func Vengine(code string) {
 			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if var_1["error"]==1 || var_2["error"]==1 || var_res["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if var_1["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if var_2["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if var_res["index"]==-1 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			var intopcode int;
 			switch opcode {
@@ -433,51 +453,63 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, intopcode, var_1["index"], var_2["index"], var_res["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.refset":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			set_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			reference:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if set_var["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if set_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if reference["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if reference["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			var intopcode int;
 			intopcode=16
 			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "define.jump":
+			if len(args)!=1 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			num,err:=strconv.ParseInt(args[0],10,64)
 			if err!=nil {
 				fmt.Println(err)
-				return
+				return current_gas
 			}
 			jump_table[string_consts[num]]=i
 			current_byte_code = append(current_byte_code, 17,int(num),i)
 			byte_code = append(byte_code, current_byte_code)
 		case "jump.def":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			num,err:=strconv.ParseInt(args[0],10,64)
 			condition_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if condition_var["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if condition_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if err!=nil {
 				fmt.Println(err)
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 18,int(num),condition_var["index"])
 			byte_code = append(byte_code, current_byte_code)
@@ -485,20 +517,24 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, 19)
 			byte_code = append(byte_code, current_byte_code)
 		case "arr.init":
+			if len(args)!=1 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			num,err:=strconv.ParseFloat(args[1],64)
 			if err!=nil {
 				fmt.Println(err)
-				return
+				return current_gas
 			}
 			arr_type:=get_init_arr_type(string_consts[int(num)])
 			if !type_evaluator(arr_type) {
 				fmt.Println("Invalid type for initialising an array")
-				return
+				return current_gas
 			}
 			index:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: arr_type},arr_constants,"var_name")
 			if index["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			arr_default:=VI_Object{var_name: args[0],object_type: arr_type}
 			if index["result"]==0 {
@@ -508,7 +544,7 @@ func Vengine(code string) {
 			res:=plain_in_arr_VI_Object(arr_default,symbol_table,"var_name")
 			if res["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if res["result"]==0 {
 				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: arr_type})
@@ -517,53 +553,61 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, 25,res["index"],index["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "arr.push":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if arr_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[arr_var["index"]].object_type[0]!="arr" {
 				fmt.Println("Variable",args[0],"is not an array")
-				return
+				return current_gas
 			}
 			push_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
 			if push_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if !obj_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[push_var["index"]].object_type) {
 				fmt.Println("Object type is not supported by array",args[0])
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 26,arr_var["index"],push_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "arr.pull","arr.index.set":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if arr_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[arr_var["index"]].object_type[0]!="arr" {
 				fmt.Println("Variable",args[0],"is not an array")
-				return
+				return current_gas
 			}
 			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if index_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if index_var["error"]==1 {
 				fmt.Println("Index variable needs to be a number")
-				return
+				return current_gas
 			}
 			pull_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
 			if pull_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if !obj_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[pull_var["index"]].object_type) {
 				fmt.Println("Object type does not match array",args[0],"object type")
-				return
+				return current_gas
 			}
 			opcode_num:=0
 			switch opcode {
@@ -573,23 +617,27 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, opcode_num,arr_var["index"],index_var["index"],pull_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "arr.remove","arr.length":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if arr_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[arr_var["index"]].object_type[0]!="arr" {
 				fmt.Println("Variable",args[0],"is not an array")
-				return
+				return current_gas
 			}
 			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if index_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if index_var["error"]==1 {
 				fmt.Println("Array index is required to be of type number")
-				return
+				return current_gas
 			}
 			intopcode:=0
 			switch opcode {
@@ -599,119 +647,139 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, intopcode,arr_var["index"],index_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "arr.refset":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			arr1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if arr1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[arr1_var["index"]].object_type[0]!="arr" {
 				fmt.Println("Variable",args[0],"is not an array")
-				return
+				return current_gas
 			}
 			arr2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if arr2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if (!(string_arr_compare(symbol_table[arr1_var["index"]].object_type,symbol_table[arr2_var["index"]].object_type))) {
 				fmt.Println("Both arrays must be of same type")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 31,arr1_var["index"],arr2_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "arr.includes":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if arr_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[arr_var["index"]].object_type[0]!="arr" {
 				fmt.Println("Variable",args[0],"is not an array")
-				return
+				return current_gas
 			}
 			check_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
 			if check_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if index_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if index_var["error"]==1 {
 				fmt.Println("Result index variable needs to be a number")
-				return
+				return current_gas
 			}
 			if !obj_supports_type(symbol_table[arr_var["index"]].object_type,symbol_table[check_var["index"]].object_type) {
 				fmt.Println("Object type does not match array",args[0],"object type")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 32,arr_var["index"],check_var["index"],index_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "obj.equals":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			obj1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if obj1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			obj2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
 			if obj2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if (!(string_arr_compare(symbol_table[obj1_var["index"]].object_type,symbol_table[obj2_var["index"]].object_type))) {
 				fmt.Println("Both objects must be of same type")
-				return
+				return current_gas
 			}
 			res_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2], object_type: get_plain_type("num")},symbol_table,"var_name")
 			if res_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if res_var["error"]==1 {
 				fmt.Println("Result variable needs to be a number")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 33,obj1_var["index"],obj2_var["index"],res_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.equals":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			var_1:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			var_2:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			var_res:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if var_1["error"]==1 || var_2["error"]==1 || var_res["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if var_1["index"]==-1 {
 				fmt.Println("Variable",args[0],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if var_2["index"]==-1 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if var_res["index"]==-1 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 34, var_1["index"], var_2["index"], var_res["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "dict.init":
+			if len(args)!=1 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			num,err:=strconv.ParseFloat(args[1],64)
 			if err!=nil {
 				fmt.Println(err)
-				return
+				return current_gas
 			}
 			dict_type:=get_init_dict_type(string_consts[int(num)])
 			if !type_evaluator(dict_type) {
 				fmt.Println("Invalid type for initialising a dict")
-				return
+				return current_gas
 			}
 			index:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: dict_type},dict_constants,"var_name")
 			if index["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			dict_default:=VI_Object{var_name: args[0],object_type: dict_type}
 			if index["result"]==0 {
@@ -721,7 +789,7 @@ func Vengine(code string) {
 			res:=plain_in_arr_VI_Object(dict_default,symbol_table,"var_name")
 			if res["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if res["result"]==0 {
 				symbol_table = append(symbol_table, VI_Object{var_name: args[0],object_type: dict_type})
@@ -730,32 +798,36 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, 35,res["index"],index["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "dict.key.set","dict.pull":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if dict_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
 				fmt.Println("Variable",args[0],"is not a dict")
-				return
+				return current_gas
 			}
 			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if key_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if key_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			if !obj_supports_type(symbol_table[dict_var["index"]].object_type,symbol_table[value_var["index"]].object_type) {
 				fmt.Println("Object type is not supported by dict",args[0])
-				return
+				return current_gas
 			}
 			var int_opcode int;
 			switch opcode {
@@ -765,296 +837,336 @@ func Vengine(code string) {
 			current_byte_code = append(current_byte_code, int_opcode,dict_var["index"],key_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "dict.delete":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if dict_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
 				fmt.Println("Variable",args[0],"is not a dict")
-				return
+				return current_gas
 			}
 			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if key_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if key_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 38,dict_var["index"],key_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "dict.keys":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if dict_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
 				fmt.Println("Variable",args[0],"is not a dict")
-				return
+				return current_gas
 			}
 			arr_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_init_arr_type("string")},symbol_table,"var_name")
 			if arr_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if arr_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type array[string] has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 39,dict_var["index"],arr_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "dict.refset":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			dict1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if dict1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[dict1_var["index"]].object_type[0]!="dict" {
 				fmt.Println("Variable",args[0],"is not a dict")
-				return
+				return current_gas
 			}
 			dict2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
 			if dict2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"of type dict has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[dict2_var["index"]].object_type[0]!="dict" {
 				fmt.Println("Variable",args[1],"is not a dict")
-				return
+				return current_gas
 			}
 			if !string_arr_compare(symbol_table[dict1_var["index"]].object_type,symbol_table[dict2_var["index"]].object_type) {
 				fmt.Println("Dictionaries are of different types")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 40,dict1_var["index"],dict2_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "dict.key.includes":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			dict_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0]},symbol_table,"var_name")
 			if dict_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type dict has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[dict_var["index"]].object_type[0]!="dict" {
 				fmt.Println("Variable",args[0],"is not a dict")
-				return
+				return current_gas
 			}
 			key_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if key_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if key_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if value_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 41,dict_var["index"],key_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.includes":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str1_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str2_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if value_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 42,str1_var["index"],str2_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.replace":
+			if len(args)!=4 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str1_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str2_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			str3_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str3_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str3_var["result"]==0 {
 				fmt.Println("Variable",args[2],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[3],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if value_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[3],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 43,str1_var["index"],str2_var["index"],str3_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.index":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str1_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str2_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if value_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 44,str1_var["index"],str2_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.split":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str1_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str2_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str2_var["result"]==0 {
 				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			arr1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
 			if arr1_var["result"]==0 {
 				fmt.Println("Variable",args[2],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[arr1_var["index"]].object_type[0]!="arr" {
 				fmt.Println("Variable",args[2],"is not an array")
-				return
+				return current_gas
 			}
 			if !obj_supports_type(symbol_table[arr1_var["index"]].object_type,symbol_table[str2_var["index"]].object_type) {
 				fmt.Println("Object type is not supported by array",args[2])
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 45,str1_var["index"],str2_var["index"],arr1_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.pull":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str1_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if index_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if index_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			value_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if value_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if value_var["result"]==0 {
 				fmt.Println("Variable",args[2],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 46,str1_var["index"],index_var["index"],value_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		case "str.slice_n":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
 			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
 			if str1_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if str1_var["result"]==0 {
 				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
-				return
+				return current_gas
 			}
 			index_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("num")},symbol_table,"var_name")
 			if index_var["error"]==1 {
 				fmt.Println("Data types did not match")
-				return
+				return current_gas
 			}
 			if index_var["result"]==0 {
 				fmt.Println("Variable",args[1],"has not been initialised yet")
-				return
+				return current_gas
 			}
 			arr1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2]},symbol_table,"var_name")
 			if arr1_var["result"]==0 {
 				fmt.Println("Variable",args[2],"of type array has not been initialised yet")
-				return
+				return current_gas
 			}
 			if symbol_table[arr1_var["index"]].object_type[0]!="arr" {
 				fmt.Println("Variable",args[2],"is not an array")
-				return
+				return current_gas
 			}
 			if !obj_supports_type(symbol_table[arr1_var["index"]].object_type,symbol_table[str1_var["index"]].object_type) {
 				fmt.Println("Object type is not supported by array",args[2])
-				return
+				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 47,str1_var["index"],index_var["index"],arr1_var["index"])
 			byte_code = append(byte_code, current_byte_code)
@@ -1063,6 +1175,107 @@ func Vengine(code string) {
 			byte_code = append(byte_code, current_byte_code)
 		case "scope.exit":
 			current_byte_code = append(current_byte_code, 49)
+			byte_code = append(byte_code, current_byte_code)
+		case "pointer.init":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
+			pointing_variable:=plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: get_plain_type("num")},symbol_table,"var_name")
+			if pointing_variable["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if pointing_variable["result"]==0 {
+				fmt.Println("Variable",args[0],"has not been initialised yet")
+				return current_gas
+			}
+			pointing_to_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
+			if pointing_to_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 50, pointing_variable["index"], pointing_to_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "pointer.dereference":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
+			pointer:=plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: get_plain_type("num")},symbol_table,"var_name")
+			if pointer["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if pointer["result"]==0 {
+				fmt.Println("Variable",args[0],"has not been initialised yet")
+				return current_gas
+			}
+			dereferencing_variable:=plain_in_arr_VI_Object(VI_Object{var_name: args[1]},symbol_table,"var_name")
+			if dereferencing_variable["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 51, pointer["index"], dereferencing_variable["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "num_to_str":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
+			num_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: get_plain_type("num")},symbol_table,"var_name")
+			if num_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if num_var["result"]==0 {
+				fmt.Println("Variable",args[0],"has not been initialised yet")
+				return current_gas
+			}
+			str2_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str2_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if str2_var["result"]==0 {
+				fmt.Println("Variable",args[1],"of type string has not been initialised yet")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 52, num_var["index"], str2_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "str_to_num":
+			if len(args)!=3 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return current_gas
+			}
+			num_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1], object_type: get_plain_type("num")},symbol_table,"var_name")
+			if num_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if num_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return current_gas
+			}
+			error_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[2],object_type: get_plain_type("num")},symbol_table,"var_name")
+			if error_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if error_var["result"]==0 {
+				fmt.Println("Variable",args[2],"of type string has not been initialised yet")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 53, str1_var["index"], num_var["index"], error_var["index"])
 			byte_code = append(byte_code, current_byte_code)
 		}
 	}
@@ -1080,6 +1293,7 @@ func Vengine(code string) {
 			symbol_table[current_byte_code[1]].scope=scope_count
 		case 1:
 			symbol_table[current_byte_code[1]].num_value=symbol_table[current_byte_code[2]].num_value
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 2:
 			if symbol_table[current_byte_code[2]].num_value!=0 {
 				i=int(symbol_table[current_byte_code[1]].num_value)-3
@@ -1119,6 +1333,7 @@ func Vengine(code string) {
 			symbol_table[current_byte_code[3]].str_value=strings.Repeat(symbol_table[current_byte_code[1]].str_value, int(symbol_table[current_byte_code[2]].num_value))
 		case 16:
 			symbol_table[current_byte_code[1]].str_value=symbol_table[current_byte_code[2]].str_value
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 17:
 			jump_table[string_consts[current_byte_code[1]]]=current_byte_code[2]
 		case 18:
@@ -1154,6 +1369,7 @@ func Vengine(code string) {
 			symbol_table[current_byte_code[2]].num_value=float64(len(symbol_table[current_byte_code[1]].children))
 		case 31:
 			symbol_table[current_byte_code[1]].children=symbol_table[current_byte_code[2]].children
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 32:
 			arr_var:=symbol_table[current_byte_code[1]].children
 			check_var:=symbol_table[current_byte_code[2]]
@@ -1198,12 +1414,12 @@ func Vengine(code string) {
 		case 40:
 			symbol_table[current_byte_code[1]].children=symbol_table[current_byte_code[2]].children
 			symbol_table[current_byte_code[1]].dict_keys=symbol_table[current_byte_code[2]].dict_keys
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 41:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)!=-1)
 		case 42:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(strings.Contains(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value))
 		case 43:
-			fmt.Println(current_byte_code)
 			symbol_table[current_byte_code[4]].str_value=strings.ReplaceAll(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[3]].str_value)
 		case 44:
 			symbol_table[current_byte_code[3]].num_value=float64(strings.Index(symbol_table[current_byte_code[1]].str_value,symbol_table[current_byte_code[2]].str_value))
@@ -1241,10 +1457,41 @@ func Vengine(code string) {
 			global_table=global_table[:len(global_table)-1]
 			scope_count-=1
 			symbol_table=global_table[scope_count]
+		case 50:
+			symbol_table[current_byte_code[1]].num_value=float64(current_byte_code[2])
+		case 51:
+			memory_location:=symbol_table[current_byte_code[1]].num_value
+			if len(symbol_table)<=int(memory_location) {
+				fmt.Println("Illegal memory access")
+				continue_exec=false
+				continue
+			}
+			dereferenced_variable:=symbol_table[int(memory_location)]
+			dereferencing_to_variable:=symbol_table[current_byte_code[2]]
+			if !string_arr_compare(dereferenced_variable.object_type,dereferencing_to_variable.object_type) {
+				fmt.Println("Invalid deferenced variable type")
+				continue_exec=false
+				continue
+			}
+			dereferenced_variable.var_name=dereferencing_to_variable.var_name
+			symbol_table[current_byte_code[2]]=dereferenced_variable
+		case 52:
+			symbol_table[current_byte_code[2]].str_value=strconv.FormatFloat(symbol_table[current_byte_code[1]].num_value, 'f', 8, 64)
+		case 53:
+			float_64_num,err:=strconv.ParseFloat(symbol_table[current_byte_code[1]].str_value, 64)
+			if err!=nil {
+				symbol_table[current_byte_code[2]].num_value=0
+				symbol_table[current_byte_code[3]].num_value=1
+			} else {
+				symbol_table[current_byte_code[2]].num_value=float_64_num
+				symbol_table[current_byte_code[3]].num_value=0
+			}
 		}
 	}
+	global_table[scope_count]=symbol_table
 	for current_global_table_index:=range global_table {
-		fmt.Println(global_table[current_global_table_index],"?")
+		fmt.Println(global_table[current_global_table_index])
 	}
 	fmt.Println(num_constants)
+	return current_gas
 }

@@ -47,3 +47,7 @@
 47 str.slice_n                        # Slice the str a in two parts at position n and store array in str array c
 48 scope.new                          # Add a new local scope to memory (all variables of last scope are copied over to new scope)
 49 scope.exit                         # Exit out of current scope and go back to last scope (variables in last scope (the one exited to) will be rewritten with values of them in inner scope and local variables in current scope are not copied over)
+50 pointer.init                       # Returns the memory position of variable x in symbol_table and stores the value in variable b
+51 pointer.dereference                # Deferences the pointer x to variable y and attempts to cast the variable at position x in stack to the type of variable y. Code execution will stop on memory access faults or type cast fails
+52 num_to_str                         # Converts num a to str b
+53 str_to_num                         # Converts str a to num b and stores error in string c
