@@ -51,3 +51,4 @@
 51 pointer.dereference                # Deferences the pointer x to variable y and attempts to cast the variable at position x in stack to the type of variable y. Code execution will stop on memory access faults or type cast fails
 52 num_to_str                         # Converts num a to str b
 53 str_to_num                         # Converts str a to num b and stores error in string c
+54 str.length                         # Gets the length of str a and stores the length in b

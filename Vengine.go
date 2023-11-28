@@ -517,7 +517,7 @@ func Vengine(code string) int64 {
 			current_byte_code = append(current_byte_code, 19)
 			byte_code = append(byte_code, current_byte_code)
 		case "arr.init":
-			if len(args)!=1 {
+			if len(args)!=2 {
 				fmt.Println("Invalid number of arguments")
 				return current_gas
 			}
@@ -1277,6 +1277,31 @@ func Vengine(code string) int64 {
 			}
 			current_byte_code = append(current_byte_code, 53, str1_var["index"], num_var["index"], error_var["index"])
 			byte_code = append(byte_code, current_byte_code)
+		case "str.length":
+			if len(args)!=2 {
+				fmt.Println("Invalid number of arguments")
+				return current_gas
+			}
+			str1_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[0],object_type: get_plain_type("string")},symbol_table,"var_name")
+			if str1_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if str1_var["result"]==0 {
+				fmt.Println("Variable",args[0],"of type string has not been initialised yet")
+				return current_gas
+			}
+			num_var:=plain_in_arr_VI_Object(VI_Object{var_name: args[1], object_type: get_plain_type("num")},symbol_table,"var_name")
+			if num_var["error"]==1 {
+				fmt.Println("Data types did not match")
+				return current_gas
+			}
+			if num_var["result"]==0 {
+				fmt.Println("Variable",args[1],"has not been initialised yet")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 54, str1_var["index"], num_var["index"])
+			byte_code = append(byte_code, current_byte_code)
 		}
 	}
 	fmt.Println(byte_code)
@@ -1293,10 +1318,9 @@ func Vengine(code string) int64 {
 			symbol_table[current_byte_code[1]].scope=scope_count
 		case 1:
 			symbol_table[current_byte_code[1]].num_value=symbol_table[current_byte_code[2]].num_value
-			symbol_table[current_byte_code[1]].scope=scope_count
 		case 2:
 			if symbol_table[current_byte_code[2]].num_value!=0 {
-				i=int(symbol_table[current_byte_code[1]].num_value)-3
+				i=int(symbol_table[current_byte_code[1]].num_value)-1
 			}
 		case 3:
 			if symbol_table[current_byte_code[1]].num_value == symbol_table[current_byte_code[2]].num_value {
@@ -1333,7 +1357,6 @@ func Vengine(code string) int64 {
 			symbol_table[current_byte_code[3]].str_value=strings.Repeat(symbol_table[current_byte_code[1]].str_value, int(symbol_table[current_byte_code[2]].num_value))
 		case 16:
 			symbol_table[current_byte_code[1]].str_value=symbol_table[current_byte_code[2]].str_value
-			symbol_table[current_byte_code[1]].scope=scope_count
 		case 17:
 			jump_table[string_consts[current_byte_code[1]]]=current_byte_code[2]
 		case 18:
@@ -1354,22 +1377,31 @@ func Vengine(code string) int64 {
 			symbol_table[current_byte_code[3]].num_value=round_float64(symbol_table[current_byte_code[1]].num_value,uint(symbol_table[current_byte_code[2]].num_value))
 		case 25:
 			symbol_table[current_byte_code[1]]=arr_constants[current_byte_code[2]]
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 26:
 			symbol_table[current_byte_code[1]].children = append(symbol_table[current_byte_code[1]].children, symbol_table[current_byte_code[2]])
 		case 27:
-			temp_var:=symbol_table[current_byte_code[1]].children[int(symbol_table[current_byte_code[2]].num_value)]
+			arr_index:=int(symbol_table[current_byte_code[2]].num_value)
+			if arr_index>=len(symbol_table[current_byte_code[1]].children) {
+				fmt.Println("Index out of range")
+				return current_gas
+			}
+			temp_var:=symbol_table[current_byte_code[1]].children[arr_index]
 			temp_var.var_name=symbol_table[current_byte_code[3]].var_name
 			symbol_table[current_byte_code[3]]=temp_var
 		case 28:
 			symbol_table[current_byte_code[1]].children=remove_VI_Object_from_index(symbol_table[current_byte_code[1]].children,int(symbol_table[current_byte_code[2]].num_value))
 		case 29:
-			symbol_table[current_byte_code[1]].children[int(symbol_table[current_byte_code[2]].num_value)]=symbol_table[current_byte_code[3]]
-			symbol_table[current_byte_code[1]].scope=scope_count
+			arr_index:=int(symbol_table[current_byte_code[2]].num_value)
+			if arr_index>=len(symbol_table[current_byte_code[1]].children) {
+				fmt.Println("Index out of range")
+				return current_gas 
+			}
+			symbol_table[current_byte_code[1]].children[arr_index]=symbol_table[current_byte_code[3]]
 		case 30:
 			symbol_table[current_byte_code[2]].num_value=float64(len(symbol_table[current_byte_code[1]].children))
 		case 31:
 			symbol_table[current_byte_code[1]].children=symbol_table[current_byte_code[2]].children
-			symbol_table[current_byte_code[1]].scope=scope_count
 		case 32:
 			arr_var:=symbol_table[current_byte_code[1]].children
 			check_var:=symbol_table[current_byte_code[2]]
@@ -1387,6 +1419,7 @@ func Vengine(code string) int64 {
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(symbol_table[current_byte_code[1]].str_value==symbol_table[current_byte_code[2]].str_value)
 		case 35:
 			symbol_table[current_byte_code[1]]=dict_constants[current_byte_code[2]]
+			symbol_table[current_byte_code[1]].scope=scope_count
 		case 36:
 			index:=str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)
 			if index==-1 {
@@ -1395,9 +1428,12 @@ func Vengine(code string) int64 {
 			} else {
 				symbol_table[current_byte_code[1]].children[index]=symbol_table[current_byte_code[3]]
 			}
-			symbol_table[current_byte_code[1]].scope=scope_count
 		case 37:
 			temp_pull_index:=str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)
+			if temp_pull_index==-1 {
+				fmt.Println("String not found in array")
+				return current_gas
+			}
 			temp_pull:=symbol_table[current_byte_code[1]].children[temp_pull_index]
 			temp_pull.var_name=symbol_table[current_byte_code[3]].var_name
 			symbol_table[current_byte_code[3]]=temp_pull
@@ -1414,7 +1450,6 @@ func Vengine(code string) int64 {
 		case 40:
 			symbol_table[current_byte_code[1]].children=symbol_table[current_byte_code[2]].children
 			symbol_table[current_byte_code[1]].dict_keys=symbol_table[current_byte_code[2]].dict_keys
-			symbol_table[current_byte_code[1]].scope=scope_count
 		case 41:
 			symbol_table[current_byte_code[3]].num_value=bool_to_num(str_index_in_arr(symbol_table[current_byte_code[2]].str_value,symbol_table[current_byte_code[1]].dict_keys)!=-1)
 		case 42:
@@ -1486,6 +1521,8 @@ func Vengine(code string) int64 {
 				symbol_table[current_byte_code[2]].num_value=float_64_num
 				symbol_table[current_byte_code[3]].num_value=0
 			}
+		case 54:
+			symbol_table[current_byte_code[2]].num_value=float64(len(symbol_table[current_byte_code[1]].str_value))
 		}
 	}
 	global_table[scope_count]=symbol_table
