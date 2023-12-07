@@ -16,7 +16,7 @@ type Token struct {
 }
 
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return"}
-var type_tokens = []string{"str", "number"}
+var type_tokens = []string{"string", "num"}
 var operators = []string{"+","-","*","/","^",">","<","=","&","!","|","%"}
 var end_of_statements = []string{";"}
 var brackets = []string{"(",")","[","]","{","}"}
@@ -179,6 +179,62 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 	parsed_tokens:=make([]Token,0)
 	for i := 0; i < len(code); i++ {
 		current_token:=code[i]
+		if len(code)>i+1 && current_token.Type=="variable" && valid_var_name(current_token.string_value) && code[i+1].Type=="dot" {
+			nested_variables:=make([]Token,0)
+			first:=true
+			for {
+				if len(code)>i+1 && current_token.Type=="variable" && valid_var_name(current_token.string_value) && (code[i+1].Type=="dot" || !first) { 
+					nested_variables = append(nested_variables, code[i])
+					if code[i+1].Type=="dot" {
+						i++
+					}
+					i++
+					first=false
+				} else {
+					break
+				}
+			}
+			parsed_tokens = append(parsed_tokens, Token{Type: "nested_tokens", children: nested_variables})
+			continue
+		}
+		if len(code)>i+1 && current_token.Type=="operator" && code[i+1].Type=="operator" {
+			combined_operator:=current_token.string_value+code[i+1].string_value
+			accepted_combined_operator_array:=[]string{"+=","-=","/=","*=","%=","//","!=","==","->"}
+			if str_index_in_arr(combined_operator,accepted_combined_operator_array)!=-1 {
+				parsed_tokens = append(parsed_tokens, Token{Type: "operator", string_value: combined_operator})
+				i++
+				continue
+			}
+		}
+		if len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="bracket_open" && (current_token.string_value=="[" || current_token.string_value=="{") && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" {
+			type_define_tokens:=make([]Token,0)
+			brackets:=0
+			for {
+				if len(code)<i+1 {
+					return make([]Token, 0), errors.New("Unexpected EOF")
+				}
+				if code[i].Type=="bracket_open" && code[i].string_value==current_token.string_value {
+					brackets+=1
+				}
+				if code[i].Type=="bracket_close" && ((code[i].string_value=="]" && current_token.string_value=="[") || (code[i].string_value=="}" && current_token.string_value=="{")) {
+					brackets-=1
+				}
+				if str_index_in_arr(code[i].Type, []string{"bracket_open","bracket_close","variable"})==-1 {
+					return make([]Token, 0), errors.New("Illegal type definition")
+				}
+				type_define_tokens = append(type_define_tokens, code[i])
+				if brackets==0 {
+					break
+				}
+				i++
+			}
+			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", children: type_define_tokens}
+			continue
+		}
+		if len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="variable" && str_index_in_arr(current_token.string_value, type_tokens)!=-1 && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" {
+			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", children: []Token{current_token}}
+			continue
+		}
 		if len(code)>i+1 && current_token.Type=="variable" && valid_var_name(current_token.string_value) {
 			if code[i+1].Type=="bracket_open" && code[i+1].string_value=="[" {
 				i++
@@ -201,33 +257,6 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 					childrentokens = append(childrentokens, code[i])
 				}
 				parsed_tokens = append(parsed_tokens, Token{Type: "lookup", children: childrentokens})
-				continue
-			}
-		}
-		if len(code)>i+1 && current_token.Type=="variable" && valid_var_name(current_token.string_value) && code[i+1].Type=="dot" {
-			nested_variables:=make([]Token,0)
-			first:=true
-			for {
-				if len(code)>i+1 && current_token.Type=="variable" && valid_var_name(current_token.string_value) && (code[i+1].Type=="dot" || !first) { 
-					nested_variables = append(nested_variables, code[i])
-					if code[i+1].Type=="dot" {
-						i++
-					}
-					i++
-					first=false
-				} else {
-					break
-				}
-			}
-			parsed_tokens = append(parsed_tokens, Token{Type: "nested_tokens", children: nested_variables})
-			continue
-		}
-		if len(code)>i+1 && current_token.Type=="operator" && code[i+1].Type=="operator" {
-			combined_operator:=current_token.string_value+code[i+1].string_value
-			accepted_combined_operator_array:=[]string{"+=","-=","/=","*=","%=","//","!=","=="}
-			if str_index_in_arr(combined_operator,accepted_combined_operator_array)!=-1 {
-				parsed_tokens = append(parsed_tokens, Token{Type: "operator", string_value: combined_operator})
-				i++
 				continue
 			}
 		}

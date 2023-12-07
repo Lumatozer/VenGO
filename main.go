@@ -23,7 +23,7 @@ func main() {
 		return
 	}
 	code:=string(dat)
-	fmt.Println(Vengine(code,true))
-	// fmt.Println(tokensier(code,true))
-	// fmt.Println(tokens_parser(tokensier(code,true),true))
+	// fmt.Println(Vengine(code,true))
+	fmt.Println(tokensier(code,true))
+	fmt.Println(tokens_parser(tokensier(code,true),true))
 }
