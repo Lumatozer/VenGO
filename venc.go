@@ -264,3 +264,11 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 	}
 	return parsed_tokens, nil
 }
+
+func grouper(code []Token) ([]Token, error) {
+	grouped_tokens:=make([]Token,0)
+	for i := 0; i < len(code); i++ {
+		
+	}
+	return grouped_tokens, nil
+}
