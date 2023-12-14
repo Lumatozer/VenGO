@@ -25,5 +25,8 @@ func main() {
 	code:=string(dat)
 	// fmt.Println(Vengine(code,true))
 	fmt.Println(tokensier(code,true))
-	fmt.Println(tokens_parser(tokensier(code,true),true))
+	tokens_, _:=tokens_parser(tokensier(code,true),true)
+	fmt.Println(tokens_)
+	tokens_, _=token_grouper(tokens_, true)
+	fmt.Println(tokens_, len(tokens_))
 }

@@ -85,41 +85,29 @@ func string_arr_compare(arr1 []string, arr2 []string) bool {
 }
 
 func recursive_VI_Object_match(obj1 VI_Object, obj2 VI_Object) bool {
-	if !(string_arr_compare(obj1.object_type, obj2.object_type)) {
+	if !(string_arr_compare(obj1.object_type,obj2.object_type)) {
 		return false
 	}
-	switch obj_type := obj1.object_type[0]; obj_type {
+	switch obj_type:=obj1.object_type[0]; obj_type {
 	case "num":
-		if obj1.num_value != obj2.num_value {
+		if (obj1.num_value!=obj2.num_value) {
 			return false
 		}
 	case "string":
-		if obj1.str_value != obj2.str_value {
+		if (obj1.str_value!=obj2.str_value) {
 			return false
 		}
-	case "arr", "dict":
-		if len(obj1.children) != len(obj2.children) {
+	case "arr","dict":
+		if len(obj1.children)!=len(obj2.children) {
 			return false
 		}
 		for i := 0; i < len(obj1.dict_keys); i++ {
-			isok := false
-			for j := 0; j < len(obj1.dict_keys); j++ {
-				if obj1.dict_keys[i] == obj2.dict_keys[j] {
-					isok = true
-				}
-			}
-			if !(isok) {
+			if (obj1.dict_keys[i]!=obj2.dict_keys[i]) {
 				return false
 			}
 		}
 		for i := 0; i < len(obj1.children); i++ {
-			isok := false
-			for j := 0; j < len(obj1.children); j++ {
-				if recursive_VI_Object_match(obj1.children[i], obj2.children[j]) {
-					isok = true
-				}
-			}
-			if !(isok) {
+			if (!recursive_VI_Object_match(obj1.children[i],obj2.children[i])) {
 				return false
 			}
 		}
