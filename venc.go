@@ -15,7 +15,30 @@ type Token struct {
 	keys         []Token
 }
 
-var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return"}
+type Function struct {
+	name		string
+	args		map[string][]string
+	Type		[]string
+}
+
+type Struct struct {
+	name 		string
+	fields		map[string][]string
+}
+
+type Variable struct {
+	name 		string
+	Type 		[]string
+}
+
+type Symbol_Table struct {
+	functions 	[]Function
+	structs   	[]Struct
+	variables	[]Variable
+	data		[]string
+}
+
+var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function"}
 var type_tokens = []string{"string", "num"}
 var operators = []string{"+","-","*","/","^",">","<","=","&","!","|","%"}
 var end_of_statements = []string{";"}
@@ -177,7 +200,7 @@ func valid_var_name(var_name string) bool {
 	if var_name=="" {
 		return false
 	}
-	for _,char:=range "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_" {
+	for _,char:=range allowed_variable_character {
 		var_name=strings.ReplaceAll(var_name,string(char),"")
 	}
 	return var_name==""
@@ -224,7 +247,7 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 				continue
 			}
 		}
-		if len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="bracket_open" && (current_token.string_value=="[" || current_token.string_value=="{") && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" {
+		if len(parsed_tokens)>0 && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" && ((current_token.string_value=="string" || current_token.string_value=="num") || (len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="bracket_open" && (current_token.string_value=="[" || current_token.string_value=="{"))) {
 			type_define_tokens:=make([]Token,0)
 			brackets:=0
 			for {
@@ -246,7 +269,7 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 				}
 				i++
 			}
-			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", children: type_define_tokens}
+			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", keys: type_define_tokens}
 			continue
 		}
 		if len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="variable" && str_index_in_arr(current_token.string_value, type_tokens)!=-1 && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" {
@@ -336,4 +359,149 @@ func token_grouper(code []Token, debug bool) ([]Token, error) {
 		grouped_tokens = append(grouped_tokens, code[i])
 	}
 	return grouped_tokens, nil
+}
+
+func bracket_token_getter(tokens []Token, bracket string) ([]Token, int64) {
+	res:=make([]Token,0)
+	brackets:=0
+	close_bracket:=""
+	if bracket=="{" {
+		close_bracket="}"
+	}
+	if bracket=="(" {
+		close_bracket=")"
+	}
+	if bracket=="[" {
+		close_bracket="]"
+	}
+	for _,token:=range tokens {
+		if token.Type=="bracket_open" && token.string_value==bracket {
+			brackets+=1
+		}
+		if token.Type=="bracket_close" && token.string_value==close_bracket {
+			brackets-=1
+		}
+		res = append(res, token)
+		if brackets==0 {
+			break
+		}
+	}
+	return res, int64(brackets)
+}
+
+func variable_doesnot_exist(symbol_table Symbol_Table, variable string) bool {
+	for i := 0; i < len(symbol_table.functions); i++ {
+		if symbol_table.functions[i].name==variable {
+			return false
+		}
+	}
+	for i := 0; i < len(symbol_table.structs); i++ {
+		if symbol_table.structs[i].name==variable {
+			return false
+		}
+	}
+	for i := 0; i < len(symbol_table.variables); i++ {
+		if symbol_table.structs[i].name==variable {
+			return false
+		}
+	}
+	return true
+}
+
+func type_token_to_string_array(type_token Token) ([]string) {
+	res:=make([]string, 0)
+	for _,tokenx:=range type_token.keys {
+		res = append(res, tokenx.string_value)
+	}
+	return res
+}
+
+func valid_type(Type []string) bool {
+	valid_final_types:=[]string{"num","string"}
+	if len(Type)%2==0 {
+		return false
+	}
+	for i:=0;i<((len(Type)-1)/2)-1;i++ {
+		if Type[i]=="{" && Type[len(Type)-1]=="}" {
+			continue
+		}
+		if Type[i]=="[" && Type[len(Type)-1]=="]" {
+			continue
+		}
+		return false
+	}
+	if str_index_in_arr(Type[(len(Type)-1)/2], valid_final_types)!=-1 {
+		return true
+	}
+	return false
+}
+
+func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbol_Table) {
+	result:=""
+	for i := 0; i < len(code); i++ {
+		fmt.Println(code[i])
+		if code[i].Type=="sys" && code[i].string_value=="struct" && len(code)>i+2 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type=="bracket_open" && code[i+2].string_value=="{" {
+			if !variable_doesnot_exist(symbol_table ,code[i+1].string_value) {
+				return "error", Symbol_Table{}
+			}
+			i++
+			i++
+			tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
+			if err!=0 {
+				return "error", Symbol_Table{}
+			}
+			tokens=tokens[1:len(tokens)-1]
+			if len(tokens)%2!=0 {
+				return "error", Symbol_Table{}
+			}
+			Struct_Variables:=make(map[string][]string)
+			for index:=0; int64(index) < int64(len(tokens))-1; index+=2 {
+				variable_type:=type_token_to_string_array(tokens[index+1])
+				if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && variable_doesnot_exist(symbol_table, tokens[index].string_value) && valid_type(variable_type) {
+					Struct_Variables[tokens[index].string_value]=variable_type
+				} else {
+					return "struct_error", Symbol_Table{}
+				}
+			}
+			symbol_table.structs = append(symbol_table.structs, Struct{name: code[i-1].string_value, fields: Struct_Variables})
+			i+=len(tokens)+1
+			continue
+		}
+		// if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" {
+		// 	if !(len(code[i+1].children)>=2 && (len(code[i+1].children)-2)%3==0) {
+		// 		result["error"]="Function arguments are not properly defined"
+		// 		return result,symbol_table
+		// 	}
+		// 	for key := 0; key < len(code[i+1].children); key++ {
+		// 		if (key+1)%3==1 && (code[i+1].children[key].Type!="variable" || !valid_var_name(code[i+1].children[key].string_value)) {
+		// 			result["error"]="Valid variable expected"
+		// 			return result,symbol_table
+		// 		}
+		// 		if (key+1)%3==2 && (code[i+1].children[key].Type!="type" || !valid_var_name(code[i+1].children[key].string_value)) {
+		// 			result["error"]="Valid variable expected"
+		// 			return result,symbol_table
+		// 		}
+		// 		if (key+1)%3==0 && (code[i+1].children[key].Type!="comma") {
+		// 			result["error"]="Comma expected"
+		// 			return result,symbol_table
+		// 		}
+		// 	}
+		// }
+	}
+	return result, symbol_table
+}
+
+func data_encoder(data []string) string {
+	result:=""
+	for _,data_item:=range data {
+		result+="\""+strings.ReplaceAll(data_item, "\n", "\\n")+"\""+"    \n"
+	}
+	return strings.Trim(result, "\n")
+}
+
+func compiler(tokens []Token, depth int) string {
+	symbol_table:=Symbol_Table{}
+	result,symbol_table:=internal(symbol_table, tokens, 0)
+	fmt.Println(symbol_table)
+	return ".code\n"+result+".data\n"+data_encoder(symbol_table.data)
 }
