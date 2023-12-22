@@ -240,8 +240,16 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 		}
 		if len(code)>i+1 && current_token.Type=="operator" && code[i+1].Type=="operator" {
 			combined_operator:=current_token.string_value+code[i+1].string_value
-			accepted_combined_operator_array:=[]string{"+=","-=","/=","*=","%=","//","!=","==","->"}
+			accepted_combined_operator_array:=[]string{"+=","-=","/=","*=","%=","//","!=","==","->",":="}
 			if str_index_in_arr(combined_operator,accepted_combined_operator_array)!=-1 {
+				parsed_tokens = append(parsed_tokens, Token{Type: "operator", string_value: combined_operator})
+				i++
+				continue
+			}
+		}
+		if len(code)>i+1 && current_token.Type=="colon" && code[i+1].Type=="operator" {
+			combined_operator:=":"+code[i+1].string_value
+			if combined_operator==":=" {
 				parsed_tokens = append(parsed_tokens, Token{Type: "operator", string_value: combined_operator})
 				i++
 				continue
@@ -444,6 +452,9 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 			if !variable_doesnot_exist(symbol_table ,code[i+1].string_value) {
 				return "error", Symbol_Table{}
 			}
+			if depth!=0 {
+				return "depth_error", Symbol_Table{}
+			}
 			i++
 			i++
 			tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
@@ -467,26 +478,21 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 			i+=len(tokens)+1
 			continue
 		}
-		// if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" {
-		// 	if !(len(code[i+1].children)>=2 && (len(code[i+1].children)-2)%3==0) {
-		// 		result["error"]="Function arguments are not properly defined"
-		// 		return result,symbol_table
-		// 	}
-		// 	for key := 0; key < len(code[i+1].children); key++ {
-		// 		if (key+1)%3==1 && (code[i+1].children[key].Type!="variable" || !valid_var_name(code[i+1].children[key].string_value)) {
-		// 			result["error"]="Valid variable expected"
-		// 			return result,symbol_table
-		// 		}
-		// 		if (key+1)%3==2 && (code[i+1].children[key].Type!="type" || !valid_var_name(code[i+1].children[key].string_value)) {
-		// 			result["error"]="Valid variable expected"
-		// 			return result,symbol_table
-		// 		}
-		// 		if (key+1)%3==0 && (code[i+1].children[key].Type!="comma") {
-		// 			result["error"]="Comma expected"
-		// 			return result,symbol_table
-		// 		}
-		// 	}
-		// }
+		if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" {
+			function_arguments:=make(map[string][]string)
+			if len(code[i+1].children[1].children)%2!=0 {
+				return "function_error", Symbol_Table{}
+			}
+			if !valid_var_name(code[i+1].children[0].string_value) {
+				return "function_error_identifier", Symbol_Table{}
+			}
+			i++
+			i++
+			for index:=0; index<len(code[i-1].children[1].children); index+=2 {
+				function_arguments[code[i-1].children[1].children[index].string_value]=type_token_to_string_array(code[i-1].children[1].children[index+1])
+			}
+			symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: code[i-1].children[0].string_value})
+		}
 	}
 	return result, symbol_table
 }
