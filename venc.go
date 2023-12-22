@@ -496,6 +496,9 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 			function_type:=make([]string, 0)
 			if code[i].Type=="type" {
 				function_type=type_token_to_string_array(code[i])
+				if !valid_type(function_type) {
+					return "function_return_type_is_invalid", Symbol_Table{}
+				}
 			}
 			symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: function_name, Type: function_type})
 			if code[i].Type=="type" {
