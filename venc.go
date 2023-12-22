@@ -480,6 +480,7 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 			continue
 		}
 		if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" && variable_doesnot_exist(symbol_table ,code[i+1].children[0].string_value) && depth==0 {
+			function_name:=code[i+1].children[0].string_value
 			function_arguments:=make(map[string][]string)
 			if len(code[i+1].children[1].children)%2!=0 {
 				return "function_error", Symbol_Table{}
@@ -496,7 +497,7 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 			if code[i].Type=="type" {
 				function_type=type_token_to_string_array(code[i])
 			}
-			symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: code[i-1].children[0].string_value, Type: function_type})
+			symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: function_name, Type: function_type})
 			if code[i].Type=="type" {
 				i++
 			}
@@ -505,6 +506,8 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 				return "error", Symbol_Table{}
 			}
 			tokens=tokens[1:len(tokens)-1]
+			symbol_table.data = append(symbol_table.data, function_name)
+			symbol_table.operations = append(symbol_table.operations, []string{"define.jump "+strconv.FormatInt(int64(len(symbol_table.data)-1), 10)})
 			error_,fresh_symbol_table:=internal(symbol_table, tokens, depth+1)
 			if error_!="" {
 				return error_, Symbol_Table{}
@@ -526,7 +529,14 @@ func data_encoder(data []string) string {
 
 func compiler(tokens []Token, depth int) string {
 	symbol_table:=Symbol_Table{}
-	result,symbol_table:=internal(symbol_table, tokens, 0)
+	err,symbol_table:=internal(symbol_table, tokens, 0)
+	if err!="" {
+		return ""
+	}
 	fmt.Println(symbol_table)
+	result:=""
+	for _,op:=range symbol_table.operations {
+		result+=strings.Join(op, ",")+"\n"
+	}
 	return ".code\n"+result+".data\n"+data_encoder(symbol_table.data)
 }
