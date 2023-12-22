@@ -36,6 +36,7 @@ type Symbol_Table struct {
 	structs   	[]Struct
 	variables	[]Variable
 	data		[]string
+	operations	[][]string
 }
 
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function"}
@@ -448,7 +449,7 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 	result:=""
 	for i := 0; i < len(code); i++ {
 		fmt.Println(code[i])
-		if code[i].Type=="sys" && code[i].string_value=="struct" && len(code)>i+2 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type=="bracket_open" && code[i+2].string_value=="{" {
+		if code[i].Type=="sys" && code[i].string_value=="struct" && len(code)>i+2 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type=="bracket_open" && code[i+2].string_value=="{" && depth==0 {
 			if !variable_doesnot_exist(symbol_table ,code[i+1].string_value) {
 				return "error", Symbol_Table{}
 			}
@@ -478,7 +479,7 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 			i+=len(tokens)+1
 			continue
 		}
-		if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" {
+		if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" && variable_doesnot_exist(symbol_table ,code[i+1].children[0].string_value) && depth==0 {
 			function_arguments:=make(map[string][]string)
 			if len(code[i+1].children[1].children)%2!=0 {
 				return "function_error", Symbol_Table{}
@@ -491,7 +492,25 @@ func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbo
 			for index:=0; index<len(code[i-1].children[1].children); index+=2 {
 				function_arguments[code[i-1].children[1].children[index].string_value]=type_token_to_string_array(code[i-1].children[1].children[index+1])
 			}
-			symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: code[i-1].children[0].string_value})
+			function_type:=make([]string, 0)
+			if code[i].Type=="type" {
+				function_type=type_token_to_string_array(code[i])
+			}
+			symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: code[i-1].children[0].string_value, Type: function_type})
+			if code[i].Type=="type" {
+				i++
+			}
+			tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
+			if err!=0 {
+				return "error", Symbol_Table{}
+			}
+			tokens=tokens[1:len(tokens)-1]
+			error_,fresh_symbol_table:=internal(symbol_table, tokens, depth+1)
+			if error_!="" {
+				return error_, Symbol_Table{}
+			}
+			symbol_table=fresh_symbol_table
+			i+=len(tokens)+1
 		}
 	}
 	return result, symbol_table
