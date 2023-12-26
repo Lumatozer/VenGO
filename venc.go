@@ -19,6 +19,7 @@ type Function struct {
 	name		string
 	args		map[string][]string
 	Type		[]string
+	Code 		[]Token
 }
 
 type Struct struct {
@@ -36,7 +37,7 @@ type Symbol_Table struct {
 	structs   	[]Struct
 	variables	[]Variable
 	data		[]string
-	operations	[][]string
+	operations	map[string][][]string
 }
 
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function"}
@@ -410,7 +411,7 @@ func variable_doesnot_exist(symbol_table Symbol_Table, variable string) bool {
 		}
 	}
 	for i := 0; i < len(symbol_table.variables); i++ {
-		if symbol_table.structs[i].name==variable {
+		if symbol_table.variables[i].name==variable {
 			return false
 		}
 	}
@@ -445,101 +446,185 @@ func valid_type(Type []string) bool {
 	return false
 }
 
-func internal(symbol_table Symbol_Table, code []Token, depth int) (string, Symbol_Table) {
-	result:=""
-	for i := 0; i < len(code); i++ {
-		fmt.Println(code[i])
-		if code[i].Type=="sys" && code[i].string_value=="struct" && len(code)>i+2 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type=="bracket_open" && code[i+2].string_value=="{" && depth==0 {
-			if !variable_doesnot_exist(symbol_table ,code[i+1].string_value) {
-				return "error", Symbol_Table{}
-			}
-			if depth!=0 {
-				return "depth_error", Symbol_Table{}
-			}
-			i++
-			i++
-			tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
-			if err!=0 {
-				return "error", Symbol_Table{}
-			}
-			tokens=tokens[1:len(tokens)-1]
-			if len(tokens)%2!=0 {
-				return "error", Symbol_Table{}
-			}
-			Struct_Variables:=make(map[string][]string)
-			for index:=0; int64(index) < int64(len(tokens))-1; index+=2 {
-				variable_type:=type_token_to_string_array(tokens[index+1])
-				if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && variable_doesnot_exist(symbol_table, tokens[index].string_value) && valid_type(variable_type) {
-					Struct_Variables[tokens[index].string_value]=variable_type
-				} else {
-					return "struct_error", Symbol_Table{}
-				}
-			}
-			symbol_table.structs = append(symbol_table.structs, Struct{name: code[i-1].string_value, fields: Struct_Variables})
-			i+=len(tokens)+1
-			continue
-		}
-		if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" && variable_doesnot_exist(symbol_table ,code[i+1].children[0].string_value) && depth==0 {
-			function_name:=code[i+1].children[0].string_value
-			function_arguments:=make(map[string][]string)
-			if len(code[i+1].children[1].children)%2!=0 {
-				return "function_error", Symbol_Table{}
-			}
-			if !valid_var_name(code[i+1].children[0].string_value) {
-				return "function_error_identifier", Symbol_Table{}
-			}
-			i++
-			i++
-			for index:=0; index<len(code[i-1].children[1].children); index+=2 {
-				function_arguments[code[i-1].children[1].children[index].string_value]=type_token_to_string_array(code[i-1].children[1].children[index+1])
-			}
-			function_type:=make([]string, 0)
-			if code[i].Type=="type" {
-				function_type=type_token_to_string_array(code[i])
-				if !valid_type(function_type) {
-					return "function_return_type_is_invalid", Symbol_Table{}
-				}
-			}
-			symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: function_name, Type: function_type})
-			if code[i].Type=="type" {
-				i++
-			}
-			tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
-			if err!=0 {
-				return "error", Symbol_Table{}
-			}
-			tokens=tokens[1:len(tokens)-1]
-			symbol_table.data = append(symbol_table.data, function_name)
-			symbol_table.operations = append(symbol_table.operations, []string{"define.jump "+strconv.FormatInt(int64(len(symbol_table.data)-1), 10)})
-			error_,fresh_symbol_table:=internal(symbol_table, tokens, depth+1)
-			if error_!="" {
-				return error_, Symbol_Table{}
-			}
-			symbol_table=fresh_symbol_table
-			i+=len(tokens)+1
+func does_function_exist(function_name string, symbol_table Symbol_Table) bool {
+	for i := 0; i < len(symbol_table.functions); i++ {
+		if symbol_table.functions[i].name==function_name {
+			return true
 		}
 	}
+	return false
+}
+
+func function_index_in_symbol_table(function_name string, symbol_table Symbol_Table) int {
+	for i := 0; i < len(symbol_table.functions); i++ {
+		if symbol_table.functions[i].name==function_name {
+			return i
+		}
+	}
+	return -1
+}
+
+func branch_parser(code []Token) (string, []Token) {
+	parsed_tokens:=make([]Token, 0)
+	for i := 0; i < len(code); i++ {
+		if code[i].Type=="sys" && code[i].string_value=="if" && (len(code)-1)>=4 {
+			if code[i+1].Type!="expression" || code[i+2].Type!="bracket_open" || code[i+2].string_value!="{" {
+				return "invalid expression", make([]Token, 0)
+			}
+			tokens,err:=bracket_token_getter(code[i+2:], "{")
+			if err!=0 {
+				return "tokeniser_bracket_error", make([]Token, 0)
+			}
+			var errstring string
+			errstring,tokens=branch_parser(tokens[1:len(tokens)-1])
+			if errstring!="" {
+				return errstring, make([]Token, 0)
+			}
+			parsed_tokens=append(parsed_tokens, Token{Type: "branch", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
+			i+=3+len(tokens)
+			continue
+		}
+		if code[i].Type=="sys" && code[i].string_value=="while" && (len(code)-1)>=4 {
+			if code[i+1].Type!="expression" || code[i+2].Type!="bracket_open" || code[i+2].string_value!="{" {
+				return "invalid expression", make([]Token, 0)
+			}
+			tokens,err:=bracket_token_getter(code[i+2:], "{")
+			if err!=0 {
+				return "tokeniser_bracket_error", make([]Token, 0)
+			}
+			var errstring string
+			errstring,tokens=branch_parser(tokens[1:len(tokens)-1])
+			if errstring!="" {
+				return errstring, make([]Token, 0)
+			}
+			parsed_tokens=append(parsed_tokens, Token{Type: "while", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
+			i+=3+len(tokens)
+			continue
+		}
+		parsed_tokens = append(parsed_tokens, code[i])
+	}
+	return "", parsed_tokens
+}
+
+func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Symbol_Table) {
+	result:=""
+	for i := 0; i < len(code); i++ {
+		// fmt.Println(code[i])
+		if depth==0 {
+			if code[i].Type=="sys" && code[i].string_value=="struct" && len(code)>i+2 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type=="bracket_open" && code[i+2].string_value=="{" {
+				if !variable_doesnot_exist(symbol_table ,code[i+1].string_value) {
+					return "error", Symbol_Table{}
+				}
+				i++
+				i++
+				tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
+				if err!=0 {
+					return "error", Symbol_Table{}
+				}
+				tokens=tokens[1:len(tokens)-1]
+				if len(tokens)%2!=0 {
+					return "error", Symbol_Table{}
+				}
+				Struct_Variables:=make(map[string][]string)
+				for index:=0; int64(index) < int64(len(tokens))-1; index+=2 {
+					variable_type:=type_token_to_string_array(tokens[index+1])
+					if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && variable_doesnot_exist(symbol_table, tokens[index].string_value) && valid_type(variable_type) {
+						Struct_Variables[tokens[index].string_value]=variable_type
+					} else {
+						return "struct_error", Symbol_Table{}
+					}
+				}
+				symbol_table.structs = append(symbol_table.structs, Struct{name: code[i-1].string_value, fields: Struct_Variables})
+				i+=len(tokens)+1
+				continue
+			}
+			if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" && variable_doesnot_exist(symbol_table ,code[i+1].children[0].string_value) {
+				function_name:=code[i+1].children[0].string_value
+				function_arguments:=make(map[string][]string)
+				if len(code[i+1].children[1].children)%2!=0 {
+					return "function_error", Symbol_Table{}
+				}
+				if !valid_var_name(code[i+1].children[0].string_value) {
+					return "function_error_identifier", Symbol_Table{}
+				}
+				i++
+				i++
+				for index:=0; index<len(code[i-1].children[1].children); index+=2 {
+					function_arguments[code[i-1].children[1].children[index].string_value]=type_token_to_string_array(code[i-1].children[1].children[index+1])
+				}
+				function_type:=make([]string, 0)
+				if code[i].Type=="type" {
+					function_type=type_token_to_string_array(code[i])
+					if !valid_type(function_type) {
+						return "function_return_type_is_invalid", Symbol_Table{}
+					}
+				}
+				if code[i].Type=="type" {
+					i++
+				}
+				tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
+				if err!=0 {
+					return "error", Symbol_Table{}
+				}
+				to_ignore:=len(tokens[1:len(tokens)-1])
+				err_,tokens:=branch_parser(tokens[1:len(tokens)-1])
+				if err_!="" {
+					return "error", Symbol_Table{}
+				}
+				symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: function_name, Type: function_type, Code: tokens})
+				symbol_table.data = append(symbol_table.data, function_name)
+				i+=to_ignore+1
+				continue
+			}
+			if code[i].Type=="sys" && code[i].string_value=="var" && (len(code)-i)>=4 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2])) && code[i+3].Type=="EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
+				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
+				i+=3
+				continue
+			}
+		}
+		return "error_token_not_parsed", symbol_table
+	}
 	return result, symbol_table
+}
+
+func compiler(symbol_table Symbol_Table, depth int) (string, Symbol_Table) {
+	if depth==0 {
+		for i := 0; i < len(symbol_table.functions); i++ {
+			
+		}
+	}
+	return "", symbol_table
 }
 
 func data_encoder(data []string) string {
 	result:=""
 	for _,data_item:=range data {
-		result+="\""+strings.ReplaceAll(data_item, "\n", "\\n")+"\""+"    \n"
+		result+="    \""+strings.ReplaceAll(data_item, "\n", "\\n")+"\""+"    \n"
 	}
 	return strings.Trim(result, "\n")
 }
 
-func compiler(tokens []Token, depth int) string {
+func build(tokens []Token, depth int) string {
 	symbol_table:=Symbol_Table{}
-	err,symbol_table:=internal(symbol_table, tokens, 0)
+	err,symbol_table:=pre_parser(symbol_table, tokens, 0)
 	if err!="" {
-		return ""
+		return "Error: "+err
 	}
-	fmt.Println(symbol_table)
+	if !does_function_exist("main", symbol_table) {
+		return "Error: "+"main function does not exist"
+	}
+	main_function:=symbol_table.functions[function_index_in_symbol_table("main", symbol_table)]
+	if len(main_function.args)!=0 {
+		return "Error: "+"main function cant have arguments"
+	}
+	if len(main_function.Type)!=0 {
+		return "Error: "+"main function cannot have a type definition"
+	}
 	result:=""
-	for _,op:=range symbol_table.operations {
-		result+=strings.Join(op, ",")+"\n"
+	err,final_symbol_table:=compiler(symbol_table, 0)
+	if err!="" {
+		return "Error: "+err
 	}
+	fmt.Println(final_symbol_table)
 	return ".code\n"+result+".data\n"+data_encoder(symbol_table.data)
 }
