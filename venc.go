@@ -813,10 +813,10 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 	return current_type
 }
 
-func compiler(symbol_table Symbol_Table, function_name string, depth int) (string, Symbol_Table) {
+func compiler(symbol_table Symbol_Table, function_name string, depth int, code []Token) (string, Symbol_Table) {
 	if depth==0 {
 		for i := 0; i < len(symbol_table.functions); i++ {
-			err,symbol_table:=compiler(symbol_table, symbol_table.functions[i].name, depth+1)
+			err,symbol_table:=compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0))
 			if symbol_table.operations[function_name]==nil {
 				symbol_table.operations[function_name]=make([][]string, 0)
 			}
@@ -826,7 +826,9 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int) (strin
 		}
 	}
 	if depth>0 {
-		code:=symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Code
+		if len(function_name)!=0 {
+			code=symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Code
+		}
 		for i := 0; i < len(code); i++ {
 			if code[i].Type=="sys" && code[i].string_value=="var" && (len(code)-i)>=4 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type=="EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
@@ -855,6 +857,28 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int) (strin
 					return "types on lhs and rhs do not match", symbol_table
 				}
 				i+=len(tokens)
+				continue
+			}
+			if (code[i].Type=="branch") {
+				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children), []string{"num"}) {
+					return "branch condition is invalid", Symbol_Table{}
+				}
+				err,st:=compiler(symbol_table, "", depth+1, code[i].children[1].children)
+				symbol_table=st
+				if err!="" {
+					return err, Symbol_Table{}
+				}
+				continue
+			}
+			if (code[i].Type=="while") {
+				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children), []string{"num"}) {
+					return "branch condition for while is invalid", Symbol_Table{}
+				}
+				err,st:=compiler(symbol_table, "", depth+1, code[i].children[1].children)
+				symbol_table=st
+				if err!="" {
+					return err, Symbol_Table{}
+				}
 				continue
 			}
 			fmt.Println("missed token", code[i])
@@ -889,7 +913,7 @@ func build(tokens []Token, depth int) string {
 		return "Error: "+"main function cannot have a type definition"
 	}
 	result:=""
-	err,final_symbol_table:=compiler(symbol_table, "main", 0)
+	err,final_symbol_table:=compiler(symbol_table, "main", 0, make([]Token, 0))
 	if err!="" {
 		return "Error: "+err
 	}
