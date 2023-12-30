@@ -259,7 +259,7 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 				continue
 			}
 		}
-		if len(parsed_tokens)>0 && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" && ((current_token.string_value=="string" || current_token.string_value=="num") || (len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="bracket_open" && (current_token.string_value=="[" || current_token.string_value=="{"))) {
+		if len(parsed_tokens)>0 && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" && ((current_token.string_value=="string" || current_token.string_value=="num" || current_token.Type=="variable") || (len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="bracket_open" && (current_token.string_value=="[" || current_token.string_value=="{"))) {
 			type_define_tokens:=make([]Token,0)
 			brackets:=0
 			for {
@@ -562,7 +562,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 				Struct_Variables:=make(map[string][]string)
 				for index:=0; int64(index) < int64(len(tokens))-1; index+=2 {
 					variable_type:=type_token_to_string_array(tokens[index+1])
-					if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && variable_doesnot_exist(symbol_table, tokens[index].string_value) && valid_type(variable_type, Symbol_Table{}) {
+					if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && variable_doesnot_exist(symbol_table, tokens[index].string_value) && valid_type(variable_type, symbol_table) {
 						Struct_Variables[tokens[index].string_value]=variable_type
 					} else {
 						return "struct_error", Symbol_Table{}
@@ -636,7 +636,7 @@ func is_valid_statement(symbol_table Symbol_Table, code []Token) bool {
 			}
 		}
 		if i%2==0 {
-			if str_index_in_arr(token.Type, []string{"lookup", "variable", "expression", "string", "num", "funcall"})==-1 {
+			if str_index_in_arr(token.Type, []string{"lookup", "variable", "expression", "string", "num", "funcall", "nested_tokens"})==-1 {
 				return false
 			}
 		}
@@ -721,7 +721,8 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 				}
 			}
 			if code[0].Type=="nested_tokens" {
-				struct_index:=struct_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
+				variable_index:=variable_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
+				struct_index:=struct_index_in_symbol_table(symbol_table.variables[variable_index].Type[0], symbol_table)
 				if struct_index==-1 {
 					return make([]string, 0)
 				}
@@ -833,7 +834,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int) (strin
 				i+=3
 				continue
 			}
-			if (len(code)-i)>=4 && (code[i].Type=="lookup" || code[i].Type=="variable") && code[i+1].Type=="operator" && code[i+1].string_value=="=" {
+			if (len(code)-i)>=4 && (code[i].Type=="lookup" || code[i].Type=="variable" || code[i].Type=="nested_tokens") && code[i+1].Type=="operator" && code[i+1].string_value=="=" {
 				i++
 				i++
 				tokens,err:=get_current_statement_tokens(code[i:])
