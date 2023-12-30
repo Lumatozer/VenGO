@@ -1,3 +1,5 @@
+// make sure that you do run the smart contract code while verifying so that just in case the vengine crashes you can mark the blocvk as false
+
 package main
 
 import (
