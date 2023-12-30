@@ -707,17 +707,19 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 				return symbol_table.variables[variable_index].Type
 			}
 			if code[0].Type=="lookup" {
-				parent_variable:=code[0].children[0].children[0]
-				parent_index:=variable_index_in_symbol_table(parent_variable.string_value,symbol_table)
-				if parent_index==-1 {
+				parent_type:=evaluate_type(symbol_table, []Token{code[0].children[0].children[0]})
+				if len(parent_type)==0 {
 					return make([]string, 0)
 				}
-				if str_index_in_arr(symbol_table.variables[parent_index].Type[0], []string{"[","{"})==-1 {
+				if str_index_in_arr(parent_type[0], []string{"[","{"})==-1 {
 					return make([]string, 0)
 				}
 				lookup_type:=evaluate_type(symbol_table, code[0].children[1].children)
+				if len(lookup_type)==0 {
+					return make([]string, 0)
+				}
 				if string_arr_compare(lookup_type, []string{"string"}) || string_arr_compare(lookup_type, []string{"num"}) {
-					return symbol_table.variables[parent_index].Type[1:len(symbol_table.variables[parent_index].Type)-1]
+					return parent_type[1:len(parent_type)-1]
 				}
 			}
 			if code[0].Type=="nested_tokens" {
