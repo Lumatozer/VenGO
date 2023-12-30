@@ -851,7 +851,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int) (strin
 				if !string_arr_compare(lhs, rhs) {
 					return "types on lhs and rhs do not match", symbol_table
 				}
-				i+=len(tokens)+1
+				i+=len(tokens)
 				continue
 			}
 			fmt.Println("missed token", code[i])
