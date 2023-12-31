@@ -723,12 +723,15 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 				}
 			}
 			if code[0].Type=="nested_tokens" {
-				variable_index:=variable_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
-				struct_index:=struct_index_in_symbol_table(symbol_table.variables[variable_index].Type[0], symbol_table)
-				if struct_index==-1 {
+				parent_type:=evaluate_type(symbol_table, []Token{code[0].children[0]})
+				if len(parent_type)==0 {
 					return make([]string, 0)
 				}
-				return symbol_table.structs[struct_index].fields[code[0].children[1].string_value]
+				if len(parent_type)==1 && struct_index_in_symbol_table(parent_type[0], symbol_table)!=-1 {
+					struct_index:=struct_index_in_symbol_table(parent_type[0], symbol_table)
+					return symbol_table.structs[struct_index].fields[code[0].children[1].string_value]
+				}
+				return make([]string, 0)
 			}
 			if code[0].Type=="funcall" {
 				function_index:=function_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
