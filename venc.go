@@ -810,6 +810,9 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 				if code[0].children[0].Type=="nested_tokens" {
 					code_:=code[0].children[0]
 					code_.children=code_.children[:len(code[0].children[0].children)-1]
+					if code_.Type=="nested_tokens" && len(code_.children)==1 {
+						code_=code_.children[0]
+					}
 					parent_type:=evaluate_type(symbol_table, []Token{code_}, 0)
 					if len(parent_type)==0 {
 						return make([]string, 0)
@@ -855,7 +858,6 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 							return make([]string, 0)
 						}
 						if !are_function_arguments_valid(arguments, Function{args: [][]string{
-							[]string{"string"}, 
 							[]string{"string"},
 							}}, symbol_table) {
 							return make([]string, 0)
