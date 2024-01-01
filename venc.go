@@ -729,6 +729,9 @@ func are_array_arguments_valid(argument_expression Token, Type []string, symbol_
 		arguments = append(arguments, Token{Type: "expression", children: cache})
 	}
 	for i := 0; i < len(arguments); i++ {
+		if len(Type)<3 {
+			return false
+		}
 		if !string_arr_compare(evaluate_type(symbol_table, arguments[i].children, 0), Type[1:len(Type)-1]) {
 			return false
 		}
