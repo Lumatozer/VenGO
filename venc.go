@@ -354,7 +354,7 @@ func token_grouper(code []Token, debug bool) ([]Token, error) {
 		}
 		code[i].children=tokens_children
 		if code[i].Type=="expression_wrapper_[]" {
-			if len(grouped_tokens)>0 && (grouped_tokens[len(grouped_tokens)-1].Type=="variable" || grouped_tokens[len(grouped_tokens)-1].Type=="nested_tokens" || grouped_tokens[len(grouped_tokens)-1].Type=="lookup" || grouped_tokens[len(grouped_tokens)-1].Type=="expression" || grouped_tokens[len(grouped_tokens)-1].Type=="funcall") {
+			if len(grouped_tokens)>0 && (grouped_tokens[len(grouped_tokens)-1].Type=="variable" || grouped_tokens[len(grouped_tokens)-1].Type=="nested_tokens" || grouped_tokens[len(grouped_tokens)-1].Type=="lookup" || grouped_tokens[len(grouped_tokens)-1].Type=="expression" || grouped_tokens[len(grouped_tokens)-1].Type=="funcall" || grouped_tokens[len(grouped_tokens)-1].Type=="array") {
 				grouped_tokens[len(grouped_tokens)-1]=Token{Type: "lookup", children: []Token{Token{Type: "parent", children: []Token{grouped_tokens[len(grouped_tokens)-1]}}, Token{Type: "tokens", children: code[i].children}}}
 				continue
 			}
@@ -805,9 +805,13 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 				if len(lookup_type)==0 {
 					return make([]string, 0)
 				}
-				if string_arr_compare(lookup_type, []string{"string"}) || string_arr_compare(lookup_type, []string{"num"}) {
+				if parent_type[0]=="[" && string_arr_compare(lookup_type, []string{"num"}) {
 					return parent_type[1:len(parent_type)-1]
 				}
+				if parent_type[0]=="{" && string_arr_compare(lookup_type, []string{"string"}) {
+					return parent_type[1:len(parent_type)-1]
+				}
+				return make([]string, 0)
 			}
 			if code[0].Type=="nested_tokens" {
 				parent_type:=make([]string, 0)
