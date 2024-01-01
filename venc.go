@@ -214,11 +214,11 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 	parsed_tokens:=make([]Token,0)
 	for i := 0; i < len(code); i++ {
 		current_token:=code[i]
-		if len(code)>i+1 && current_token.Type=="variable" && valid_var_name(current_token.string_value) && code[i+1].Type=="dot" {
+		if len(code)>i+1 && (current_token.Type=="variable" && valid_var_name(current_token.string_value)) && code[i+1].Type=="dot" {
 			nested_variables:=make([]Token,0)
 			first:=true
 			for {
-				if len(code)>i+1 && current_token.Type=="variable" && valid_var_name(code[i].string_value) && (!first || code[i+1].Type=="dot") { 
+				if len(code)>i+1 && (current_token.Type=="variable" && valid_var_name(current_token.string_value)) && (!first || code[i+1].Type=="dot") { 
 					if !first {
 						if code[i-1].Type!="dot" {
 							break
@@ -348,7 +348,7 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 func token_grouper(code []Token, debug bool) ([]Token, error) {
 	grouped_tokens:=make([]Token,0)
 	for i := 0; i < len(code); i++ {
-		tokens_children,err:=token_grouper(code[i].children, debug)
+		tokens_children,err:=token_grouper(code[i].children, false)
 		if err!=nil {
 			return make([]Token, 0), err
 		}
@@ -359,18 +359,35 @@ func token_grouper(code []Token, debug bool) ([]Token, error) {
 				continue
 			}
 		}
-		if len(grouped_tokens)>1 && (code[i].Type=="variable" || code[i].Type=="funcall") && grouped_tokens[len(grouped_tokens)-1].Type=="dot" && (grouped_tokens[len(grouped_tokens)-2].Type=="nested_tokens" || grouped_tokens[len(grouped_tokens)-2].Type=="lookup" || grouped_tokens[len(grouped_tokens)-2].Type=="variable" || grouped_tokens[len(grouped_tokens)-2].Type=="expression" || grouped_tokens[len(grouped_tokens)-2].Type=="funcall") {
+		if len(grouped_tokens)>1 && grouped_tokens[len(grouped_tokens)-1].Type=="dot" && (grouped_tokens[len(grouped_tokens)-2].Type=="nested_tokens" || grouped_tokens[len(grouped_tokens)-2].Type=="lookup" || grouped_tokens[len(grouped_tokens)-2].Type=="variable" || grouped_tokens[len(grouped_tokens)-2].Type=="expression" || grouped_tokens[len(grouped_tokens)-2].Type=="funcall") {
 			grouped_tokens[len(grouped_tokens)-2]=Token{Type: "nested_tokens", children: []Token{grouped_tokens[len(grouped_tokens)-2], code[i]}}
-			grouped_tokens=remove_token_at_index(len(grouped_tokens)-1, grouped_tokens)
+			grouped_tokens=grouped_tokens[:len(grouped_tokens)-1]
 			continue
 		}
-		if len(grouped_tokens)>0 && code[i].Type=="expression" && (grouped_tokens[len(grouped_tokens)-1].Type=="variable" || grouped_tokens[len(grouped_tokens)-1].Type=="lookup" || grouped_tokens[len(grouped_tokens)-1].Type=="expression" || grouped_tokens[len(grouped_tokens)-1].Type=="funcall") {
-			grouped_tokens[len(grouped_tokens)-1]=Token{Type: "funcall", children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i]}}
-			continue
+		if len(grouped_tokens)>0 && code[i].Type=="expression" {
+			if (grouped_tokens[len(grouped_tokens)-1].Type=="variable" || grouped_tokens[len(grouped_tokens)-1].Type=="lookup" || grouped_tokens[len(grouped_tokens)-1].Type=="expression" || grouped_tokens[len(grouped_tokens)-1].Type=="funcall" || grouped_tokens[len(grouped_tokens)-1].Type=="nested_tokens") {
+				grouped_tokens[len(grouped_tokens)-1]=Token{Type: "funcall", children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i]}}
+				continue
+			}
 		}
 		grouped_tokens = append(grouped_tokens, code[i])
 	}
 	return grouped_tokens, nil
+}
+
+func deep_check(tokens []Token) bool  {
+	for _,token:=range tokens {
+		if token.Type=="nested_tokens" {
+			if len(token.children)<2 {
+				return false
+			}
+		} else {
+			if !deep_check(token.children) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func bracket_token_getter(tokens []Token, bracket string) ([]Token, int64) {
@@ -562,7 +579,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 				Struct_Variables:=make(map[string][]string)
 				for index:=0; int64(index) < int64(len(tokens))-1; index+=2 {
 					variable_type:=type_token_to_string_array(tokens[index+1])
-					if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && variable_doesnot_exist(symbol_table, tokens[index].string_value) && valid_type(variable_type, symbol_table) {
+					if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && valid_type(variable_type, symbol_table) {
 						Struct_Variables[tokens[index].string_value]=variable_type
 					} else {
 						return "struct_error", Symbol_Table{}
@@ -620,6 +637,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 				continue
 			}
 		}
+		fmt.Println(code[i])
 		return "error_token_not_parsed", symbol_table
 	}
 	return result, symbol_table
@@ -676,19 +694,41 @@ func are_function_arguments_valid(argument_expression Token, function Function, 
 		return false
 	}
 	for i := 0; i < len(arguments); i++ {
-		if !string_arr_compare(evaluate_type(symbol_table, arguments[i].children), function.args[i]) {
+		if !string_arr_compare(evaluate_type(symbol_table, arguments[i].children, 0), function.args[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
+func nested_puller(code []Token) []Token {
+	grouped_tokens:=make([]Token, 0)
+	for i := 0; i < len(code); i++ {
+		if code[i].Type=="nested_tokens" {
+			new_children:=make([]Token, 0)
+			for j := 0; j < len(code[i].children); j++ {
+				if code[i].children[j].Type=="nested_tokens" {
+					new_children = append(new_children, nested_puller(code[i].children[j].children)...)
+					continue
+				}
+				new_children = append(new_children, code[i].children[j])
+			}
+			code[i].children=new_children
+			grouped_tokens = append(grouped_tokens, code[i])
+			continue
+		}
+		code[i].children=nested_puller(code[i].children)
+		grouped_tokens = append(grouped_tokens, code[i])
+	}
+	return grouped_tokens
+}
+
+func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string) {
 	if len(code)==0 {
 		return make([]string, 0)
 	}
 	current_type:=make([]string, 0)
-	if is_valid_statement(symbol_table, code) {
+	if (is_valid_statement(symbol_table, code) || depth!=0) {
 		if len(code)==1 {
 			if code[0].Type=="string" {
 				return []string{"string"}
@@ -697,7 +737,7 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 				return []string{"num"}
 			}
 			if code[0].Type=="expression" {
-				return evaluate_type(symbol_table, code[0].children)
+				return evaluate_type(symbol_table, code[0].children, 0)
 			}
 			if code[0].Type=="variable" {
 				variable_index:=variable_index_in_symbol_table(code[0].string_value,symbol_table)
@@ -707,14 +747,14 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 				return symbol_table.variables[variable_index].Type
 			}
 			if code[0].Type=="lookup" {
-				parent_type:=evaluate_type(symbol_table, []Token{code[0].children[0].children[0]})
+				parent_type:=evaluate_type(symbol_table, []Token{code[0].children[0].children[0]}, 0)
 				if len(parent_type)==0 {
 					return make([]string, 0)
 				}
 				if str_index_in_arr(parent_type[0], []string{"[","{"})==-1 {
 					return make([]string, 0)
 				}
-				lookup_type:=evaluate_type(symbol_table, code[0].children[1].children)
+				lookup_type:=evaluate_type(symbol_table, code[0].children[1].children, 0)
 				if len(lookup_type)==0 {
 					return make([]string, 0)
 				}
@@ -723,23 +763,105 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 				}
 			}
 			if code[0].Type=="nested_tokens" {
-				parent_type:=evaluate_type(symbol_table, []Token{code[0].children[0]})
-				if len(parent_type)==0 {
-					return make([]string, 0)
+				parent_type:=make([]string, 0)
+				if depth==0 {
+					parent_type=evaluate_type(symbol_table, []Token{code[0].children[0]}, 0)
+					if len(parent_type)==0 {
+						return make([]string, 0)
+					}
+				} else {
+					parent_type=[]string{code[0].children[0].string_value}
 				}
 				if len(parent_type)==1 && struct_index_in_symbol_table(parent_type[0], symbol_table)!=-1 {
 					struct_index:=struct_index_in_symbol_table(parent_type[0], symbol_table)
-					return symbol_table.structs[struct_index].fields[code[0].children[1].string_value]
+					res:=symbol_table.structs[struct_index].fields[code[0].children[1].string_value]
+					if len(res)==0 {
+						return make([]string, 0)
+					}
+					if len(code[0].children)>2 {
+						if struct_index_in_symbol_table(res[0], symbol_table)==-1 {
+							return make([]string, 0)
+						}
+						code[0].children[1]=Token{string_value: res[0]}
+						code_:=code
+						code_[0].children=code[0].children[1:]
+						return evaluate_type(symbol_table, code_, 1)
+					} else {
+						if depth==0 {
+							return res
+						} else {
+							return res
+						}
+					}
+					return make([]string, 0)
 				}
 				return make([]string, 0)
 			}
 			if code[0].Type=="funcall" {
-				function_index:=function_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
-				if function_index==-1 {
-					return make([]string, 0)
+				if code[0].children[0].Type=="variable" {
+					function_index:=function_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
+					if function_index==-1 {
+						return make([]string, 0)
+					}
+					if are_function_arguments_valid(code[0].children[1], symbol_table.functions[function_index], symbol_table) {
+						return symbol_table.functions[function_index].Type
+					}
 				}
-				if are_function_arguments_valid(code[0].children[1], symbol_table.functions[function_index], symbol_table) {
-					return symbol_table.functions[function_index].Type
+				if code[0].children[0].Type=="nested_tokens" {
+					code_:=code[0].children[0]
+					code_.children=code_.children[:len(code[0].children[0].children)-1]
+					parent_type:=evaluate_type(symbol_table, []Token{code_}, 0)
+					if len(parent_type)==0 {
+						return make([]string, 0)
+					}
+					function_name:=code[0].children[0].children[len(code[0].children[0].children)-1].string_value
+					arguments:=code[0].children[1]
+					switch function_name {
+					case "replace":
+						if !string_arr_compare(parent_type, []string{"string"}) {
+							return make([]string, 0)
+						}
+						if !are_function_arguments_valid(arguments, Function{args: [][]string{
+							[]string{"string"}, 
+							[]string{"string"},
+							}}, symbol_table) {
+							return make([]string, 0)
+						}
+						return []string{"string"}
+					case "includes":
+						if !string_arr_compare(parent_type, []string{"string"}) {
+							return make([]string, 0)
+						}
+						if !are_function_arguments_valid(arguments, Function{args: [][]string{
+							[]string{"string"}, 
+							[]string{"string"},
+							}}, symbol_table) {
+							return make([]string, 0)
+						}
+						return []string{"number"}
+					case "index":
+						if !string_arr_compare(parent_type, []string{"string"}) {
+							return make([]string, 0)
+						}
+						if !are_function_arguments_valid(arguments, Function{args: [][]string{
+							[]string{"string"}, 
+							[]string{"string"},
+							}}, symbol_table) {
+							return make([]string, 0)
+						}
+						return []string{"number"}
+					case "split":
+						if !string_arr_compare(parent_type, []string{"string"}) {
+							return make([]string, 0)
+						}
+						if !are_function_arguments_valid(arguments, Function{args: [][]string{
+							[]string{"string"}, 
+							[]string{"string"},
+							}}, symbol_table) {
+							return make([]string, 0)
+						}
+						return []string{"[","string","]"}
+					}
 				}
 				return make([]string, 0)
 			}
@@ -752,9 +874,9 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 				}
 				lhs:=current_type
 				if string_arr_compare(make([]string, 0), current_type) {
-					lhs=evaluate_type(symbol_table, []Token{code[i]})
+					lhs=evaluate_type(symbol_table, []Token{code[i]}, 0)
 				}
-				rhs:=evaluate_type(symbol_table, []Token{code[i+2]})
+				rhs:=evaluate_type(symbol_table, []Token{code[i+2]}, 0)
 				if string_arr_compare(lhs, make([]string, 0)) {
 					return make([]string, 0)
 				}
@@ -810,7 +932,7 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 			}
 		}
 	} else {
-		fmt.Println("invalid statement", code)
+		fmt.Println("invalid statement", code, len(code))
 		return make([]string, 0)
 	}
 	return current_type
@@ -819,6 +941,7 @@ func evaluate_type(symbol_table Symbol_Table, code []Token) ([]string) {
 func compiler(symbol_table Symbol_Table, function_name string, depth int, code []Token) (string, Symbol_Table) {
 	if depth==0 {
 		for i := 0; i < len(symbol_table.functions); i++ {
+			symbol_table.functions[i].Code=nested_puller(symbol_table.functions[i].Code)
 			err,symbol_table:=compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0))
 			if symbol_table.operations[function_name]==nil {
 				symbol_table.operations[function_name]=make([][]string, 0)
@@ -848,8 +971,8 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				if err!=0 {
 					return "unexpected end of statement", symbol_table
 				}
-				lhs:=evaluate_type(symbol_table, []Token{code[i-2]})
-				rhs:=evaluate_type(symbol_table, tokens)
+				lhs:=evaluate_type(symbol_table, []Token{code[i-2]}, 0)
+				rhs:=evaluate_type(symbol_table, tokens, 0)
 				if string_arr_compare(lhs, []string{}) {
 					return "invalid type on lhs", symbol_table
 				}
@@ -863,7 +986,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				continue
 			}
 			if (code[i].Type=="branch") {
-				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children), []string{"num"}) {
+				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
 					return "branch condition is invalid", Symbol_Table{}
 				}
 				err,st:=compiler(symbol_table, "", depth+1, code[i].children[1].children)
@@ -874,7 +997,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				continue
 			}
 			if (code[i].Type=="while") {
-				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children), []string{"num"}) {
+				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
 					return "branch condition for while is invalid", Symbol_Table{}
 				}
 				err,st:=compiler(symbol_table, "", depth+1, code[i].children[1].children)
