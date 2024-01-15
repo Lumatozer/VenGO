@@ -519,6 +519,19 @@ func struct_index_in_symbol_table(struct_name string, symbol_table Symbol_Table)
 	return -1
 }
 
+func calculate_i_skip(code []Token) int {
+	total:=0
+	for i := 0; i < len(code); i++ {
+		if code[i].Type=="branch" || code[i].Type=="while" {
+			total+=4
+			total+=calculate_i_skip(code[i].children[1].children)
+		} else {
+			total+=1
+		}
+	}
+	return total
+}
+
 func branch_parser(code []Token) (string, []Token) {
 	parsed_tokens:=make([]Token, 0)
 	for i := 0; i < len(code); i++ {
@@ -536,7 +549,7 @@ func branch_parser(code []Token) (string, []Token) {
 				return errstring, make([]Token, 0)
 			}
 			parsed_tokens=append(parsed_tokens, Token{Type: "branch", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
-			i+=3+len(tokens)
+			i+=3+calculate_i_skip(tokens)
 			continue
 		}
 		if code[i].Type=="sys" && code[i].string_value=="while" && (len(code)-i)>=4 {
@@ -553,7 +566,7 @@ func branch_parser(code []Token) (string, []Token) {
 				return errstring, make([]Token, 0)
 			}
 			parsed_tokens=append(parsed_tokens, Token{Type: "while", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
-			i+=3+len(tokens)
+			i+=3+calculate_i_skip(tokens)
 			continue
 		}
 		parsed_tokens = append(parsed_tokens, code[i])
@@ -568,17 +581,17 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 		if depth==0 {
 			if code[i].Type=="sys" && code[i].string_value=="struct" && len(code)>i+2 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type=="bracket_open" && code[i+2].string_value=="{" {
 				if !variable_doesnot_exist(symbol_table ,code[i+1].string_value) {
-					return "error", Symbol_Table{}
+					return "error", symbol_table
 				}
 				i++
 				i++
 				tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
 				if err!=0 {
-					return "error", Symbol_Table{}
+					return "error", symbol_table
 				}
 				tokens=tokens[1:len(tokens)-1]
 				if len(tokens)%2!=0 {
-					return "error", Symbol_Table{}
+					return "error", symbol_table
 				}
 				Struct_Variables:=make(map[string][]string)
 				for index:=0; int64(index) < int64(len(tokens))-1; index+=2 {
@@ -586,7 +599,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 					if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && valid_type(variable_type, symbol_table) {
 						Struct_Variables[tokens[index].string_value]=variable_type
 					} else {
-						return "struct_error", Symbol_Table{}
+						return "struct_error", symbol_table
 					}
 				}
 				symbol_table.structs = append(symbol_table.structs, Struct{name: code[i-1].string_value, fields: Struct_Variables})
@@ -597,24 +610,24 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 				function_name:=code[i+1].children[0].string_value
 				function_arguments:=make([][]string, 0)
 				if len(code[i+1].children[1].children)%2!=0 {
-					return "function_error", Symbol_Table{}
+					return "function_error", symbol_table
 				}
 				if !valid_var_name(code[i+1].children[0].string_value) {
-					return "function_error_identifier", Symbol_Table{}
+					return "function_error_identifier", symbol_table
 				}
 				i++
 				i++
 				for index:=0; index<len(code[i-1].children[1].children); index+=2 {
 					function_arguments=append(function_arguments, type_token_to_string_array(code[i-1].children[1].children[index+1]))
 					if !valid_type(function_arguments[len(function_arguments)-1], symbol_table) {
-						return "invalid function argument definition", Symbol_Table{}
+						return "invalid function argument definition", symbol_table
 					}
 				}
 				function_type:=make([]string, 0)
 				if code[i].Type=="type" {
 					function_type=type_token_to_string_array(code[i])
 					if !valid_type(function_type, symbol_table) {
-						return "function_return_type_is_invalid", Symbol_Table{}
+						return "function_return_type_is_invalid", symbol_table
 					}
 				}
 				if code[i].Type=="type" {
@@ -622,12 +635,12 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 				}
 				tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
 				if err!=0 {
-					return "error", Symbol_Table{}
+					return "error", symbol_table
 				}
 				to_ignore:=len(tokens[1:len(tokens)-1])
 				err_,tokens:=branch_parser(tokens[1:len(tokens)-1])
 				if err_!="" {
-					return "error", Symbol_Table{}
+					return "error", symbol_table
 				}
 				symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: function_name, Type: function_type, Code: tokens})
 				symbol_table.data = append(symbol_table.data, function_name)
@@ -1063,23 +1076,23 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 			}
 			if (code[i].Type=="branch") {
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
-					return "branch condition is invalid", Symbol_Table{}
+					return "branch condition is invalid", symbol_table
 				}
 				err,st:=compiler(symbol_table, "", depth+1, code[i].children[1].children)
 				symbol_table=st
 				if err!="" {
-					return err, Symbol_Table{}
+					return err, symbol_table
 				}
 				continue
 			}
 			if (code[i].Type=="while") {
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
-					return "branch condition for while is invalid", Symbol_Table{}
+					return "branch condition for while is invalid", symbol_table
 				}
 				err,st:=compiler(symbol_table, "", depth+1, code[i].children[1].children)
 				symbol_table=st
 				if err!="" {
-					return err, Symbol_Table{}
+					return err, symbol_table
 				}
 				continue
 			}
