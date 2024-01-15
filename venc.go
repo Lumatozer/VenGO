@@ -214,11 +214,11 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 	parsed_tokens:=make([]Token,0)
 	for i := 0; i < len(code); i++ {
 		current_token:=code[i]
-		if len(code)>i+1 && (current_token.Type=="variable" && valid_var_name(current_token.string_value)) && code[i+1].Type=="dot" {
+		if len(code)>i+1 && code[i+1].Type=="dot" {
 			nested_variables:=make([]Token,0)
 			first:=true
 			for {
-				if len(code)>i+1 && (current_token.Type=="variable" && valid_var_name(current_token.string_value)) && (!first || code[i+1].Type=="dot") { 
+				if len(code)>i+1 && (!first || code[i+1].Type=="dot") { 
 					if !first {
 						if code[i-1].Type!="dot" {
 							break
