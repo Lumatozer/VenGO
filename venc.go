@@ -1053,7 +1053,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				i+=3
 				continue
 			}
-			if (len(code)-i)>=4 && (code[i].Type=="lookup" || code[i].Type=="variable" || code[i].Type=="nested_tokens") && code[i+1].Type=="operator" && code[i+1].string_value=="=" {
+			if (len(code)-i)>=4 && (code[i].Type=="lookup" || code[i].Type=="variable" || code[i].Type=="nested_tokens") && code[i+1].Type=="operator" && strings.Contains(code[i+1].string_value, "=") {
 				i++
 				i++
 				tokens,err:=get_current_statement_tokens(code[i:])
