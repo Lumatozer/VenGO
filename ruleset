@@ -53,3 +53,7 @@
 53 str_to_num                         # Converts str a to num b and stores error in c
 54 str.length                         # Gets the length of str a and stores the length in b
 55 debug.print                        # Prints string a to console when debug is enabled
+56 register_struct                    # Register a custom struct by passing in a number as the index of a data constant formatted as x->some_type;y->some_other_type. Each field to be separated by ;
+57 struct.init                        # Create the struct variable a of struct index b
+58 struct.set                         # Set struct a's field b (data constant index) to c
+59 struct.pull                        # Get struct a's field b (data constant index) into c

@@ -7,9 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"fmt"
+	"reflect"
 )
 
 var Debug bool = false;
+var registered_structs = map[string][]string{"structs":[]string{"num","string"}}
 
 func contains_float64(a float64, list []float64) map[string]int {
 	res := make(map[string]int)
@@ -103,17 +105,23 @@ func recursive_VI_Object_match(obj1 VI_Object, obj2 VI_Object) bool {
 		if len(obj1.children)!=len(obj2.children) {
 			return false
 		}
-		for i := 0; i < len(obj1.dict_keys); i++ {
-			if (obj1.dict_keys[i]!=obj2.dict_keys[i]) {
-				return false
+		if obj_type=="dict" {
+			for i := 0; i < len(obj1.dict_keys); i++ {
+				key_index:=str_index_in_arr(obj1.dict_keys[i], obj2.dict_keys)
+				if key_index==-1 || !recursive_VI_Object_match(obj1.children[i],obj2.children[key_index]) {
+					return false
+				}
 			}
-		}
-		for i := 0; i < len(obj1.children); i++ {
-			if (!recursive_VI_Object_match(obj1.children[i],obj2.children[i])) {
-				return false
+		} else {
+			for i := 0; i < len(obj1.children); i++ {
+				if (!recursive_VI_Object_match(obj1.children[i],obj2.children[i])) {
+					return false
+				}
 			}
 		}
 		return true
+	default:
+		return reflect.DeepEqual(obj1._struct, obj2._struct)
 	}
 	return true
 }
@@ -165,6 +173,7 @@ type VI_Object struct {
 	children    []VI_Object
 	dict_keys   []string
 	scope       int
+	_struct     map[string]VI_Object
 }
 
 func (object *VI_Object) fill_defaults() {}
@@ -252,12 +261,16 @@ func obj_supports_type(arr_type []string, obj_type []string) bool {
 }
 
 func type_evaluator(obj_type []string) bool {
-	if obj_type[len(obj_type)-1] != "string" && obj_type[len(obj_type)-1] != "num" {
+	if len(obj_type)==0 {
+		return false
+	}
+	if str_index_in_arr(obj_type[len(obj_type)-1], registered_structs["structs"])==-1 {
 		return false
 	}
 	check_arr := remove_string_from_index(obj_type, len(obj_type)-1)
 	for i := 0; i < len(check_arr); i++ {
-		if check_arr[i] == "string" || check_arr[i] == "num" {
+		if check_arr[i] != "dict" && check_arr[i] != "arr" {
+			fmt.Println("uhuh")
 			return false
 		}
 	}
@@ -274,6 +287,19 @@ func Debug_printf(a ...any) {
 	if Debug {
 		fmt.Print(a...)
 	}
+}
+
+func spawn_struct_default(var_name string, object_type string) VI_Object {
+	struct_default:=VI_Object{var_name: var_name, object_type: []string{object_type}, _struct: map[string]VI_Object{}}
+	for _,value:=range registered_structs[object_type] {
+		raw_type:=strings.Split(strings.Split(value, "->")[1], ",")
+		if str_index_in_arr(raw_type[0], []string{"arr","dict","string","num"})==-1 && len(raw_type)==1 {
+			struct_default._struct[strings.Split(value, "->")[0]]=spawn_struct_default(strings.Split(value, "->")[0], raw_type[0])
+		} else {
+			struct_default._struct[strings.Split(value, "->")[0]]=VI_Object{var_name: strings.Split(value, "->")[0], object_type: raw_type}
+		}
+	}
+	return struct_default
 }
 
 func Vengine(code string, debug bool) int64 {
@@ -1351,6 +1377,171 @@ func Vengine(code string, debug bool) int64 {
 			}
 			current_byte_code = append(current_byte_code, 55, str1_var["index"])
 			byte_code = append(byte_code, current_byte_code)
+		case "register_struct":
+			if len(args) != 2 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			floatnum, err := strconv.ParseFloat(args[1], 64)
+			num:=uint(int(floatnum))
+			if err != nil {
+				Debug_print(err)
+				return current_gas
+			}
+			if len(string_consts)<int(num) {
+				Debug_print("Data index not found", len(string_consts), num)
+				return current_gas
+			}
+			if str_index_in_arr(args[0], registered_structs["structs"])!=-1 {
+				Debug_print("Cannot reassign a struct twice")
+				return current_gas
+			}
+			registered_structs[args[0]]=make([]string, 0)
+			for _,definition:=range strings.Split(string_consts[num], ";") {
+				if !valid_var_name(strings.Split(definition, "->")[0]) {
+					Debug_print("Invalid struct field name")
+					return current_gas
+				}
+				if !type_evaluator(strings.Split(strings.Split(definition, "->")[1], ",")) {
+					Debug_print("Invalid struct type",strings.Split(strings.Split(definition, "->")[1], ","))
+					return current_gas
+				}
+				registered_structs[args[0]] = append(registered_structs[args[0]], definition)
+			}
+			registered_structs["structs"] = append(registered_structs["structs"], args[0])
+		case "struct.init":
+			if len(args) != 2 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			floatnum, err := strconv.ParseFloat(args[1], 64)
+			num:=uint(int(floatnum))
+			if err != nil {
+				Debug_print(err)
+				return current_gas
+			}
+			if len(string_consts)<int(num) {
+				Debug_print("Data index not found", len(string_consts), num)
+				return current_gas
+			}
+			args[1]=string_consts[num]
+			if str_index_in_arr(args[1], registered_structs["structs"])==-1 {
+				Debug_print("Struct does not exist", registered_structs["structs"])
+				return current_gas
+			}
+			index := plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: []string{args[1]}}, arr_constants, "var_name")
+			if index["error"] == 1 {
+				Debug_print("Data types did not match")
+				return current_gas
+			}
+			struct_default := spawn_struct_default(args[0], args[1])
+			if index["result"] == 0 {
+				index["index"] = len(arr_constants)
+				arr_constants = append(arr_constants, struct_default)
+			}
+			res := plain_in_arr_VI_Object(struct_default, symbol_table, "var_name")
+			if res["error"] == 1 {
+				Debug_print("Data types did not match")
+				return current_gas
+			}
+			if res["result"] == 0 {
+				symbol_table = append(symbol_table, struct_default)
+				res["index"] = len(symbol_table) - 1
+			}
+			current_byte_code = append(current_byte_code, 57, res["index"], int(num))
+			byte_code = append(byte_code, current_byte_code)
+		case "struct.set":
+			if len(args) != 3 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			floatnum, err := strconv.ParseFloat(args[1], 64)
+			num:=uint(int(floatnum))
+			if err != nil {
+				Debug_print(err)
+				return current_gas
+			}
+			if len(string_consts)<int(num) {
+				Debug_print("Data index not found", len(string_consts), num)
+				return current_gas
+			}
+			args[1]=string_consts[num]
+			struct_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
+			if struct_var["result"] == 0 {
+				Debug_print("Variable", args[0], "of type array has not been initialised yet")
+				return current_gas
+			}
+			if len(symbol_table[struct_var["index"]].object_type)!=1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], registered_structs["structs"])==-1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], []string{"num","string"})!=-1 {
+				Debug_print("Invalid struct variable", )
+				return current_gas
+			}
+			struct_field_type:=make([]string, 0)
+			for _,value:=range registered_structs[symbol_table[struct_var["index"]].object_type[0]] {
+				if strings.Split(value, "->")[0]==args[1] {
+					struct_field_type=strings.Split(strings.Split(value, "->")[1], ",")
+				}
+			}
+			if len(struct_field_type)==0 {
+				Debug_print("Field does not exist")
+				return current_gas
+			}
+			push_var := plain_in_arr_VI_Object(VI_Object{var_name: args[2]}, symbol_table, "var_name")
+			if push_var["result"] == 0 {
+				Debug_print("Variable", args[2], "has not been initialised yet")
+				return current_gas
+			}
+			if !string_arr_compare(struct_field_type, symbol_table[push_var["index"]].object_type) {
+				Debug_print("Object type is not supported by struct", args[0])
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 58, struct_var["index"], int(num), push_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "struct.pull":
+			if len(args) != 3 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			floatnum, err := strconv.ParseFloat(args[1], 64)
+			num:=uint(int(floatnum))
+			if err != nil {
+				Debug_print(err)
+				return current_gas
+			}
+			if len(string_consts)<int(num) {
+				Debug_print("Data index not found", len(string_consts), num)
+				return current_gas
+			}
+			args[1]=string_consts[num]
+			struct_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
+			if struct_var["result"] == 0 {
+				Debug_print("Variable", args[0], "of type array has not been initialised yet")
+				return current_gas
+			}
+			if len(symbol_table[struct_var["index"]].object_type)!=1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], registered_structs["structs"])==-1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], []string{"num","string"})!=-1 {
+				Debug_print("Invalid struct variable", )
+				return current_gas
+			}
+			struct_field_type:=make([]string, 0)
+			for _,value:=range registered_structs[symbol_table[struct_var["index"]].object_type[0]] {
+				if strings.Split(value, "->")[0]==args[1] {
+					struct_field_type=strings.Split(strings.Split(value, "->")[1], ",")
+				}
+			}
+			if len(struct_field_type)==0 {
+				Debug_print("Field does not exist")
+				return current_gas
+			}
+			push_var := plain_in_arr_VI_Object(VI_Object{var_name: args[2]}, symbol_table, "var_name")
+			if push_var["result"] == 0 {
+				Debug_print("Variable", args[2], "has not been initialised yet")
+				return current_gas
+			}
+			if !string_arr_compare(struct_field_type, symbol_table[push_var["index"]].object_type) {
+				Debug_print("Object type is not supported by struct", args[0])
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 59, struct_var["index"], int(num), push_var["index"])
+			byte_code = append(byte_code, current_byte_code)
 		}
 	}
 	Debug_print(byte_code)
@@ -1574,6 +1765,16 @@ func Vengine(code string, debug bool) int64 {
 			symbol_table[current_byte_code[2]].num_value = float64(len(symbol_table[current_byte_code[1]].str_value))
 		case 55:
 			Debug_printf(symbol_table[current_byte_code[1]].str_value)
+		case 57:
+			current_var_name:=symbol_table[current_byte_code[1]].var_name
+			symbol_table[current_byte_code[1]]=spawn_struct_default("", string_consts[current_byte_code[2]])
+			symbol_table[current_byte_code[1]].var_name=current_var_name
+		case 58:
+			symbol_table[current_byte_code[1]]._struct[string_consts[current_byte_code[2]]]=symbol_table[current_byte_code[3]]
+		case 59:
+			current_var_name:=symbol_table[current_byte_code[3]].var_name
+			symbol_table[current_byte_code[3]]=symbol_table[current_byte_code[1]]._struct[string_consts[current_byte_code[2]]]
+			symbol_table[current_byte_code[3]].var_name=current_var_name
 		}
 	}
 	global_table[scope_count] = symbol_table

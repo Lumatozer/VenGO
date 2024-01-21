@@ -1007,14 +1007,6 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 					if !string_arr_compare(lhs, rhs) {
 						return make([]string, 0)
 					}
-					if string_arr_compare(rhs,[]string{"string"}) {
-						current_type=lhs
-						continue
-					}
-					if string_arr_compare(rhs,[]string{"num"}) {
-						current_type=lhs
-						continue
-					}
 					return make([]string, 0)
 				}
 			}
@@ -1026,19 +1018,28 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 	return current_type
 }
 
+func string_array_types_to_vitality_types(types []string)  {
+	output:=make([]string, 0)
+	if types[0]=="[" {
+		output = append(output, "arr")
+	}
+}
+
 func compiler(symbol_table Symbol_Table, function_name string, depth int, code []Token) (string, Symbol_Table) {
 	if depth==0 {
+		fmt.Println(symbol_table)
 		for i := 0; i < len(symbol_table.functions); i++ {
 			symbol_table.functions[i].Code=nested_puller(symbol_table.functions[i].Code)
-			fmt.Println(symbol_table)
-			err,symbol_table:=compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0))
 			if symbol_table.operations[function_name]==nil {
 				symbol_table.operations[function_name]=make([][]string, 0)
 			}
+			err,returned_symbol_table:=compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0))
+			symbol_table=returned_symbol_table
 			if err!="" {
 				return err, symbol_table
 			}
 		}
+		return "", symbol_table
 	}
 	if depth>0 {
 		if len(function_name)!=0 {
@@ -1048,7 +1049,24 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 			if code[i].Type=="sys" && code[i].string_value=="var" && (len(code)-i)>=4 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type=="EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
 				symbol_table.variable_mapping[code[i+1].string_value]=Variable{name: function_name+"-"+code[i+1].string_value, Type: type_token_to_string_array(code[i+2])}
-				
+				variable_type:=type_token_to_string_array(code[i+2])
+				if variable_type[0]=="[" {
+					
+				} else if variable_type[0]=="{" {
+					
+				} else {
+					if variable_type[0]=="string" {
+						string_index:=str_index_in_arr("", symbol_table.data)
+						if string_index==-1 {
+							symbol_table.data = append(symbol_table.data, "")
+							string_index=len(symbol_table.data)-1
+						}
+						symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"str.set", code[i+1].string_value, strconv.FormatInt(int64(string_index), 10)})
+					} else if variable_type[0]=="num" {
+						symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"set", code[i+1].string_value, "0"})
+					}
+				}
+				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
 				// you need to add the compiler
 				i+=3
 				continue
@@ -1129,6 +1147,14 @@ func build(tokens []Token, depth int) string {
 	}
 	result:=""
 	err,final_symbol_table:=compiler(symbol_table, "main", 0, make([]Token, 0))
+	fmt.Println(final_symbol_table.data, "out")
+	symbol_table=final_symbol_table
+	for function:=range symbol_table.operations {
+		result+="define.jump "+strconv.FormatInt(int64(str_index_in_arr(function, symbol_table.data)), 10)+"\n"
+		for _,operations:=range symbol_table.operations[function] {
+			result+=operations[0]+" "+strings.Join(operations[1:], ",")+"\n"
+		}
+	}
 	if err!="" {
 		return "Error: "+err
 	}
