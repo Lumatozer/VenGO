@@ -23,7 +23,7 @@ func main() {
 		return
 	}
 	code:=string(dat)
-	if (true) {
+	if (false) {
 		fmt.Println(Vengine(code,true))
 	} else {
 		// // fmt.Println(tokensier(code,true))
@@ -35,5 +35,6 @@ func main() {
 		build_output:=build(tokens_, 0)
 		fmt.Println("OUTPUT:")
 		fmt.Println(build_output)
+		Vengine(build_output, true)
 	}
 }
