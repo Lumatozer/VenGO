@@ -51,6 +51,7 @@ type Symbol_Table struct {
 	current_scope       Scope
 	files				map[string]Symbol_Table
 	current_file		string
+	struct_registration [][]string
 }
 
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function", "as", "import"}
@@ -627,7 +628,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 					symbol_table.data = append(symbol_table.data, strings.Join(fields_converted, ";"))
 					data_index=len(symbol_table.data)-1
 				}
-				symbol_table.operations["main"] = append(symbol_table.operations["main"], []string{"register_struct", code[i-1].string_value, strconv.FormatInt(int64(data_index), 10)})
+				symbol_table.struct_registration = append(symbol_table.struct_registration, []string{"register_struct", code[i-1].string_value, strconv.FormatInt(int64(data_index), 10)})
 				symbol_table.structs = append(symbol_table.structs, Struct{name: code[i-1].string_value, fields: Struct_Variables})
 				i+=len(tokens)+1
 				continue
