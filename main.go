@@ -32,7 +32,9 @@ func main() {
 		tokens_, _=token_grouper(tokens_, true)
 		// fmt.Println(tokens_, len(tokens_))
 		fmt.Println("Processing:")
-		build_output:=build(tokens_, 0)
+		symbol_table:=Symbol_Table{operations: make(map[string][][]string), used_variables: make(map[string][]int), variable_mapping: make(map[string]string), files: make(map[string]Symbol_Table), current_file: "alu.vi"}
+		symbol_table.files[symbol_table.current_file]=symbol_table
+		build_output,_:=build(symbol_table, tokens_, 0)
 		fmt.Println("OUTPUT:")
 		fmt.Println(build_output)
 		Vengine(build_output, true)

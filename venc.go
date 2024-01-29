@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -32,17 +34,26 @@ type Variable struct {
 	Type 		[]string
 }
 
+type Scope struct {
+	looping     			  bool
+	current_loop_jump_line    int64
+	current_return_jump_line  int64
+}
+// add scope
 type Symbol_Table struct {
 	functions 			[]Function
 	structs   			[]Struct
 	variables			[]Variable
 	data				[]string
 	operations			map[string][][]string
-	used_variables		map[string]int
-	variable_mapping	map[string]Variable
+	used_variables		map[string][]int
+	variable_mapping	map[string]string
+	current_scope       Scope
+	files				map[string]Symbol_Table
+	current_file		string
 }
 
-var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function"}
+var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function", "as", "import"}
 var type_tokens = []string{"string", "num"}
 var operators = []string{"+","-","*","/","^",">","<","=","&","!","|","%"}
 var end_of_statements = []string{";"}
@@ -664,8 +675,26 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 			}
 			if code[i].Type=="sys" && code[i].string_value=="var" && (len(code)-i)>=4 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type=="EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
-				symbol_table.variable_mapping[code[i+1].string_value]=Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])}
 				i+=3
+				continue
+			}
+			if code[i].Type=="sys" && code[i].string_value=="import" && (len(code)-i)>=4 && code[i+1].Type=="string" && code[i+2].Type=="sys" && code[i+2].string_value=="as" && code[i+3].Type=="variable" && valid_var_name(code[i+3].string_value) && code[i+4].Type=="EOS" {
+				code_in_bytes,err:=os.ReadFile(code[i+1].string_value)
+				if err!=nil {
+					return err.Error(), symbol_table
+				}
+				tokens_, _:=tokens_parser(tokensier(string(code_in_bytes),true),true)
+				tokens_, _=token_grouper(tokens_, true)
+				new_symbol_table:=symbol_table
+				new_file_name:=code[i+1].string_value
+				if symbol_table.files[new_file_name].current_file!="" {
+					return "circular_import", symbol_table
+				}
+				new_symbol_table.files[new_file_name]=Symbol_Table{current_file: new_file_name}
+				_,new_file:=build(new_symbol_table, tokens_, 1)
+				symbol_table.files[code[i+3].string_value]=new_file
+				symbol_table.data = append(symbol_table.data, new_file.data...)
+				i+=4
 				continue
 			}
 		}
@@ -877,16 +906,12 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 				return make([]string, 0)
 			}
 			if code[0].Type=="funcall" {
-				fmt.Println("hi", code[0].children[0].Type=="variable")
 				if code[0].children[0].Type=="variable" {
 					function_index:=function_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
-					fmt.Println(function_index)
 					if function_index==-1 {
 						return make([]string, 0)
 					}
-					fmt.Println(are_function_arguments_valid(code[0].children[1], symbol_table.functions[function_index], symbol_table) )
 					if are_function_arguments_valid(code[0].children[1], symbol_table.functions[function_index], symbol_table) {
-						fmt.Println("hi")
 						return symbol_table.functions[function_index].Type
 					}
 				}
@@ -900,75 +925,9 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 					if len(parent_type)==0 {
 						return make([]string, 0)
 					}
-					function_name:=code[0].children[0].children[len(code[0].children[0].children)-1].string_value
-					arguments:=code[0].children[1]
-					switch function_name {
-					case "replace":
-						if !string_arr_compare(parent_type, []string{"string"}) {
-							return make([]string, 0)
-						}
-						if !are_function_arguments_valid(arguments, Function{args: [][]string{
-							[]string{"string"}, 
-							[]string{"string"},
-							}}, symbol_table) {
-							return make([]string, 0)
-						}
-						return []string{"string"}
-					case "includes":
-						if !string_arr_compare(parent_type, []string{"string"}) {
-							return make([]string, 0)
-						}
-						if !are_function_arguments_valid(arguments, Function{args: [][]string{
-							[]string{"string"}, 
-							[]string{"string"},
-							}}, symbol_table) {
-							return make([]string, 0)
-						}
-						return []string{"number"}
-					case "index":
-						if !string_arr_compare(parent_type, []string{"string"}) {
-							return make([]string, 0)
-						}
-						if !are_function_arguments_valid(arguments, Function{args: [][]string{
-							[]string{"string"}, 
-							[]string{"string"},
-							}}, symbol_table) {
-							return make([]string, 0)
-						}
-						return []string{"number"}
-					case "split":
-						if !string_arr_compare(parent_type, []string{"string"}) {
-							return make([]string, 0)
-						}
-						if !are_function_arguments_valid(arguments, Function{args: [][]string{
-							[]string{"string"},
-							}}, symbol_table) {
-							return make([]string, 0)
-						}
-						return []string{"[","string","]"}
-					case "string":
-						if !string_arr_compare(parent_type, []string{"num"}) {
-							return make([]string, 0)
-						}
-						if len(arguments.children)!=0 {
-							return make([]string, 0)
-						}
-						return []string{"string"}
-					case "num":
-						if !string_arr_compare(parent_type, []string{"string"}) {
-							return make([]string, 0)
-						}
-						if len(arguments.children)!=1 {
-							return make([]string, 0)
-						}
-						if arguments.children[0].Type!="variable" || variable_index_in_symbol_table(arguments.children[0].string_value, symbol_table)==-1 {
-							return make([]string, 0)
-						}
-						if !string_arr_compare(symbol_table.variables[variable_index_in_symbol_table(arguments.children[0].string_value, symbol_table)].Type, []string{"num"}) {
-							return make([]string, 0)
-						}
-						return []string{"num"}
-					}
+					// function_name:=code[0].children[0].children[len(code[0].children[0].children)-1].string_value
+					// arguments:=code[0].children[1]
+					// add import function calls
 				}
 				return make([]string, 0)
 			}
@@ -1055,13 +1014,127 @@ func string_array_types_to_vitality_types(types []string) []string  {
 	return output
 }
 
+func get_variable(Type []string, symbol_table Symbol_Table) (string, Symbol_Table) {
+	if symbol_table.variable_mapping[strings.Join(Type, "")]=="" {
+		unique_combinations:=len(symbol_table.variable_mapping)
+		power_of_52 := 0
+		for true {
+			if math.Pow(52, float64(power_of_52)) > float64(unique_combinations) {
+				break
+			} else {
+				power_of_52 += 1
+			}
+		}
+		if power_of_52!=0 {
+			power_of_52=power_of_52-1
+		}
+		output_variable:=strings.Repeat("Z", power_of_52)
+		output_variable+=string("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"[int(math.Mod(float64(unique_combinations), 52))])
+		symbol_table.variable_mapping[strings.Join(Type, "")]=output_variable
+	}
+	variable_count:=0
+	for (true) {
+		found:=false
+		for _,i:=range symbol_table.used_variables[symbol_table.variable_mapping[strings.Join(Type, "")]] {
+			if i==variable_count {
+				found=true
+				break
+			}
+		}
+		if found {
+			variable_count+=1
+			continue
+		} else {
+			symbol_table.used_variables[symbol_table.variable_mapping[strings.Join(Type, "")]] = append(symbol_table.used_variables[symbol_table.variable_mapping[strings.Join(Type, "")]], variable_count)
+			return symbol_table.variable_mapping[strings.Join(Type, "")]+"_"+strconv.FormatInt(int64(variable_count), 10), symbol_table
+		}
+	}
+	return "", symbol_table
+}
+
+func free_variable(name string, symbol_table Symbol_Table) Symbol_Table {
+	new_used_variable:=make([]int, 0)
+	variable_index_int64,_:=strconv.ParseInt(strings.Split(name, "_")[1], 10, 64)
+	variable_index:=int(variable_index_int64)
+	for _,i:=range symbol_table.used_variables[strings.Split(name, "_")[0]] {
+		if i!=variable_index {
+			new_used_variable=append(new_used_variable, i)
+		}
+	}
+	symbol_table.used_variables[strings.Split(name, "_")[0]]=new_used_variable
+	return symbol_table
+}
+
+func expression_solver(tokens []Token, function_name string, symbol_table Symbol_Table) (string, []string, Symbol_Table) {
+	resultant_variable:=""
+	used_variables:=make([]string, 0)
+	if len(tokens)==1 {
+		if tokens[0].Type=="num" {
+			resultant_variable, symbol_table=get_variable([]string{"num"}, symbol_table)
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", resultant_variable, strconv.FormatInt(int64(tokens[0].num_value), 10)})
+			used_variables = append(used_variables, resultant_variable)
+			return resultant_variable, used_variables, symbol_table
+		}
+		if tokens[0].Type=="string" {
+			resultant_variable, symbol_table=get_variable([]string{"string"}, symbol_table)
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", resultant_variable, strconv.FormatInt(int64(str_index_in_arr(tokens[0].string_value, symbol_table.data)), 10)})
+			used_variables = append(used_variables, resultant_variable)
+			return resultant_variable, used_variables, symbol_table
+		}
+		if tokens[0].Type=="variable" {
+			return tokens[0].string_value, used_variables, symbol_table
+		}
+		if tokens[0].Type=="expression" {
+			return expression_solver(tokens[0].children, function_name, symbol_table)
+		}
+		if tokens[0].Type=="array" {
+			array_variable, new_symbol_table:=get_variable(type_token_to_string_array(tokens[0].children[0]), symbol_table)
+			symbol_table=new_symbol_table
+			used_variables = append(used_variables, array_variable)
+			type_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(type_token_to_string_array(tokens[0].children[0]))[1:], ","), symbol_table.data)
+			if type_index==-1 {
+				symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(type_token_to_string_array(tokens[0].children[0]))[1:], ","))
+				type_index=len(symbol_table.data)-1
+			}
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init",array_variable,strconv.FormatInt(int64(type_index), 10)})
+			arguments:=make([][]Token,0)
+			cache:=make([]Token,0)
+			for i := 0; i < len(tokens[0].children[1].children); i++ {
+				if tokens[0].children[1].children[i].Type=="comma" {
+					arguments = append(arguments, cache)
+					cache=make([]Token, 0)
+				} else {
+					cache = append(cache, tokens[0].children[1].children[i])
+				}
+			}
+			if len(cache)!=0 {
+				arguments = append(arguments, cache)
+			}
+			array_children:=make([]string, 0)
+			for i := 0; i < len(arguments); i++ {
+				argument:=arguments[i]
+				new_resultant_variable, new_used_variables, new_symbol_table:=expression_solver(argument, function_name, symbol_table)
+				used_variables = append(used_variables, new_used_variables...)
+				array_children = append(array_children, new_resultant_variable)
+				symbol_table=new_symbol_table
+				symbol_table.operations[function_name] =  append(symbol_table.operations[function_name], []string{"arr.push",array_variable,new_resultant_variable})
+			}
+			return array_variable, used_variables, symbol_table
+		}
+	} else {
+
+	}
+	return resultant_variable, used_variables, symbol_table
+}
+
 func compiler(symbol_table Symbol_Table, function_name string, depth int, code []Token, in_loop bool) (string, Symbol_Table) {
+	new_symbol_table:=symbol_table
+	symbol_table=new_symbol_table // make a copy
 	if depth==0 {
-		fmt.Println(symbol_table)
 		for i := 0; i < len(symbol_table.functions); i++ {
 			symbol_table.functions[i].Code=nested_puller(symbol_table.functions[i].Code)
-			if symbol_table.operations[function_name]==nil {
-				symbol_table.operations[function_name]=make([][]string, 0)
+			if symbol_table.operations[symbol_table.functions[i].name]==nil {
+				symbol_table.operations[symbol_table.functions[i].name]=make([][]string, 0)
 			}
 			err,returned_symbol_table:=compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0), in_loop)
 			symbol_table=returned_symbol_table
@@ -1081,7 +1154,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 		for i := 0; i < len(code); i++ {
 			if code[i].Type=="sys" && code[i].string_value=="var" && (len(code)-i)>=4 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type=="EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
-				symbol_table.variable_mapping[code[i+1].string_value]=Variable{name: function_name+"-"+code[i+1].string_value, Type: type_token_to_string_array(code[i+2])}
 				variable_type:=type_token_to_string_array(code[i+2])
 				if variable_type[0]=="string" {
 					string_index:=str_index_in_arr("", symbol_table.data)
@@ -1098,14 +1170,12 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type)[1:], ","))
 						data_index=len(symbol_table.data)-1
 					}
-					symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"arr.init", code[i+1].string_value, strconv.FormatInt(int64(data_index), 10)})
 				} else if variable_type[0]=="{" {
 					data_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type)[1:], ","), symbol_table.data)
 					if data_index==-1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type)[1:], ","))
 						data_index=len(symbol_table.data)-1
 					}
-					symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"dict.init", code[i+1].string_value, strconv.FormatInt(int64(data_index), 10)})
 				} else if len(variable_type)==1 {
 					if struct_index_in_symbol_table(variable_type[0], symbol_table)==-1 {
 						return "Invalid variable initialisation", symbol_table
@@ -1126,6 +1196,10 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				}
 				lhs:=evaluate_type(symbol_table, []Token{code[i-2]}, 0)
 				rhs:=evaluate_type(symbol_table, tokens, 0)
+				resultant_variable:=""
+				used_variable:=make([]string,0)
+				resultant_variable,used_variable,symbol_table=expression_solver(tokens, function_name, symbol_table)
+				fmt.Println(resultant_variable, used_variable, symbol_table.data)
 				if string_arr_compare(lhs, []string{}) {
 					return "invalid type on lhs", symbol_table
 				}
@@ -1227,22 +1301,23 @@ func tokens_to_string_constants(tokens []Token) []string {
 	return out
 }
 
-func build(tokens []Token, depth int) string {
-	symbol_table:=Symbol_Table{operations: make(map[string][][]string), used_variables: make(map[string]int), variable_mapping: make(map[string]Variable)}
+func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol_Table) {
 	symbol_table.data = append(symbol_table.data, tokens_to_string_constants(tokens)...)
 	err,symbol_table:=pre_parser(symbol_table, tokens, 0)
 	if err!="" {
-		return "Error: "+err
+		return "Error: "+err, symbol_table
 	}
-	if !does_function_exist("main", symbol_table) {
-		return "Error: "+"main function does not exist"
-	}
-	main_function:=symbol_table.functions[function_index_in_symbol_table("main", symbol_table)]
-	if len(main_function.args)!=0 {
-		return "Error: "+"main function cant have arguments"
-	}
-	if len(main_function.Type)!=0 {
-		return "Error: "+"main function cannot have a type definition"
+	if depth==0 {
+		if !does_function_exist("main", symbol_table) {
+			return "Error: "+"main function does not exist", symbol_table
+		}
+		main_function:=symbol_table.functions[function_index_in_symbol_table("main", symbol_table)]
+		if len(main_function.args)!=0 {
+			return "Error: "+"main function cant have arguments", symbol_table
+		}
+		if len(main_function.Type)!=0 {
+			return "Error: "+"main function cannot have a type definition", symbol_table
+		}
 	}
 	result:=""
 	err,final_symbol_table:=compiler(symbol_table, "main", 0, make([]Token, 0), false)
@@ -1254,8 +1329,7 @@ func build(tokens []Token, depth int) string {
 		}
 	}
 	if err!="" {
-		return "Error: "+err
+		return "Error: "+err, symbol_table
 	}
-	fmt.Println(final_symbol_table)
-	return ".code\n"+result+".data\n"+data_encoder(symbol_table.data)
+	return ".code\n"+result+".data\n"+data_encoder(symbol_table.data), symbol_table
 }
