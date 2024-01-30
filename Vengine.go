@@ -212,6 +212,9 @@ func file_parser(dat string) map[string][]string {
 	data_constants := make([]string, 0)
 	for i := 0; i < len(data_lines); i++ {
 		current_line := strings.Trim(strings.Trim(strings.Trim(data_lines[i], "\r"), "	"), "	")
+		if mode=="code" {
+			current_line=strings.Split(current_line, "//")[0]
+		}
 		if current_line == "" {
 			continue
 		}
