@@ -1431,7 +1431,7 @@ func Vengine(code string, debug bool) int64 {
 			}
 			args[1]=string_consts[num]
 			if str_index_in_arr(args[1], registered_structs["structs"])==-1 {
-				Debug_print("Struct does not exist", registered_structs["structs"])
+				Debug_print("Struct does not exist", args[1], registered_structs["structs"])
 				return current_gas
 			}
 			index := plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: []string{args[1]}}, arr_constants, "var_name")

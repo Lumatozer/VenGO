@@ -55,6 +55,7 @@ type Symbol_Table struct {
 	finished_importing	bool
 	imported_libraries  map[string]string
 	global_variables	[][]string
+	struct_mapping		map[string]string
 }
 
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function", "as", "import"}
@@ -719,6 +720,8 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 					if struct_index_in_symbol_table(variable_type[0], symbol_table)==-1 {
 						return "Invalid variable initialisation", symbol_table
 					}
+					variable_type=type_struct_translator(variable_type, symbol_table)
+					symbol_table.data=append(symbol_table.data, variable_type[0])
 					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file+"-"+"struct"+"-"+code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
@@ -747,6 +750,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 					imported_libraries: make(map[string]string),
 					current_file: code[i+1].string_value,
 					global_variables: symbol_table.global_variables,
+					struct_mapping: make(map[string]string),
 				}
 				new_file_name:=code[i+1].string_value
 				debug_keys:=make([]string, 0)
@@ -777,6 +781,10 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 					}
 					symbol_table.global_variables = append(symbol_table.global_variables, new_file.global_variables...)
 					symbol_table.struct_registration = append(symbol_table.struct_registration, new_file.struct_registration...)
+					for _,struct_:=range new_file.structs {
+						struct_.name=new_file.current_file+"-struct-"+struct_.name
+						symbol_table.structs = append(symbol_table.structs, struct_)
+					}
 				}
 				i+=4
 				continue
@@ -1020,7 +1028,7 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 					}
 					function:=library_symbol_table.functions[function_index]
 					if are_function_arguments_valid(code[0].children[1], function, symbol_table) {
-						return function.Type
+						return type_struct_translator(function.Type, library_symbol_table)
 					}
 					// function_name:=code[0].children[0].children[len(code[0].children[0].children)-1].string_value
 					// arguments:=code[0].children[1]
@@ -1288,6 +1296,8 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 						return "Invalid variable initialisation", symbol_table
 					}
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
+					variable_type=type_struct_translator(variable_type, symbol_table)
+					symbol_table.data=append(symbol_table.data, variable_type[0])
 					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file+"-"+"struct"+"-"+symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 			}
@@ -1347,6 +1357,8 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					if struct_index_in_symbol_table(variable_type[0], symbol_table)==-1 {
 						return "Invalid variable initialisation", symbol_table
 					}
+					variable_type=type_struct_translator(variable_type, symbol_table)
+					symbol_table.data=append(symbol_table.data, variable_type[0])
 					symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file+"-"+"struct"+"-"+code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
@@ -1371,10 +1383,10 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				}
 				fmt.Println("result at", resultant_variable, tokens)
 				if string_arr_compare(lhs, []string{}) {
-					return "invalid type on lhs", symbol_table
+					return "invalid type on lhs:"+symbol_table.current_file, symbol_table
 				}
 				if string_arr_compare(rhs, []string{}) {
-					return "invalid type on rhs", symbol_table
+					return "invalid type on rhs:"+symbol_table.current_file, symbol_table
 				}
 				if !string_arr_compare(lhs, rhs) {
 					return "types on lhs and rhs do not match", symbol_table
