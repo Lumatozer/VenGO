@@ -1400,16 +1400,18 @@ func Vengine(code string, debug bool) int64 {
 				return current_gas
 			}
 			registered_structs[args[0]]=make([]string, 0)
-			for _,definition:=range strings.Split(string_consts[num], ";") {
-				if !valid_var_name(strings.Split(definition, "->")[0]) {
-					Debug_print("Invalid struct field name")
-					return current_gas
+			if string_consts[num]!="" {
+				for _,definition:=range strings.Split(string_consts[num], ";") {
+					if !valid_var_name(strings.Split(definition, "->")[0]) {
+						Debug_print("Invalid struct field name")
+						return current_gas
+					}
+					if !type_evaluator(strings.Split(strings.Split(definition, "->")[1], ",")) {
+						Debug_print("Invalid struct type",strings.Split(strings.Split(definition, "->")[1], ","))
+						return current_gas
+					}
+					registered_structs[args[0]] = append(registered_structs[args[0]], definition)
 				}
-				if !type_evaluator(strings.Split(strings.Split(definition, "->")[1], ",")) {
-					Debug_print("Invalid struct type",strings.Split(strings.Split(definition, "->")[1], ","))
-					return current_gas
-				}
-				registered_structs[args[0]] = append(registered_structs[args[0]], definition)
 			}
 			registered_structs["structs"] = append(registered_structs["structs"], args[0])
 		case "struct.init":

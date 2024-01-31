@@ -1,8 +1,0 @@
-import "x.vi" as yello;
-
-var b->string;
-
-function x()->string {
-    var a->string;
-    return a+b;
-}
