@@ -1,13 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"os"
 	"strconv"
 	"strings"
-	"encoding/json"
 )
 
 type Token struct {
@@ -79,39 +79,39 @@ var allowed_variable_character = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST
 var comments = []string{"#"}
 
 func unpack_token_struct(orig Serializable_Token) Token {
-	new_children:=make([]Token, 0)
-	for _,child:=range orig.Children {
+	new_children := make([]Token, 0)
+	for _, child := range orig.Children {
 		new_children = append(new_children, unpack_token_struct(child))
 	}
 	return Token{Type: orig.Type, string_value: orig.String_value, num_value: orig.Num_value, children: new_children}
 }
 
 func CloneMyStruct(orig Token) (Token, Serializable_Token, error) {
-	new_children:=make([]Serializable_Token, 0)
-	for _,child:=range orig.children {
-		_,new_child,_:=CloneMyStruct(child)
+	new_children := make([]Serializable_Token, 0)
+	for _, child := range orig.children {
+		_, new_child, _ := CloneMyStruct(child)
 		new_children = append(new_children, new_child)
 	}
-	new_keys:=make([]Serializable_Token, 0)
-	for _,key:=range orig.children {
-		_,new_key,_:=CloneMyStruct(key)
+	new_keys := make([]Serializable_Token, 0)
+	for _, key := range orig.children {
+		_, new_key, _ := CloneMyStruct(key)
 		new_keys = append(new_keys, new_key)
 	}
-	new_orig:=Serializable_Token{Type: (orig).Type, Children: new_children, String_value: (orig).string_value, Num_value: (orig).num_value, Keys: new_keys}
-    origJSON, err := json.Marshal(&new_orig)
-    if err != nil {
-        return Token{Type: "check clone my struct 1"}, Serializable_Token{Type: "check clone my struct 1"}, err
-    }
+	new_orig := Serializable_Token{Type: (orig).Type, Children: new_children, String_value: (orig).string_value, Num_value: (orig).num_value, Keys: new_keys}
+	origJSON, err := json.Marshal(&new_orig)
+	if err != nil {
+		return Token{Type: "check clone my struct 1"}, Serializable_Token{Type: "check clone my struct 1"}, err
+	}
 
-    clone := Serializable_Token{}
-    if err = json.Unmarshal(origJSON, &clone); err != nil {
-        return Token{Type: "check clone my struct 2"}, Serializable_Token{Type: "check clone my struct 2"}, err
-    }
-	new_unpacked_children:=make([]Token, 0)
-	for _,child:=range clone.Children {
+	clone := Serializable_Token{}
+	if err = json.Unmarshal(origJSON, &clone); err != nil {
+		return Token{Type: "check clone my struct 2"}, Serializable_Token{Type: "check clone my struct 2"}, err
+	}
+	new_unpacked_children := make([]Token, 0)
+	for _, child := range clone.Children {
 		new_unpacked_children = append(new_unpacked_children, unpack_token_struct(child))
 	}
-    return Token{Type: clone.Type, children: new_unpacked_children, string_value: clone.String_value, num_value: clone.Num_value}, clone, nil
+	return Token{Type: clone.Type, children: new_unpacked_children, string_value: clone.String_value, num_value: clone.Num_value}, clone, nil
 }
 
 func remove_token_at_index(i int, tokens []Token) []Token {
@@ -293,7 +293,7 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 					i++
 					first = false
 				} else {
-					if !first && !(len(code) > i+1) && current_token.Type == "variable" && valid_var_name(code[i].string_value) && code[i-1].string_value == "." {
+					if !first && current_token.Type == "variable" && valid_var_name(code[i].string_value) && code[i-1].Type == "dot" {
 						nested_variables = append(nested_variables, code[i])
 						i++
 					}
@@ -980,7 +980,6 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) []string 
 				if variable_index == -1 {
 					return make([]string, 0)
 				}
-				fmt.Println(symbol_table.variables[variable_index].Type)
 				return symbol_table.variables[variable_index].Type
 			}
 			if code[0].Type == "array" {
@@ -1017,9 +1016,8 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) []string 
 				if depth == 0 {
 					parent_type = evaluate_type(symbol_table, []Token{code[0].children[0]}, 0)
 					if len(parent_type) == 1 && strings.Contains(parent_type[0], "-struct-") && strings.Contains(parent_type[0], symbol_table.current_file) {
-						parent_type=[]string{strings.Split(parent_type[0], "-struct-")[1]}
+						parent_type = []string{strings.Split(parent_type[0], "-struct-")[1]}
 					}
-					fmt.Println(parent_type)
 					if len(parent_type) == 0 {
 						return make([]string, 0)
 					}
@@ -1028,7 +1026,6 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) []string 
 				}
 				if len(parent_type) == 1 && struct_index_in_symbol_table(parent_type[0], symbol_table) != -1 {
 					struct_index := struct_index_in_symbol_table(parent_type[0], symbol_table)
-					fmt.Println("IS THIS CORRECT?" ,symbol_table.structs[struct_index].fields, code[0].children[1].string_value)
 					res := symbol_table.structs[struct_index].fields[code[0].children[1].string_value]
 					if len(res) == 0 {
 						return make([]string, 0)
@@ -1254,10 +1251,10 @@ func var_init(variable_type []string, variable_name string, symbol_table Symbol_
 		}
 		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
 		variable_type = type_struct_translator(variable_type, symbol_table)
-		if str_index_in_arr(variable_type[0], symbol_table.data)==-1 {
+		if str_index_in_arr(variable_type[0], symbol_table.data) == -1 {
 			symbol_table.data = append(symbol_table.data, variable_type[0])
 		}
-		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file+"-struct-"+variable_name, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file + "-struct-" + variable_name, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 	}
 	return symbol_table
 }
@@ -1322,50 +1319,42 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 			return array_variable, used_variables, symbol_table
 		}
 		if tokens[0].Type == "nested_tokens" {
-			if len(tokens[0].children)==2 {
-				variable_type:=evaluate_type(symbol_table, []Token{tokens[0].children[0]}, 0)
-				fmt.Println(variable_type)
+			if len(tokens[0].children) == 2 {
+				variable_type := evaluate_type(symbol_table, []Token{tokens[0].children[0]}, 0)
 				if len(variable_type) == 1 && strings.Contains(variable_type[0], "-struct-") && strings.Contains(variable_type[0], symbol_table.current_file) {
-					variable_type=[]string{strings.Split(variable_type[0], "-struct-")[1]}
+					variable_type = []string{strings.Split(variable_type[0], "-struct-")[1]}
 				}
-				variable_struct:=symbol_table.structs[struct_index_in_symbol_table(variable_type[0], symbol_table)]
-				if len(variable_struct.fields[tokens[0].children[1].string_value])!=0 {
+				variable_struct := symbol_table.structs[struct_index_in_symbol_table(variable_type[0], symbol_table)]
+				if len(variable_struct.fields[tokens[0].children[1].string_value]) != 0 {
 					new_variable, new_symbol_table := get_variable(variable_struct.fields[tokens[0].children[1].string_value], symbol_table)
-					fmt.Println("DEKHO BHAI MILA TO YE HAI", new_variable)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{})
 					symbol_table = new_symbol_table
-					fmt.Println("CHalu karde ye struct", new_variable, variable_struct.fields[tokens[0].children[1].string_value])
-					new_symbol_table=var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name)
-					symbol_table=new_symbol_table
+					new_symbol_table = var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name)
+					symbol_table = new_symbol_table
 					used_variables = append(used_variables, new_variable)
-					if str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)==-1 {
+					if str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data) == -1 {
 						symbol_table.data = append(symbol_table.data, tokens[0].children[1].string_value)
 					}
 					//variable_name:=tokens[0].children[1].string_value
-					fmt.Println(tokens[0].children, "VERY IMPORTANT")
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull",symbol_table.current_file+"-struct-"+tokens[0].children[0].string_value,strconv.FormatInt(int64(str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)), 10), new_variable})
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file + "-struct-" + tokens[0].children[0].string_value, strconv.FormatInt(int64(str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)), 10), new_variable})
 				}
 			} else {
-				new_children:=[]Token{}
-				fmt.Println("PEHLE TO DEKHO YE KARUNGA")
-				fmt.Println(tokens[0].children[:2])
+				new_children := []Token{}
 				new_children = append(new_children, tokens[0].children[:2]...)
-				new_token:=Token{Type: "nested_tokens", children: new_children}
-				fmt.Println("chapri start", new_token)
-				resolved_type:=evaluate_type(symbol_table, []Token{new_token}, 0)
+				new_token := Token{Type: "nested_tokens", children: new_children}
+				resolved_type := evaluate_type(symbol_table, []Token{new_token}, 0)
 				new_variable, new_symbol_table := get_variable(resolved_type, symbol_table)
-				fmt.Println("chapri end", resolved_type)
 				symbol_table = new_symbol_table
-				new_symbol_table=var_init(resolved_type, new_variable, symbol_table, function_name)
+				new_symbol_table = var_init(resolved_type, new_variable, symbol_table, function_name)
 				symbol_table = new_symbol_table
 				used_variables = append(used_variables, new_variable)
 				symbol_table.variables = append(symbol_table.variables, Variable{name: new_variable, Type: resolved_type})
-				new_children =make([]Token, 0)
+				new_children = make([]Token, 0)
 				new_children = append(new_children, Token{Type: "variable", string_value: new_variable})
 				new_children = append(new_children, tokens[0].children[2:]...)
-				new_token=Token{Type: tokens[0].Type, children: new_children}
-				new_children[0].string_value=new_variable
-				varying_value, new_used_variables, new_symbol_table:=expression_solver([]Token{new_token}, function_name, symbol_table, true)
+				new_token = Token{Type: tokens[0].Type, children: new_children}
+				new_children[0].string_value = new_variable
+				varying_value, new_used_variables, new_symbol_table := expression_solver([]Token{new_token}, function_name, symbol_table, true)
 				used_variables = append(used_variables, new_used_variables...)
 				symbol_table = new_symbol_table
 				return varying_value, used_variables, symbol_table
@@ -1374,140 +1363,155 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 		}
 		// you need to add function calls and nested_tokens
 	} else {
-		lhs, new_used_variables, new_symbol_table:=expression_solver([]Token{tokens[0]}, function_name, symbol_table, false)
+		lhs, new_used_variables, new_symbol_table := expression_solver([]Token{tokens[0]}, function_name, symbol_table, false)
 		used_variables = append(used_variables, new_used_variables...)
 		symbol_table = new_symbol_table
-		lhs_type:=evaluate_type(symbol_table, []Token{tokens[0]}, 0)
-		for i := 0; i < len(tokens); i+=2 {
+		lhs_type := evaluate_type(symbol_table, []Token{tokens[0]}, 0)
+		for i := 0; i < len(tokens); i += 2 {
+			fmt.Println(tokens, len(tokens))
 			if i+2 > len(tokens) {
 				break
 			}
-			rhs, new_used_variables, new_symbol_table:=expression_solver([]Token{tokens[i+2]}, function_name, symbol_table, true)
+			rhs, new_used_variables, new_symbol_table := expression_solver([]Token{tokens[i+2]}, function_name, symbol_table, true)
 			used_variables = append(used_variables, new_used_variables...)
 			symbol_table = new_symbol_table
-			rhs_type:=evaluate_type(symbol_table, []Token{tokens[i+2]}, 0)
-			switch operator:=tokens[i+1].string_value; operator {
+			rhs_type := evaluate_type(symbol_table, []Token{tokens[i+2]}, 0)
+			switch operator := tokens[i+1].string_value; operator {
 			case "+":
-				if lhs_type[0]=="num" && rhs_type[0]=="num" {
+				if lhs_type[0] == "num" && rhs_type[0] == "num" {
 					new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
 					symbol_table = new_symbol_table
 					used_variables = append(used_variables, new_variable)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"add",lhs,rhs,new_variable})
-					lhs=new_variable
-					lhs_type=rhs_type
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"add", lhs, rhs, new_variable})
+					lhs = new_variable
+					lhs_type = rhs_type
 				}
-				if (lhs_type[0]=="string" && rhs_type[0]=="string") {
+				if lhs_type[0] == "string" && rhs_type[0] == "string" {
 					new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
 					symbol_table = new_symbol_table
 					used_variables = append(used_variables, new_variable)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", new_variable, "0"})
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.add",lhs,rhs,new_variable})
-					lhs=new_variable
-					lhs_type=rhs_type
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.add", lhs, rhs, new_variable})
+					lhs = new_variable
+					lhs_type = rhs_type
 				}
 			case "*":
-				if (lhs_type[0]=="num" && rhs_type[0]=="string") || (rhs_type[0]=="num" && lhs_type[0]=="string") {
-					var_1:=lhs
-					var_2:=rhs
-					if rhs_type[0]=="string" {
-						var_1=rhs
-						var_2=lhs
+				if (lhs_type[0] == "num" && rhs_type[0] == "string") || (rhs_type[0] == "num" && lhs_type[0] == "string") {
+					var_1 := lhs
+					var_2 := rhs
+					if rhs_type[0] == "string" {
+						var_1 = rhs
+						var_2 = lhs
 					}
 					new_variable, new_symbol_table := get_variable([]string{"string"}, symbol_table)
 					symbol_table = new_symbol_table
 					used_variables = append(used_variables, new_variable)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", new_variable, "0"})
-					
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.mult",var_1,var_2,new_variable})
-					lhs=new_variable
-					lhs_type=[]string{"string"}
+
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.mult", var_1, var_2, new_variable})
+					lhs = new_variable
+					lhs_type = []string{"string"}
 				}
-				if (lhs_type[0]=="num" && rhs_type[0]=="num") {
+				if lhs_type[0] == "num" && rhs_type[0] == "num" {
 					new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
 					symbol_table = new_symbol_table
 					used_variables = append(used_variables, new_variable)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"mult",lhs,rhs,new_variable})
-					lhs=new_variable
-					lhs_type=rhs_type
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"mult", lhs, rhs, new_variable})
+					lhs = new_variable
+					lhs_type = rhs_type
 				}
 			case "-", "/", "//", "^", "**", "%", "&&", "||":
-				operation:=""
+				operation := ""
 				switch operator {
-				case "-":operation="sub"
-				case "/":operation="div"
-				case "//":operation="floor"
-				case "^":operation="xor"
-				case "**":operation="power"
-				case "%":operation="mod"
-				case "&&":operation="and"
-				case "||":operation="or"
+				case "-":
+					operation = "sub"
+				case "/":
+					operation = "div"
+				case "//":
+					operation = "floor"
+				case "^":
+					operation = "xor"
+				case "**":
+					operation = "power"
+				case "%":
+					operation = "mod"
+				case "&&":
+					operation = "and"
+				case "||":
+					operation = "or"
 				}
 				new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
 				symbol_table = new_symbol_table
 				used_variables = append(used_variables, new_variable)
 				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{operation,lhs,rhs,new_variable})
-				lhs=new_variable
-				lhs_type=rhs_type
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{operation, lhs, rhs, new_variable})
+				lhs = new_variable
+				lhs_type = rhs_type
 			case "==", "!=", ">", "<":
-				operation:=""
-				if lhs_type[0]=="string" {
+				operation := ""
+				if lhs_type[0] == "string" {
 					switch operator {
-						case "==":operation="str.equals"
-						case "!=":operation="str.equals"
+					case "==":
+						operation = "str.equals"
+					case "!=":
+						operation = "str.equals"
 					}
-					if operator=="==" {
+					if operator == "==" {
 						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
 						symbol_table = new_symbol_table
 						used_variables = append(used_variables, new_variable)
 						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.equals",lhs,rhs,new_variable})
-						lhs=new_variable
-						lhs_type=rhs_type
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.equals", lhs, rhs, new_variable})
+						lhs = new_variable
+						lhs_type = rhs_type
 					}
-					if operator=="!=" {
+					if operator == "!=" {
 						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
 						symbol_table = new_symbol_table
 						used_variables = append(used_variables, new_variable)
 						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{operation,lhs,rhs,new_variable})
-						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",new_variable,"false", new_variable})
-						lhs=new_variable
-						lhs_type=rhs_type
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{operation, lhs, rhs, new_variable})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", new_variable, "false", new_variable})
+						lhs = new_variable
+						lhs_type = rhs_type
 					}
 				}
-				if lhs_type[0]=="num" {
+				if lhs_type[0] == "num" {
 					switch operator {
-						case "==":operation="equals"
-						case "!=":operation="equals"
-						case ">":operation="greater"
-						case "<":operation="greater"
+					case "==":
+						operation = "equals"
+					case "!=":
+						operation = "equals"
+					case ">":
+						operation = "greater"
+					case "<":
+						operation = "greater"
 					}
-					if (operator=="!=" || operator=="==") {
+					if operator == "!=" || operator == "==" {
 						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
 						symbol_table = new_symbol_table
 						used_variables = append(used_variables, new_variable)
 						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",lhs,rhs,new_variable})
-						if operator=="!=" {
-							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",new_variable,"false", new_variable})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", lhs, rhs, new_variable})
+						if operator == "!=" {
+							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", new_variable, "false", new_variable})
 						}
-						lhs=new_variable
-						lhs_type=rhs_type
+						lhs = new_variable
+						lhs_type = rhs_type
 					}
-					if (operator==">" || operator=="<") {
+					if operator == ">" || operator == "<" {
 						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
 						symbol_table = new_symbol_table
 						used_variables = append(used_variables, new_variable)
 						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"greater",lhs,rhs,new_variable})
-						if operator=="<" {
-							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",new_variable,"false", new_variable})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"greater", lhs, rhs, new_variable})
+						if operator == "<" {
+							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", new_variable, "false", new_variable})
 						}
-						lhs=new_variable
-						lhs_type=rhs_type
+						lhs = new_variable
+						lhs_type = rhs_type
 					}
 				}
 			}
@@ -1655,13 +1659,14 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				if err != 0 {
 					return "unexpected end of statement", symbol_table
 				}
-				new_tokens:=make([]Token, 0)
-				for _,x:=range tokens {
-					new_struct,_,_:=CloneMyStruct(x)
+				new_tokens := make([]Token, 0)
+				for _, x := range tokens {
+					new_struct, _, _ := CloneMyStruct(x)
 					new_tokens = append(new_tokens, new_struct)
 				}
 				lhs := evaluate_type(symbol_table, []Token{code[i-2]}, 0)
 				rhs := evaluate_type(symbol_table, new_tokens, 0)
+				fmt.Println(rhs, "hello?", new_tokens[0].children[0])
 				resultant_variable := ""
 				used_variable := make([]string, 0)
 				resultant_variable, used_variable, symbol_table = expression_solver(tokens, function_name, symbol_table, false)
@@ -1784,7 +1789,7 @@ func formatter(output string) string {
 		if strings.HasPrefix(line, "define.jump") {
 			formatted_code += "\n    " + line + "\n"
 			continue
-		} else if i==0 && strings.HasPrefix(line, "jump.def.always") {
+		} else if i == 0 && strings.HasPrefix(line, "jump.def.always") {
 			formatted_code += "\n    " + line + "\n"
 			continue
 		}
@@ -1846,7 +1851,7 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 	for function := range symbol_table.operations {
 		result += "define.jump " + strconv.FormatInt(int64(str_index_in_arr(function, symbol_table.data)), 10) + " // " + function + "\n"
 		for _, operations := range symbol_table.operations[function] {
-			if len(operations)!=0 {
+			if len(operations) != 0 {
 				result += operations[0] + " " + strings.Join(operations[1:], ",") + "\n"
 			}
 		}
@@ -1860,9 +1865,9 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 			symbol_table.data = append(symbol_table.data, "stack-init")
 			data_index = len(symbol_table.data) - 1
 		}
-		prefix_result:=""
-		prefix_result += "jump.def.always " + strconv.FormatInt(int64(data_index), 10)+"\ndefine.jump " + strconv.FormatInt(int64(data_index), 10) + " // stack init\n"
-		prefix_result+="set true,1\nset false,0\n"
+		prefix_result := ""
+		prefix_result += "jump.def.always " + strconv.FormatInt(int64(data_index), 10) + "\ndefine.jump " + strconv.FormatInt(int64(data_index), 10) + " // stack init\n"
+		prefix_result += "set true,1\nset false,0\n"
 		for _, var_initialisation := range final_symbol_table.struct_registration {
 			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
 		}
@@ -1870,7 +1875,7 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
 		}
 		prefix_result += "jump.def.always " + strconv.FormatInt(int64(str_index_in_arr(symbol_table.current_file+"-"+"main", symbol_table.data)), 10) + "\n"
-		result = formatter(prefix_result+result)
+		result = formatter(prefix_result + result)
 		build_info := make([]string, 0)
 		for _, function := range symbol_table.functions {
 			if strings.Split(function.name, "-")[0] != file_name {
