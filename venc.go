@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"encoding/json"
 )
 
 type Token struct {
@@ -17,56 +18,101 @@ type Token struct {
 	keys         []Token
 }
 
+type Serializable_Token struct {
+	Type         string
+	Num_value    float64
+	String_value string
+	Children     []Serializable_Token
+	Keys         []Serializable_Token
+}
+
 type Function struct {
-	name		string
-	args		map[string][]string
-	Type		[]string
-	Code 		[]Token
+	name string
+	args map[string][]string
+	Type []string
+	Code []Token
 }
 
 type Struct struct {
-	name 		string
-	fields		map[string][]string
+	name   string
+	fields map[string][]string
 }
 
 type Variable struct {
-	name 		string
-	Type 		[]string
+	name string
+	Type []string
 }
 
 type Scope struct {
-	looping     			  bool
-	current_loop_jump_line    int64
-	current_return_jump_line  int64
-}
-// add scope
-type Symbol_Table struct {
-	functions 			[]Function
-	structs   			[]Struct
-	variables			[]Variable
-	data				[]string
-	operations			map[string][][]string
-	used_variables		map[string][]int
-	variable_mapping	map[string]string
-	current_scope       Scope
-	files				map[string]Symbol_Table
-	current_file		string
-	struct_registration [][]string
-	finished_importing	bool
-	imported_libraries  map[string]string
-	global_variables	[][]string
-	struct_mapping		map[string]string
+	looping                  bool
+	current_loop_jump_line   int64
+	current_return_jump_line int64
 }
 
-var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct","return", "function", "as", "import"}
+// add scope
+type Symbol_Table struct {
+	functions           []Function
+	structs             []Struct
+	variables           []Variable
+	data                []string
+	operations          map[string][][]string
+	used_variables      map[string][]int
+	variable_mapping    map[string]string
+	current_scope       Scope
+	files               map[string]Symbol_Table
+	current_file        string
+	struct_registration [][]string
+	finished_importing  bool
+	imported_libraries  map[string]string
+	global_variables    [][]string
+	struct_mapping      map[string]string
+}
+
+var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import"}
 var type_tokens = []string{"string", "num"}
-var operators = []string{"+","-","*","/","^",">","<","=","&","!","|","%"}
+var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "%"}
 var end_of_statements = []string{";"}
-var brackets = []string{"(",")","[","]","{","}"}
-var string_quotes = []string{"\"","'"}
+var brackets = []string{"(", ")", "[", "]", "{", "}"}
+var string_quotes = []string{"\"", "'"}
 var comma = ","
-var allowed_variable_character="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+var allowed_variable_character = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 var comments = []string{"#"}
+
+func unpack_token_struct(orig Serializable_Token) Token {
+	new_children:=make([]Token, 0)
+	for _,child:=range orig.Children {
+		new_children = append(new_children, unpack_token_struct(child))
+	}
+	return Token{Type: orig.Type, string_value: orig.String_value, num_value: orig.Num_value, children: new_children}
+}
+
+func CloneMyStruct(orig Token) (Token, Serializable_Token, error) {
+	new_children:=make([]Serializable_Token, 0)
+	for _,child:=range orig.children {
+		_,new_child,_:=CloneMyStruct(child)
+		new_children = append(new_children, new_child)
+	}
+	new_keys:=make([]Serializable_Token, 0)
+	for _,key:=range orig.children {
+		_,new_key,_:=CloneMyStruct(key)
+		new_keys = append(new_keys, new_key)
+	}
+	new_orig:=Serializable_Token{Type: (orig).Type, Children: new_children, String_value: (orig).string_value, Num_value: (orig).num_value, Keys: new_keys}
+    origJSON, err := json.Marshal(&new_orig)
+    if err != nil {
+        return Token{Type: "check clone my struct 1"}, Serializable_Token{Type: "check clone my struct 1"}, err
+    }
+
+    clone := Serializable_Token{}
+    if err = json.Unmarshal(origJSON, &clone); err != nil {
+        return Token{Type: "check clone my struct 2"}, Serializable_Token{Type: "check clone my struct 2"}, err
+    }
+	new_unpacked_children:=make([]Token, 0)
+	for _,child:=range clone.Children {
+		new_unpacked_children = append(new_unpacked_children, unpack_token_struct(child))
+	}
+    return Token{Type: clone.Type, children: new_unpacked_children, string_value: clone.String_value, num_value: clone.Num_value}, clone, nil
+}
 
 func remove_token_at_index(i int, tokens []Token) []Token {
 	return append(tokens[:i], tokens[i+1:]...)
@@ -77,125 +123,125 @@ func tokensier(code string, debug bool) []Token {
 	cache := ""
 	for i := 0; i < len(code); i++ {
 		char := string(code[i])
-		if strings.Contains("1234567890.",char) {
+		if strings.Contains("1234567890.", char) {
 			for {
 				char := string(code[i])
-				if strings.Contains(".1234567890",char) {
-					cache+=char
+				if strings.Contains(".1234567890", char) {
+					cache += char
 				} else {
-					if cache=="." {
+					if cache == "." {
 						tokens = append(tokens, Token{Type: "dot"})
-						cache=""
+						cache = ""
 						i--
 						break
 					}
-					number,_:=strconv.ParseFloat(cache,64)
+					number, _ := strconv.ParseFloat(cache, 64)
 					tokens = append(tokens, Token{Type: "num", num_value: number})
 					i--
-					cache=""
+					cache = ""
 					break
 				}
 				i++
-				if i==len(code) {
-					if cache=="." {
+				if i == len(code) {
+					if cache == "." {
 						tokens = append(tokens, Token{Type: "dot"})
-						cache=""
+						cache = ""
 						i--
 						break
 					}
-					number,_:=strconv.ParseFloat(cache,64)
+					number, _ := strconv.ParseFloat(cache, 64)
 					tokens = append(tokens, Token{Type: "num", num_value: number})
 					i--
-					cache=""
+					cache = ""
 					break
 				}
 			}
 			continue
 		}
-		if str_index_in_arr(char,brackets)!=-1 {
-			open_type:=""
-			if (str_index_in_arr(char,brackets)%2)!=1 {
-				open_type="open"
+		if str_index_in_arr(char, brackets) != -1 {
+			open_type := ""
+			if (str_index_in_arr(char, brackets) % 2) != 1 {
+				open_type = "open"
 			} else {
-				open_type="close"
+				open_type = "close"
 			}
-			tokens = append(tokens, Token{Type: "bracket_"+open_type,string_value: char})
+			tokens = append(tokens, Token{Type: "bracket_" + open_type, string_value: char})
 			continue
 		}
-		if str_index_in_arr(char,operators)!=-1 {
-			tokens = append(tokens, Token{Type: "operator",string_value: char})
+		if str_index_in_arr(char, operators) != -1 {
+			tokens = append(tokens, Token{Type: "operator", string_value: char})
 			continue
 		}
-		if str_index_in_arr(char,end_of_statements)!=-1 {
+		if str_index_in_arr(char, end_of_statements) != -1 {
 			tokens = append(tokens, Token{Type: "EOS"})
 			continue
 		}
-		if str_index_in_arr(char,string_quotes)!=-1 {
-			string_init:=char
+		if str_index_in_arr(char, string_quotes) != -1 {
+			string_init := char
 			for {
 				i++
-				if i==len(code) {
+				if i == len(code) {
 					if debug {
 						fmt.Println("Unexpected EOF")
 					}
 					return make([]Token, 0)
 				}
 				char := string(code[i])
-				if char!=string_init {
-					cache+=char
+				if char != string_init {
+					cache += char
 				} else {
 					tokens = append(tokens, Token{Type: "string", string_value: str_parser(cache)})
-					cache=""
+					cache = ""
 					break
 				}
 			}
 			continue
 		}
-		if char==comma {
+		if char == comma {
 			tokens = append(tokens, Token{Type: "comma"})
 			continue
 		}
-		if char==":" {
+		if char == ":" {
 			tokens = append(tokens, Token{Type: "colon"})
 			continue
 		}
-		if char=="." {
+		if char == "." {
 			tokens = append(tokens, Token{Type: "dot"})
 			continue
 		}
-		if strings.Contains(allowed_variable_character,char) {
+		if strings.Contains(allowed_variable_character, char) {
 			for {
 				char := string(code[i])
-				if strings.Contains(allowed_variable_character,char) {
-					cache+=char
+				if strings.Contains(allowed_variable_character, char) {
+					cache += char
 				} else {
-					if str_index_in_arr(cache, reserved_tokens)!=-1 {
+					if str_index_in_arr(cache, reserved_tokens) != -1 {
 						tokens = append(tokens, Token{Type: "sys", string_value: cache})
 					} else {
 						tokens = append(tokens, Token{Type: "variable", string_value: cache})
 					}
-					cache=""
+					cache = ""
 					i--
 					break
 				}
 				i++
-				if i==len(code) {
+				if i == len(code) {
 					tokens = append(tokens, Token{Type: "variable", string_value: cache})
-					cache=""
+					cache = ""
 					i--
 					break
 				}
 			}
 			continue
 		}
-		if str_index_in_arr(char,comments)!=-1 {
+		if str_index_in_arr(char, comments) != -1 {
 			for {
 				i++
-				if i==len(code) {
+				if i == len(code) {
 					break
 				}
 				char := string(code[i])
-				if str_index_in_arr(char,end_of_statements)==-1 && char!="\n" {
+				if str_index_in_arr(char, end_of_statements) == -1 && char != "\n" {
 					continue
 				} else {
 					break
@@ -208,46 +254,46 @@ func tokensier(code string, debug bool) []Token {
 }
 
 func valid_var_name(var_name string) bool {
-	if var_name=="" {
+	if var_name == "" {
 		return false
 	}
-	if str_index_in_arr(var_name, reserved_tokens)!=-1 {
+	if str_index_in_arr(var_name, reserved_tokens) != -1 {
 		return false
 	}
-	for _,char:=range "1234567890" {
-		var_name=strings.ReplaceAll(var_name,string(char),"")
+	for _, char := range "1234567890" {
+		var_name = strings.ReplaceAll(var_name, string(char), "")
 	}
-	if var_name=="" {
+	if var_name == "" {
 		return false
 	}
-	for _,char:=range allowed_variable_character {
-		var_name=strings.ReplaceAll(var_name,string(char),"")
+	for _, char := range allowed_variable_character {
+		var_name = strings.ReplaceAll(var_name, string(char), "")
 	}
-	return var_name==""
+	return var_name == ""
 }
 
 func tokens_parser(code []Token, debug bool) ([]Token, error) {
-	parsed_tokens:=make([]Token,0)
+	parsed_tokens := make([]Token, 0)
 	for i := 0; i < len(code); i++ {
-		current_token:=code[i]
-		if len(code)>i+1 && code[i+1].Type=="dot" {
-			nested_variables:=make([]Token,0)
-			first:=true
+		current_token := code[i]
+		if len(code) > i+1 && code[i+1].Type == "dot" {
+			nested_variables := make([]Token, 0)
+			first := true
 			for {
-				if len(code)>i+1 && (!first || code[i+1].Type=="dot") { 
+				if len(code) > i+1 && (!first || code[i+1].Type == "dot") {
 					if !first {
-						if code[i-1].Type!="dot" {
+						if code[i-1].Type != "dot" {
 							break
 						}
 					}
 					nested_variables = append(nested_variables, code[i])
-					if code[i+1].Type=="dot" {
+					if code[i+1].Type == "dot" {
 						i++
 					}
 					i++
-					first=false
+					first = false
 				} else {
-					if !first && !(len(code)>i+1) && current_token.Type=="variable" && valid_var_name(code[i].string_value) && code[i-1].string_value=="." {
+					if !first && !(len(code) > i+1) && current_token.Type == "variable" && valid_var_name(code[i].string_value) && code[i-1].string_value == "." {
 						nested_variables = append(nested_variables, code[i])
 						i++
 					}
@@ -258,41 +304,41 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 			i--
 			continue
 		}
-		if len(code)>i+1 && current_token.Type=="operator" && code[i+1].Type=="operator" {
-			combined_operator:=current_token.string_value+code[i+1].string_value
-			accepted_combined_operator_array:=[]string{"+=","-=","/=","*=","%=","//","!=","==","->",":=","||","&&"}
-			if str_index_in_arr(combined_operator,accepted_combined_operator_array)!=-1 {
+		if len(code) > i+1 && current_token.Type == "operator" && code[i+1].Type == "operator" {
+			combined_operator := current_token.string_value + code[i+1].string_value
+			accepted_combined_operator_array := []string{"+=", "-=", "/=", "*=", "%=", "//", "!=", "==", "->", ":=", "||", "&&"}
+			if str_index_in_arr(combined_operator, accepted_combined_operator_array) != -1 {
 				parsed_tokens = append(parsed_tokens, Token{Type: "operator", string_value: combined_operator})
 				i++
 				continue
 			}
 		}
-		if len(code)>i+1 && current_token.Type=="colon" && code[i+1].Type=="operator" {
-			combined_operator:=":"+code[i+1].string_value
-			if combined_operator==":=" {
+		if len(code) > i+1 && current_token.Type == "colon" && code[i+1].Type == "operator" {
+			combined_operator := ":" + code[i+1].string_value
+			if combined_operator == ":=" {
 				parsed_tokens = append(parsed_tokens, Token{Type: "operator", string_value: combined_operator})
 				i++
 				continue
 			}
 		}
-		if len(parsed_tokens)>0 && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" && ((current_token.string_value=="string" || current_token.string_value=="num" || current_token.Type=="variable") || (len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="bracket_open" && (current_token.string_value=="[" || current_token.string_value=="{"))) {
-			type_define_tokens:=make([]Token,0)
-			brackets:=0
+		if len(parsed_tokens) > 0 && parsed_tokens[len(parsed_tokens)-1].Type == "operator" && parsed_tokens[len(parsed_tokens)-1].string_value == "->" && ((current_token.string_value == "string" || current_token.string_value == "num" || current_token.Type == "variable") || (len(code) > i+1 && len(parsed_tokens) != 0 && current_token.Type == "bracket_open" && (current_token.string_value == "[" || current_token.string_value == "{"))) {
+			type_define_tokens := make([]Token, 0)
+			brackets := 0
 			for {
-				if len(code)<i+1 {
+				if len(code) < i+1 {
 					return make([]Token, 0), errors.New("Unexpected EOF")
 				}
-				if code[i].Type=="bracket_open" && code[i].string_value==current_token.string_value {
-					brackets+=1
+				if code[i].Type == "bracket_open" && code[i].string_value == current_token.string_value {
+					brackets += 1
 				}
-				if code[i].Type=="bracket_close" && ((code[i].string_value=="]" && current_token.string_value=="[") || (code[i].string_value=="}" && current_token.string_value=="{")) {
-					brackets-=1
+				if code[i].Type == "bracket_close" && ((code[i].string_value == "]" && current_token.string_value == "[") || (code[i].string_value == "}" && current_token.string_value == "{")) {
+					brackets -= 1
 				}
-				if str_index_in_arr(code[i].Type, []string{"bracket_open","bracket_close","variable"})==-1 {
+				if str_index_in_arr(code[i].Type, []string{"bracket_open", "bracket_close", "variable"}) == -1 {
 					return make([]Token, 0), errors.New("Illegal type definition")
 				}
 				type_define_tokens = append(type_define_tokens, code[i])
-				if brackets==0 {
+				if brackets == 0 {
 					break
 				}
 				i++
@@ -300,57 +346,57 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", keys: type_define_tokens}
 			continue
 		}
-		if len(code)>i+1 && len(parsed_tokens)!=0 && current_token.Type=="variable" && str_index_in_arr(current_token.string_value, type_tokens)!=-1 && parsed_tokens[len(parsed_tokens)-1].Type=="operator" && parsed_tokens[len(parsed_tokens)-1].string_value=="->" {
+		if len(code) > i+1 && len(parsed_tokens) != 0 && current_token.Type == "variable" && str_index_in_arr(current_token.string_value, type_tokens) != -1 && parsed_tokens[len(parsed_tokens)-1].Type == "operator" && parsed_tokens[len(parsed_tokens)-1].string_value == "->" {
 			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", children: []Token{current_token}}
 			continue
 		}
-		if code[i].Type=="bracket_open" && code[i].string_value=="[" {
-			bracket_count:=1
-			childrentokens:=make([]Token,0)
+		if code[i].Type == "bracket_open" && code[i].string_value == "[" {
+			bracket_count := 1
+			childrentokens := make([]Token, 0)
 			for {
 				i++
-				if len(code)<i+1 {
+				if len(code) < i+1 {
 					return make([]Token, 0), errors.New("Unexpected EOF")
 				}
-				if code[i].Type=="bracket_open" && code[i].string_value=="[" {
-					bracket_count+=1
+				if code[i].Type == "bracket_open" && code[i].string_value == "[" {
+					bracket_count += 1
 				}
-				if code[i].Type=="bracket_close" && code[i].string_value=="]" {
-					bracket_count-=1
+				if code[i].Type == "bracket_close" && code[i].string_value == "]" {
+					bracket_count -= 1
 				}
-				if bracket_count==0 {
+				if bracket_count == 0 {
 					break
 				}
 				childrentokens = append(childrentokens, code[i])
 			}
-			tokens, err:=tokens_parser(childrentokens, debug)
-			if err!=nil {
+			tokens, err := tokens_parser(childrentokens, debug)
+			if err != nil {
 				return make([]Token, 0), err
 			}
 			parsed_tokens = append(parsed_tokens, Token{Type: "expression_wrapper_[]", children: tokens})
 			continue
 		}
-		if code[i].Type=="bracket_open" && code[i].string_value=="(" {
-			bracket_count:=1
-			childrentokens:=make([]Token,0)
+		if code[i].Type == "bracket_open" && code[i].string_value == "(" {
+			bracket_count := 1
+			childrentokens := make([]Token, 0)
 			for {
 				i++
-				if len(code)<i+1 {
+				if len(code) < i+1 {
 					return make([]Token, 0), errors.New("Unexpected EOF")
 				}
-				if code[i].Type=="bracket_open" && code[i].string_value=="(" {
-					bracket_count+=1
+				if code[i].Type == "bracket_open" && code[i].string_value == "(" {
+					bracket_count += 1
 				}
-				if code[i].Type=="bracket_close" && code[i].string_value==")" {
-					bracket_count-=1
+				if code[i].Type == "bracket_close" && code[i].string_value == ")" {
+					bracket_count -= 1
 				}
-				if bracket_count==0 {
+				if bracket_count == 0 {
 					break
 				}
 				childrentokens = append(childrentokens, code[i])
 			}
-			tokens, err:=tokens_parser(childrentokens, debug)
-			if err!=nil {
+			tokens, err := tokens_parser(childrentokens, debug)
+			if err != nil {
 				return make([]Token, 0), err
 			}
 			parsed_tokens = append(parsed_tokens, Token{Type: "expression", children: tokens})
@@ -362,31 +408,31 @@ func tokens_parser(code []Token, debug bool) ([]Token, error) {
 }
 
 func token_grouper(code []Token, debug bool) ([]Token, error) {
-	grouped_tokens:=make([]Token,0)
+	grouped_tokens := make([]Token, 0)
 	for i := 0; i < len(code); i++ {
-		tokens_children,err:=token_grouper(code[i].children, false)
-		if err!=nil {
+		tokens_children, err := token_grouper(code[i].children, false)
+		if err != nil {
 			return make([]Token, 0), err
 		}
-		code[i].children=tokens_children
-		if code[i].Type=="expression_wrapper_[]" {
-			if len(grouped_tokens)>0 && (grouped_tokens[len(grouped_tokens)-1].Type=="variable" || grouped_tokens[len(grouped_tokens)-1].Type=="nested_tokens" || grouped_tokens[len(grouped_tokens)-1].Type=="lookup" || grouped_tokens[len(grouped_tokens)-1].Type=="expression" || grouped_tokens[len(grouped_tokens)-1].Type=="funcall" || grouped_tokens[len(grouped_tokens)-1].Type=="array") {
-				grouped_tokens[len(grouped_tokens)-1]=Token{Type: "lookup", children: []Token{Token{Type: "parent", children: []Token{grouped_tokens[len(grouped_tokens)-1]}}, Token{Type: "tokens", children: code[i].children}}}
+		code[i].children = tokens_children
+		if code[i].Type == "expression_wrapper_[]" {
+			if len(grouped_tokens) > 0 && (grouped_tokens[len(grouped_tokens)-1].Type == "variable" || grouped_tokens[len(grouped_tokens)-1].Type == "nested_tokens" || grouped_tokens[len(grouped_tokens)-1].Type == "lookup" || grouped_tokens[len(grouped_tokens)-1].Type == "expression" || grouped_tokens[len(grouped_tokens)-1].Type == "funcall" || grouped_tokens[len(grouped_tokens)-1].Type == "array") {
+				grouped_tokens[len(grouped_tokens)-1] = Token{Type: "lookup", children: []Token{Token{Type: "parent", children: []Token{grouped_tokens[len(grouped_tokens)-1]}}, Token{Type: "tokens", children: code[i].children}}}
 				continue
 			}
 		}
-		if len(grouped_tokens)>0 && code[i].Type=="type" && grouped_tokens[len(grouped_tokens)-1].Type=="expression_wrapper_[]" {
-			grouped_tokens[len(grouped_tokens)-1]=Token{Type: "array", children: []Token{code[i], grouped_tokens[len(grouped_tokens)-1]}}
+		if len(grouped_tokens) > 0 && code[i].Type == "type" && grouped_tokens[len(grouped_tokens)-1].Type == "expression_wrapper_[]" {
+			grouped_tokens[len(grouped_tokens)-1] = Token{Type: "array", children: []Token{code[i], grouped_tokens[len(grouped_tokens)-1]}}
 			continue
 		}
-		if len(grouped_tokens)>1 && grouped_tokens[len(grouped_tokens)-1].Type=="dot" && (grouped_tokens[len(grouped_tokens)-2].Type=="nested_tokens" || grouped_tokens[len(grouped_tokens)-2].Type=="lookup" || grouped_tokens[len(grouped_tokens)-2].Type=="variable" || grouped_tokens[len(grouped_tokens)-2].Type=="expression" || grouped_tokens[len(grouped_tokens)-2].Type=="funcall") {
-			grouped_tokens[len(grouped_tokens)-2]=Token{Type: "nested_tokens", children: []Token{grouped_tokens[len(grouped_tokens)-2], code[i]}}
-			grouped_tokens=grouped_tokens[:len(grouped_tokens)-1]
+		if len(grouped_tokens) > 1 && grouped_tokens[len(grouped_tokens)-1].Type == "dot" && (grouped_tokens[len(grouped_tokens)-2].Type == "nested_tokens" || grouped_tokens[len(grouped_tokens)-2].Type == "lookup" || grouped_tokens[len(grouped_tokens)-2].Type == "variable" || grouped_tokens[len(grouped_tokens)-2].Type == "expression" || grouped_tokens[len(grouped_tokens)-2].Type == "funcall") {
+			grouped_tokens[len(grouped_tokens)-2] = Token{Type: "nested_tokens", children: []Token{grouped_tokens[len(grouped_tokens)-2], code[i]}}
+			grouped_tokens = grouped_tokens[:len(grouped_tokens)-1]
 			continue
 		}
-		if len(grouped_tokens)>0 && code[i].Type=="expression" {
-			if (grouped_tokens[len(grouped_tokens)-1].Type=="variable" || grouped_tokens[len(grouped_tokens)-1].Type=="lookup" || grouped_tokens[len(grouped_tokens)-1].Type=="expression" || grouped_tokens[len(grouped_tokens)-1].Type=="funcall" || grouped_tokens[len(grouped_tokens)-1].Type=="nested_tokens") {
-				grouped_tokens[len(grouped_tokens)-1]=Token{Type: "funcall", children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i]}}
+		if len(grouped_tokens) > 0 && code[i].Type == "expression" {
+			if grouped_tokens[len(grouped_tokens)-1].Type == "variable" || grouped_tokens[len(grouped_tokens)-1].Type == "lookup" || grouped_tokens[len(grouped_tokens)-1].Type == "expression" || grouped_tokens[len(grouped_tokens)-1].Type == "funcall" || grouped_tokens[len(grouped_tokens)-1].Type == "nested_tokens" {
+				grouped_tokens[len(grouped_tokens)-1] = Token{Type: "funcall", children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i]}}
 				continue
 			}
 		}
@@ -395,10 +441,10 @@ func token_grouper(code []Token, debug bool) ([]Token, error) {
 	return grouped_tokens, nil
 }
 
-func deep_check(tokens []Token) bool  {
-	for _,token:=range tokens {
-		if token.Type=="nested_tokens" {
-			if len(token.children)<2 {
+func deep_check(tokens []Token) bool {
+	for _, token := range tokens {
+		if token.Type == "nested_tokens" {
+			if len(token.children) < 2 {
 				return false
 			}
 		} else {
@@ -411,27 +457,27 @@ func deep_check(tokens []Token) bool  {
 }
 
 func bracket_token_getter(tokens []Token, bracket string) ([]Token, int64) {
-	res:=make([]Token,0)
-	brackets:=0
-	close_bracket:=""
-	if bracket=="{" {
-		close_bracket="}"
+	res := make([]Token, 0)
+	brackets := 0
+	close_bracket := ""
+	if bracket == "{" {
+		close_bracket = "}"
 	}
-	if bracket=="(" {
-		close_bracket=")"
+	if bracket == "(" {
+		close_bracket = ")"
 	}
-	if bracket=="[" {
-		close_bracket="]"
+	if bracket == "[" {
+		close_bracket = "]"
 	}
-	for _,token:=range tokens {
-		if token.Type=="bracket_open" && token.string_value==bracket {
-			brackets+=1
+	for _, token := range tokens {
+		if token.Type == "bracket_open" && token.string_value == bracket {
+			brackets += 1
 		}
-		if token.Type=="bracket_close" && token.string_value==close_bracket {
-			brackets-=1
+		if token.Type == "bracket_close" && token.string_value == close_bracket {
+			brackets -= 1
 		}
 		res = append(res, token)
-		if brackets==0 {
+		if brackets == 0 {
 			break
 		}
 	}
@@ -439,9 +485,9 @@ func bracket_token_getter(tokens []Token, bracket string) ([]Token, int64) {
 }
 
 func get_current_statement_tokens(tokens []Token) ([]Token, int64) {
-	res:=make([]Token,0)
-	for _,token:=range tokens {
-		if token.Type=="EOS" {
+	res := make([]Token, 0)
+	for _, token := range tokens {
+		if token.Type == "EOS" {
 			return res, 0
 		}
 		res = append(res, token)
@@ -451,49 +497,49 @@ func get_current_statement_tokens(tokens []Token) ([]Token, int64) {
 
 func variable_doesnot_exist(symbol_table Symbol_Table, variable string) bool {
 	for i := 0; i < len(symbol_table.functions); i++ {
-		if symbol_table.functions[i].name==variable {
+		if symbol_table.functions[i].name == variable {
 			return false
 		}
 	}
 	for i := 0; i < len(symbol_table.structs); i++ {
-		if symbol_table.structs[i].name==variable {
+		if symbol_table.structs[i].name == variable {
 			return false
 		}
 	}
 	for i := 0; i < len(symbol_table.variables); i++ {
-		if symbol_table.variables[i].name==variable {
+		if symbol_table.variables[i].name == variable {
 			return false
 		}
 	}
 	return true
 }
 
-func type_token_to_string_array(type_token Token) ([]string) {
-	res:=make([]string, 0)
-	for _,tokenx:=range type_token.keys {
+func type_token_to_string_array(type_token Token) []string {
+	res := make([]string, 0)
+	for _, tokenx := range type_token.keys {
 		res = append(res, tokenx.string_value)
 	}
 	return res
 }
 
 func valid_type(Type []string, symbol_table Symbol_Table) bool {
-	valid_final_types:=[]string{"num","string"}
-	if len(Type)%2==0 {
+	valid_final_types := []string{"num", "string"}
+	if len(Type)%2 == 0 {
 		return false
 	}
-	for i:=0;i<((len(Type)-1)/2)-1;i++ {
-		if Type[i]=="{" && Type[len(Type)-1]=="}" {
+	for i := 0; i < ((len(Type)-1)/2)-1; i++ {
+		if Type[i] == "{" && Type[len(Type)-1] == "}" {
 			continue
 		}
-		if Type[i]=="[" && Type[len(Type)-1]=="]" {
+		if Type[i] == "[" && Type[len(Type)-1] == "]" {
 			continue
 		}
 		return false
 	}
-	for _,Struct:=range symbol_table.structs {
+	for _, Struct := range symbol_table.structs {
 		valid_final_types = append(valid_final_types, Struct.name)
 	}
-	if str_index_in_arr(Type[(len(Type)-1)/2], valid_final_types)!=-1 {
+	if str_index_in_arr(Type[(len(Type)-1)/2], valid_final_types) != -1 {
 		return true
 	}
 	return false
@@ -501,7 +547,7 @@ func valid_type(Type []string, symbol_table Symbol_Table) bool {
 
 func does_function_exist(function_name string, symbol_table Symbol_Table) bool {
 	for i := 0; i < len(symbol_table.functions); i++ {
-		if symbol_table.functions[i].name==function_name {
+		if symbol_table.functions[i].name == function_name {
 			return true
 		}
 	}
@@ -510,7 +556,7 @@ func does_function_exist(function_name string, symbol_table Symbol_Table) bool {
 
 func function_index_in_symbol_table(function_name string, symbol_table Symbol_Table) int {
 	for i := 0; i < len(symbol_table.functions); i++ {
-		if symbol_table.functions[i].name==function_name {
+		if symbol_table.functions[i].name == function_name {
 			return i
 		}
 	}
@@ -519,7 +565,7 @@ func function_index_in_symbol_table(function_name string, symbol_table Symbol_Ta
 
 func variable_index_in_symbol_table(variable_name string, symbol_table Symbol_Table) int {
 	for i := 0; i < len(symbol_table.variables); i++ {
-		if symbol_table.variables[i].name==variable_name {
+		if symbol_table.variables[i].name == variable_name {
 			return i
 		}
 	}
@@ -528,7 +574,7 @@ func variable_index_in_symbol_table(variable_name string, symbol_table Symbol_Ta
 
 func struct_index_in_symbol_table(struct_name string, symbol_table Symbol_Table) int {
 	for i := 0; i < len(symbol_table.structs); i++ {
-		if symbol_table.structs[i].name==struct_name {
+		if symbol_table.structs[i].name == struct_name {
 			return i
 		}
 	}
@@ -536,53 +582,53 @@ func struct_index_in_symbol_table(struct_name string, symbol_table Symbol_Table)
 }
 
 func calculate_i_skip(code []Token) int {
-	total:=0
+	total := 0
 	for i := 0; i < len(code); i++ {
-		if code[i].Type=="branch" || code[i].Type=="while" {
-			total+=4
-			total+=calculate_i_skip(code[i].children[1].children)
+		if code[i].Type == "branch" || code[i].Type == "while" {
+			total += 4
+			total += calculate_i_skip(code[i].children[1].children)
 		} else {
-			total+=1
+			total += 1
 		}
 	}
 	return total
 }
 
 func branch_parser(code []Token) (string, []Token) {
-	parsed_tokens:=make([]Token, 0)
+	parsed_tokens := make([]Token, 0)
 	for i := 0; i < len(code); i++ {
-		if code[i].Type=="sys" && code[i].string_value=="if" && (len(code)-i)>=4 {
-			if code[i+1].Type!="expression" || code[i+2].Type!="bracket_open" || code[i+2].string_value!="{" {
+		if code[i].Type == "sys" && code[i].string_value == "if" && (len(code)-i) >= 4 {
+			if code[i+1].Type != "expression" || code[i+2].Type != "bracket_open" || code[i+2].string_value != "{" {
 				return "invalid expression", make([]Token, 0)
 			}
-			tokens,err:=bracket_token_getter(code[i+2:], "{")
-			if err!=0 {
+			tokens, err := bracket_token_getter(code[i+2:], "{")
+			if err != 0 {
 				return "tokeniser_bracket_error", make([]Token, 0)
 			}
 			var errstring string
-			errstring,tokens=branch_parser(tokens[1:len(tokens)-1])
-			if errstring!="" {
+			errstring, tokens = branch_parser(tokens[1 : len(tokens)-1])
+			if errstring != "" {
 				return errstring, make([]Token, 0)
 			}
-			parsed_tokens=append(parsed_tokens, Token{Type: "branch", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
-			i+=3+calculate_i_skip(tokens)
+			parsed_tokens = append(parsed_tokens, Token{Type: "branch", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
+			i += 3 + calculate_i_skip(tokens)
 			continue
 		}
-		if code[i].Type=="sys" && code[i].string_value=="while" && (len(code)-i)>=4 {
-			if code[i+1].Type!="expression" || code[i+2].Type!="bracket_open" || code[i+2].string_value!="{" {
+		if code[i].Type == "sys" && code[i].string_value == "while" && (len(code)-i) >= 4 {
+			if code[i+1].Type != "expression" || code[i+2].Type != "bracket_open" || code[i+2].string_value != "{" {
 				return "invalid expression", make([]Token, 0)
 			}
-			tokens,err:=bracket_token_getter(code[i+2:], "{")
-			if err!=0 {
+			tokens, err := bracket_token_getter(code[i+2:], "{")
+			if err != 0 {
 				return "tokeniser_bracket_error", make([]Token, 0)
 			}
 			var errstring string
-			errstring,tokens=branch_parser(tokens[1:len(tokens)-1])
-			if errstring!="" {
+			errstring, tokens = branch_parser(tokens[1 : len(tokens)-1])
+			if errstring != "" {
 				return errstring, make([]Token, 0)
 			}
-			parsed_tokens=append(parsed_tokens, Token{Type: "while", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
-			i+=3+calculate_i_skip(tokens)
+			parsed_tokens = append(parsed_tokens, Token{Type: "while", children: []Token{code[i+1], Token{Type: "code", children: tokens}}})
+			i += 3 + calculate_i_skip(tokens)
 			continue
 		}
 		parsed_tokens = append(parsed_tokens, code[i])
@@ -591,65 +637,65 @@ func branch_parser(code []Token) (string, []Token) {
 }
 
 func type_struct_translator(Type []string, symbol_table Symbol_Table) []string {
-	for _,struct_:=range symbol_table.structs {
-		if struct_.name==Type[len(Type)/2] {
-			Type[len(Type)/2]=symbol_table.current_file+"-"+"struct"+"-"+Type[len(Type)/2]
+	for _, struct_ := range symbol_table.structs {
+		if struct_.name == Type[len(Type)/2] {
+			Type[len(Type)/2] = symbol_table.current_file + "-" + "struct" + "-" + Type[len(Type)/2]
 		}
 	}
 	return Type
 }
 
 func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Symbol_Table) {
-	result:=""
+	result := ""
 	for i := 0; i < len(code); i++ {
 		// fmt.Println(code[i])
-		if depth==0 {
-			if code[i].Type=="sys" && code[i].string_value=="struct" && len(code)>i+2 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type=="bracket_open" && code[i+2].string_value=="{" {
-				if !variable_doesnot_exist(symbol_table ,code[i+1].string_value) {
+		if depth == 0 {
+			if code[i].Type == "sys" && code[i].string_value == "struct" && len(code) > i+2 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && code[i+2].Type == "bracket_open" && code[i+2].string_value == "{" {
+				if !variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 					return "error", symbol_table
 				}
 				i++
 				i++
-				tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
-				if err!=0 {
+				tokens, err := bracket_token_getter(code[i:], code[i].string_value)
+				if err != 0 {
 					return "error", symbol_table
 				}
-				tokens=tokens[1:len(tokens)-1]
-				if len(tokens)%2!=0 {
+				tokens = tokens[1 : len(tokens)-1]
+				if len(tokens)%2 != 0 {
 					return "error", symbol_table
 				}
-				Struct_Variables:=make(map[string][]string)
-				for index:=0; int64(index) < int64(len(tokens))-1; index+=2 {
-					variable_type:=type_token_to_string_array(tokens[index+1])
-					if tokens[index].Type=="variable" && valid_var_name(tokens[index].string_value) && valid_type(variable_type, symbol_table) {
-						Struct_Variables[tokens[index].string_value]=variable_type
+				Struct_Variables := make(map[string][]string)
+				for index := 0; int64(index) < int64(len(tokens))-1; index += 2 {
+					variable_type := type_token_to_string_array(tokens[index+1])
+					if tokens[index].Type == "variable" && valid_var_name(tokens[index].string_value) && valid_type(variable_type, symbol_table) {
+						Struct_Variables[tokens[index].string_value] = variable_type
 					} else {
 						return "struct_error", symbol_table
 					}
 				}
-				data_index:=str_index_in_arr(code[i-1].string_value, symbol_table.data)
-				if data_index==-1 {
+				data_index := str_index_in_arr(code[i-1].string_value, symbol_table.data)
+				if data_index == -1 {
 					symbol_table.data = append(symbol_table.data, code[i-1].string_value)
-					data_index=len(symbol_table.data)-1
+					data_index = len(symbol_table.data) - 1
 				}
-				fields_converted:=make([]string, 0)
-				for key,val:=range Struct_Variables {
+				fields_converted := make([]string, 0)
+				for key, val := range Struct_Variables {
 					fields_converted = append(fields_converted, key+"->"+strings.Join(string_array_types_to_vitality_types(val, symbol_table), ","))
 				}
-				data_index=str_index_in_arr(strings.Join(fields_converted, ";"), symbol_table.data)
-				if data_index==-1 {
+				data_index = str_index_in_arr(strings.Join(fields_converted, ";"), symbol_table.data)
+				if data_index == -1 {
 					symbol_table.data = append(symbol_table.data, strings.Join(fields_converted, ";"))
-					data_index=len(symbol_table.data)-1
+					data_index = len(symbol_table.data) - 1
 				}
-				symbol_table.struct_registration = append(symbol_table.struct_registration, []string{"register_struct", symbol_table.current_file+"-"+"struct"+"-"+code[i-1].string_value, strconv.FormatInt(int64(data_index), 10)})
+				symbol_table.struct_registration = append(symbol_table.struct_registration, []string{"register_struct", symbol_table.current_file + "-" + "struct" + "-" + code[i-1].string_value, strconv.FormatInt(int64(data_index), 10)})
 				symbol_table.structs = append(symbol_table.structs, Struct{name: code[i-1].string_value, fields: Struct_Variables})
-				i+=len(tokens)+1
+				i += len(tokens) + 1
 				continue
 			}
-			if code[i].Type=="sys" && code[i].string_value=="function" && len(code)>i+1 && code[i+1].Type=="funcall" && variable_doesnot_exist(symbol_table ,code[i+1].children[0].string_value) {
-				function_name:=symbol_table.current_file+"-"+code[i+1].children[0].string_value
-				function_arguments:=make(map[string][]string)
-				if len(code[i+1].children[1].children)%2!=0 {
+			if code[i].Type == "sys" && code[i].string_value == "function" && len(code) > i+1 && code[i+1].Type == "funcall" && variable_doesnot_exist(symbol_table, code[i+1].children[0].string_value) {
+				function_name := symbol_table.current_file + "-" + code[i+1].children[0].string_value
+				function_arguments := make(map[string][]string)
+				if len(code[i+1].children[1].children) != 0 && ((len(code[i+1].children[1].children) < 2) || (len(code[i+1].children[1].children) != 2 && len(code[i+1].children[1].children)%3 != 2)) {
 					return "function_error", symbol_table
 				}
 				if !valid_var_name(code[i+1].children[0].string_value) {
@@ -657,165 +703,164 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 				}
 				i++
 				i++
-				for index:=0; index<len(code[i-1].children[1].children); index+=2 {
-					function_arguments[code[i-1].children[1].children[index].string_value]=type_token_to_string_array(code[i-1].children[1].children[index+1])
+				for index := 0; index < len(code[i-1].children[1].children); index += 3 {
+					function_arguments[code[i-1].children[1].children[index].string_value] = type_token_to_string_array(code[i-1].children[1].children[index+1])
 					if !valid_type(type_token_to_string_array(code[i-1].children[1].children[index+1]), symbol_table) {
 						return "invalid function argument definition", symbol_table
 					}
 				}
-				function_type:=make([]string, 0)
-				if code[i].Type=="type" {
-					function_type=type_token_to_string_array(code[i])
+				function_type := make([]string, 0)
+				if code[i].Type == "type" {
+					function_type = type_token_to_string_array(code[i])
 					if !valid_type(function_type, symbol_table) {
 						return "function_return_type_is_invalid", symbol_table
 					}
 				}
-				if code[i].Type=="type" {
+				if code[i].Type == "type" {
 					i++
 				}
-				tokens,err:=bracket_token_getter(code[i:], code[i].string_value)
-				if err!=0 {
+				tokens, err := bracket_token_getter(code[i:], code[i].string_value)
+				if err != 0 {
 					return "error", symbol_table
 				}
-				to_ignore:=len(tokens[1:len(tokens)-1])
-				err_,tokens:=branch_parser(tokens[1:len(tokens)-1])
-				if err_!="" {
+				to_ignore := len(tokens[1 : len(tokens)-1])
+				err_, tokens := branch_parser(tokens[1 : len(tokens)-1])
+				if err_ != "" {
 					return "error", symbol_table
 				}
 				symbol_table.functions = append(symbol_table.functions, Function{args: function_arguments, name: function_name, Type: function_type, Code: tokens})
 				symbol_table.data = append(symbol_table.data, function_name)
-				i+=to_ignore+1
+				i += to_ignore + 1
 				continue
 			}
-			if code[i].Type=="sys" && code[i].string_value=="var" && (len(code)-i)>=4 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type=="EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
+			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
-				variable_type:=type_token_to_string_array(code[i+2])
-				if variable_type[0]=="string" {
-					string_index:=str_index_in_arr("", symbol_table.data)
-					if string_index==-1 {
+				variable_type := type_token_to_string_array(code[i+2])
+				if variable_type[0] == "string" {
+					string_index := str_index_in_arr("", symbol_table.data)
+					if string_index == -1 {
 						symbol_table.data = append(symbol_table.data, "")
-						string_index=len(symbol_table.data)-1
+						string_index = len(symbol_table.data) - 1
 					}
-					symbol_table.global_variables=append(symbol_table.global_variables, []string{"str.set", symbol_table.current_file+"-"+code[i+1].string_value, strconv.FormatInt(int64(string_index), 10)})
-				} else if variable_type[0]=="num" {
-					symbol_table.global_variables=append(symbol_table.global_variables, []string{"set", symbol_table.current_file+"-"+code[i+1].string_value, "0"})
-				} else if variable_type[0]=="[" {
-					new_variable_type:=make([]string, 0)
-					for _,vb:=range variable_type {
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"str.set", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(string_index), 10)})
+				} else if variable_type[0] == "num" {
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"set", symbol_table.current_file + "-" + code[i+1].string_value, "0"})
+				} else if variable_type[0] == "[" {
+					new_variable_type := make([]string, 0)
+					for _, vb := range variable_type {
 						new_variable_type = append(new_variable_type, vb)
 					}
-					data_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
-					if data_index==-1 {
+					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+					if data_index == -1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
-						data_index=len(symbol_table.data)-1
+						data_index = len(symbol_table.data) - 1
 					}
-					symbol_table.global_variables = append(symbol_table.global_variables, []string{"arr.init",symbol_table.current_file+"-"+code[i+1].string_value,strconv.FormatInt(int64(data_index), 10)})
-				} else if variable_type[0]=="{" {
-					data_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
-					if data_index==-1 {
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"arr.init", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(data_index), 10)})
+				} else if variable_type[0] == "{" {
+					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+					if data_index == -1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
-						data_index=len(symbol_table.data)-1
+						data_index = len(symbol_table.data) - 1
 					}
-				} else if len(variable_type)==1 {
-					if struct_index_in_symbol_table(variable_type[0], symbol_table)==-1 {
+				} else if len(variable_type) == 1 {
+					if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 						return "Invalid variable initialisation", symbol_table
 					}
-					variable_type=type_struct_translator(variable_type, symbol_table)
-					symbol_table.data=append(symbol_table.data, variable_type[0])
-					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file+"-"+"struct"+"-"+code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+					variable_type = type_struct_translator(variable_type, symbol_table)
+					symbol_table.data = append(symbol_table.data, variable_type[0])
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
 				// you need to add the compiler
-				i+=3
+				i += 3
 				continue
 			}
-			if code[i].Type=="sys" && code[i].string_value=="import" && (len(code)-i)>=4 && code[i+1].Type=="string" && code[i+2].Type=="sys" && code[i+2].string_value=="as" && code[i+3].Type=="variable" && valid_var_name(code[i+3].string_value) && code[i+4].Type=="EOS" && !strings.Contains(code[i+1].string_value, "-") {
-				code_in_bytes,err:=os.ReadFile(code[i+1].string_value)
-				if err!=nil {
+			if code[i].Type == "sys" && code[i].string_value == "import" && (len(code)-i) >= 4 && code[i+1].Type == "string" && code[i+2].Type == "sys" && code[i+2].string_value == "as" && code[i+3].Type == "variable" && valid_var_name(code[i+3].string_value) && code[i+4].Type == "EOS" && !strings.Contains(code[i+1].string_value, "-") {
+				code_in_bytes, err := os.ReadFile(code[i+1].string_value)
+				if err != nil {
 					return err.Error(), symbol_table
 				}
-				tokens_, _:=tokens_parser(tokensier(string(code_in_bytes),true),true)
-				tokens_, _=token_grouper(tokens_, true)
-				new_symbol_table:=Symbol_Table{
-					functions: symbol_table.functions,
-					used_variables: symbol_table.used_variables,
-					structs: make([]Struct, 0),
-					variables: make([]Variable, 0),
-					data: make([]string, 0),
-					operations: make(map[string][][]string),
-					variable_mapping: make(map[string]string),
-					current_scope: Scope{},
-					files: symbol_table.files,
+				tokens_, _ := tokens_parser(tokensier(string(code_in_bytes), true), true)
+				tokens_, _ = token_grouper(tokens_, true)
+				new_symbol_table := Symbol_Table{
+					functions:           symbol_table.functions,
+					used_variables:      symbol_table.used_variables,
+					structs:             make([]Struct, 0),
+					variables:           make([]Variable, 0),
+					data:                make([]string, 0),
+					operations:          make(map[string][][]string),
+					variable_mapping:    make(map[string]string),
+					current_scope:       Scope{},
+					files:               symbol_table.files,
 					struct_registration: make([][]string, 0),
-					imported_libraries: make(map[string]string),
-					current_file: code[i+1].string_value,
-					global_variables: symbol_table.global_variables,
-					struct_mapping: make(map[string]string),
+					imported_libraries:  make(map[string]string),
+					current_file:        code[i+1].string_value,
+					global_variables:    symbol_table.global_variables,
+					struct_mapping:      make(map[string]string),
 				}
-				new_file_name:=code[i+1].string_value
-				debug_keys:=make([]string, 0)
-				for name,_:=range symbol_table.files {
+				new_file_name := code[i+1].string_value
+				debug_keys := make([]string, 0)
+				for name, _ := range symbol_table.files {
 					debug_keys = append(debug_keys, name)
 				}
-				
-				if symbol_table.files[new_file_name].current_file!="" && symbol_table.files[new_file_name].finished_importing==false {
+
+				if symbol_table.files[new_file_name].current_file != "" && symbol_table.files[new_file_name].finished_importing == false {
 					return "circular_import", symbol_table
 				}
-				if str_index_in_arr(new_file_name, debug_keys)==-1 {
-					new_symbol_table.files[new_file_name]=Symbol_Table{current_file: new_file_name}
-					new_symbol_table.current_file=new_file_name
-					err_,new_file:=build(new_symbol_table, tokens_, 1)
-					if len(err_)>=6 && strings.HasPrefix(err_, "Error") {
+				if str_index_in_arr(new_file_name, debug_keys) == -1 {
+					new_symbol_table.files[new_file_name] = Symbol_Table{current_file: new_file_name}
+					new_symbol_table.current_file = new_file_name
+					err_, new_file := build(new_symbol_table, tokens_, 1)
+					if len(err_) >= 6 && strings.HasPrefix(err_, "Error") {
 						return err_, symbol_table
 					}
-					symbol_table.files[new_file_name]=new_file
-					new_symbol_table_data:=new_file.data
-					new_symbol_table_data=append(new_symbol_table_data, symbol_table.data...)
+					symbol_table.files[new_file_name] = new_file
+					new_symbol_table_data := new_file.data
+					new_symbol_table_data = append(new_symbol_table_data, symbol_table.data...)
 					symbol_table.data = new_symbol_table_data
-					for _,function:=range new_file.functions {
+					for _, function := range new_file.functions {
 						symbol_table.functions = append(symbol_table.functions, function)
 					}
-					symbol_table.imported_libraries[code[i+3].string_value]=new_file_name
-					for function_name_,function:=range new_symbol_table.operations {
-						symbol_table.operations[function_name_]=function
+					symbol_table.imported_libraries[code[i+3].string_value] = new_file_name
+					for function_name_, function := range new_symbol_table.operations {
+						symbol_table.operations[function_name_] = function
 					}
 					symbol_table.global_variables = append(symbol_table.global_variables, new_file.global_variables...)
 					symbol_table.struct_registration = append(symbol_table.struct_registration, new_file.struct_registration...)
-					for _,struct_:=range new_file.structs {
-						struct_.name=new_file.current_file+"-struct-"+struct_.name
+					for _, struct_ := range new_file.structs {
+						struct_.name = new_file.current_file + "-struct-" + struct_.name
 						symbol_table.structs = append(symbol_table.structs, struct_)
 					}
 				}
-				i+=4
+				i += 4
 				continue
 			}
 		}
-		fmt.Println(code[i])
 		return "error_token_not_parsed", symbol_table
 	}
 	return result, symbol_table
 }
 
 func is_valid_statement(symbol_table Symbol_Table, code []Token) bool {
-	if len(code)%2!=1 {
+	if len(code)%2 != 1 {
 		return false
 	}
-	for i,token:=range code {
-		if token.Type=="expression" {
+	for i, token := range code {
+		if token.Type == "expression" {
 			if !is_valid_statement(symbol_table, token.children) {
 				return false
 			}
 		}
-		if i%2==0 {
-			if str_index_in_arr(token.Type, []string{"lookup", "variable", "expression", "string", "num", "funcall", "nested_tokens", "array"})==-1 {
+		if i%2 == 0 {
+			if str_index_in_arr(token.Type, []string{"lookup", "variable", "expression", "string", "num", "funcall", "nested_tokens", "array"}) == -1 {
 				return false
 			}
 		}
-		if i%2==1 {
-			if token.Type!="operator" && str_index_in_arr(token.string_value, operators)==-1 {
+		if i%2 == 1 {
+			if token.Type != "operator" && str_index_in_arr(token.string_value, operators) == -1 {
 				return false
 			}
-			if str_index_in_arr(token.string_value, []string{"|","&","!"})!=-1 {
+			if str_index_in_arr(token.string_value, []string{"|", "&", "!"}) != -1 {
 				return false
 			}
 		}
@@ -824,30 +869,30 @@ func is_valid_statement(symbol_table Symbol_Table, code []Token) bool {
 }
 
 func are_function_arguments_valid(argument_expression Token, function Function, symbol_table Symbol_Table) bool {
-	if len(argument_expression.children)%2!=1 && len(argument_expression.children)!=0 {
+	if len(argument_expression.children)%2 != 1 && len(argument_expression.children) != 0 {
 		return false
 	}
-	arguments:=make([]Token,0)
-	cache:=make([]Token,0)
+	arguments := make([]Token, 0)
+	cache := make([]Token, 0)
 	for i := 0; i < len(argument_expression.children); i++ {
-		if argument_expression.children[i].Type=="comma" {
-			if len(cache)==0 {
+		if argument_expression.children[i].Type == "comma" {
+			if len(cache) == 0 {
 				return false
 			}
 			arguments = append(arguments, Token{Type: "expression", children: cache})
-			cache=make([]Token, 0)
+			cache = make([]Token, 0)
 		} else {
 			cache = append(cache, argument_expression.children[i])
 		}
 	}
-	if len(cache)!=0 {
+	if len(cache) != 0 {
 		arguments = append(arguments, Token{Type: "expression", children: cache})
 	}
-	if len(arguments)!=len(function.args) {
+	if len(arguments) != len(function.args) {
 		return false
 	}
-	function_arguments:=make([]string, 0)
-	for key:=range function.args {
+	function_arguments := make([]string, 0)
+	for key := range function.args {
 		function_arguments = append(function_arguments, key)
 	}
 	for i := 0; i < len(arguments); i++ {
@@ -859,30 +904,30 @@ func are_function_arguments_valid(argument_expression Token, function Function, 
 }
 
 func are_array_arguments_valid(argument_expression Token, Type []string, symbol_table Symbol_Table) bool {
-	if len(argument_expression.children)==0 {
+	if len(argument_expression.children) == 0 {
 		return true
 	}
-	if len(argument_expression.children)%2!=1 {
+	if len(argument_expression.children)%2 != 1 {
 		return false
 	}
-	arguments:=make([]Token,0)
-	cache:=make([]Token,0)
+	arguments := make([]Token, 0)
+	cache := make([]Token, 0)
 	for i := 0; i < len(argument_expression.children); i++ {
-		if argument_expression.children[i].Type=="comma" {
-			if len(cache)==0 {
+		if argument_expression.children[i].Type == "comma" {
+			if len(cache) == 0 {
 				return false
 			}
 			arguments = append(arguments, Token{Type: "expression", children: cache})
-			cache=make([]Token, 0)
+			cache = make([]Token, 0)
 		} else {
 			cache = append(cache, argument_expression.children[i])
 		}
 	}
-	if len(cache)!=0 {
+	if len(cache) != 0 {
 		arguments = append(arguments, Token{Type: "expression", children: cache})
 	}
 	for i := 0; i < len(arguments); i++ {
-		if len(Type)<3 {
+		if len(Type) < 3 {
 			return false
 		}
 		if !string_arr_compare(evaluate_type(symbol_table, arguments[i].children, 0), Type[1:len(Type)-1]) {
@@ -893,51 +938,52 @@ func are_array_arguments_valid(argument_expression Token, Type []string, symbol_
 }
 
 func nested_puller(code []Token) []Token {
-	grouped_tokens:=make([]Token, 0)
+	grouped_tokens := make([]Token, 0)
 	for i := 0; i < len(code); i++ {
-		if code[i].Type=="nested_tokens" {
-			new_children:=make([]Token, 0)
+		if code[i].Type == "nested_tokens" {
+			new_children := make([]Token, 0)
 			for j := 0; j < len(code[i].children); j++ {
-				if code[i].children[j].Type=="nested_tokens" {
+				if code[i].children[j].Type == "nested_tokens" {
 					new_children = append(new_children, nested_puller(code[i].children[j].children)...)
 					continue
 				}
 				new_children = append(new_children, code[i].children[j])
 			}
-			code[i].children=new_children
+			code[i].children = new_children
 			grouped_tokens = append(grouped_tokens, code[i])
 			continue
 		}
-		code[i].children=nested_puller(code[i].children)
+		code[i].children = nested_puller(code[i].children)
 		grouped_tokens = append(grouped_tokens, code[i])
 	}
 	return grouped_tokens
 }
 
-func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string) {
-	if len(code)==0 {
+func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) []string {
+	if len(code) == 0 {
 		return make([]string, 0)
 	}
-	current_type:=make([]string, 0)
-	if (is_valid_statement(symbol_table, code) || depth!=0) {
-		if len(code)==1 {
-			if code[0].Type=="string" {
+	current_type := make([]string, 0)
+	if is_valid_statement(symbol_table, code) || depth != 0 {
+		if len(code) == 1 {
+			if code[0].Type == "string" {
 				return []string{"string"}
 			}
-			if code[0].Type=="num" {
+			if code[0].Type == "num" {
 				return []string{"num"}
 			}
-			if code[0].Type=="expression" {
+			if code[0].Type == "expression" {
 				return evaluate_type(symbol_table, code[0].children, 0)
 			}
-			if code[0].Type=="variable" {
-				variable_index:=variable_index_in_symbol_table(code[0].string_value,symbol_table)
-				if variable_index==-1 {
+			if code[0].Type == "variable" {
+				variable_index := variable_index_in_symbol_table(code[0].string_value, symbol_table)
+				if variable_index == -1 {
 					return make([]string, 0)
 				}
+				fmt.Println(symbol_table.variables[variable_index].Type)
 				return symbol_table.variables[variable_index].Type
 			}
-			if code[0].Type=="array" {
+			if code[0].Type == "array" {
 				if !valid_type(type_token_to_string_array(code[0].children[0]), symbol_table) {
 					return make([]string, 0)
 				}
@@ -946,52 +992,57 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 				}
 				return make([]string, 0)
 			}
-			if code[0].Type=="lookup" {
-				parent_type:=evaluate_type(symbol_table, []Token{code[0].children[0].children[0]}, 0)
-				if len(parent_type)==0 {
+			if code[0].Type == "lookup" {
+				parent_type := evaluate_type(symbol_table, []Token{code[0].children[0].children[0]}, 0)
+				if len(parent_type) == 0 {
 					return make([]string, 0)
 				}
-				if str_index_in_arr(parent_type[0], []string{"[","{"})==-1 {
+				if str_index_in_arr(parent_type[0], []string{"[", "{"}) == -1 {
 					return make([]string, 0)
 				}
-				lookup_type:=evaluate_type(symbol_table, code[0].children[1].children, 0)
-				if len(lookup_type)==0 {
+				lookup_type := evaluate_type(symbol_table, code[0].children[1].children, 0)
+				if len(lookup_type) == 0 {
 					return make([]string, 0)
 				}
-				if parent_type[0]=="[" && string_arr_compare(lookup_type, []string{"num"}) {
-					return parent_type[1:len(parent_type)-1]
+				if parent_type[0] == "[" && string_arr_compare(lookup_type, []string{"num"}) {
+					return parent_type[1 : len(parent_type)-1]
 				}
-				if parent_type[0]=="{" && string_arr_compare(lookup_type, []string{"string"}) {
-					return parent_type[1:len(parent_type)-1]
+				if parent_type[0] == "{" && string_arr_compare(lookup_type, []string{"string"}) {
+					return parent_type[1 : len(parent_type)-1]
 				}
 				return make([]string, 0)
 			}
-			if code[0].Type=="nested_tokens" {
-				parent_type:=make([]string, 0)
-				if depth==0 {
-					parent_type=evaluate_type(symbol_table, []Token{code[0].children[0]}, 0)
-					if len(parent_type)==0 {
+			if code[0].Type == "nested_tokens" {
+				parent_type := make([]string, 0)
+				if depth == 0 {
+					parent_type = evaluate_type(symbol_table, []Token{code[0].children[0]}, 0)
+					if len(parent_type) == 1 && strings.Contains(parent_type[0], "-struct-") && strings.Contains(parent_type[0], symbol_table.current_file) {
+						parent_type=[]string{strings.Split(parent_type[0], "-struct-")[1]}
+					}
+					fmt.Println(parent_type)
+					if len(parent_type) == 0 {
 						return make([]string, 0)
 					}
 				} else {
-					parent_type=[]string{code[0].children[0].string_value}
+					parent_type = []string{code[0].children[0].string_value}
 				}
-				if len(parent_type)==1 && struct_index_in_symbol_table(parent_type[0], symbol_table)!=-1 {
-					struct_index:=struct_index_in_symbol_table(parent_type[0], symbol_table)
-					res:=symbol_table.structs[struct_index].fields[code[0].children[1].string_value]
-					if len(res)==0 {
+				if len(parent_type) == 1 && struct_index_in_symbol_table(parent_type[0], symbol_table) != -1 {
+					struct_index := struct_index_in_symbol_table(parent_type[0], symbol_table)
+					fmt.Println("IS THIS CORRECT?" ,symbol_table.structs[struct_index].fields, code[0].children[1].string_value)
+					res := symbol_table.structs[struct_index].fields[code[0].children[1].string_value]
+					if len(res) == 0 {
 						return make([]string, 0)
 					}
-					if len(code[0].children)>2 {
-						if struct_index_in_symbol_table(res[0], symbol_table)==-1 {
+					if len(code[0].children) > 2 {
+						if struct_index_in_symbol_table(res[0], symbol_table) == -1 {
 							return make([]string, 0)
 						}
-						code[0].children[1]=Token{string_value: res[0]}
-						code_:=code
-						code_[0].children=code[0].children[1:]
+						code[0].children[1] = Token{string_value: res[0]}
+						code_ := code
+						code_[0].children = code[0].children[1:]
 						return evaluate_type(symbol_table, code_, 1)
 					} else {
-						if depth==0 {
+						if depth == 0 {
 							return res
 						} else {
 							return res
@@ -1001,32 +1052,32 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 				}
 				return make([]string, 0)
 			}
-			if code[0].Type=="funcall" {
-				if code[0].children[0].Type=="variable" {
-					function_index:=function_index_in_symbol_table(code[0].children[0].string_value, symbol_table)
-					if function_index==-1 {
+			if code[0].Type == "funcall" {
+				if code[0].children[0].Type == "variable" {
+					function_index := function_index_in_symbol_table(symbol_table.current_file+"-"+code[0].children[0].string_value, symbol_table)
+					if function_index == -1 {
 						return make([]string, 0)
 					}
 					if are_function_arguments_valid(code[0].children[1], symbol_table.functions[function_index], symbol_table) {
 						return symbol_table.functions[function_index].Type
 					}
 				}
-				if code[0].children[0].Type=="nested_tokens" {
-					code_:=code[0].children[0]
-					imported_libraries:=make([]string, 0)
-					for key:=range symbol_table.imported_libraries {
+				if code[0].children[0].Type == "nested_tokens" {
+					code_ := code[0].children[0]
+					imported_libraries := make([]string, 0)
+					for key := range symbol_table.imported_libraries {
 						imported_libraries = append(imported_libraries, key)
 					}
-					if str_index_in_arr(code_.children[0].string_value, imported_libraries)==-1 {
+					if str_index_in_arr(code_.children[0].string_value, imported_libraries) == -1 {
 						return make([]string, 0)
 					}
-					library_symbol_table:=symbol_table.files[symbol_table.imported_libraries[code_.children[0].string_value]]
-					function_name:=library_symbol_table.current_file+"-"+code_.children[1].string_value
-					function_index:=function_index_in_symbol_table(function_name, library_symbol_table)
-					if function_index==-1 {
+					library_symbol_table := symbol_table.files[symbol_table.imported_libraries[code_.children[0].string_value]]
+					function_name := library_symbol_table.current_file + "-" + code_.children[1].string_value
+					function_index := function_index_in_symbol_table(function_name, library_symbol_table)
+					if function_index == -1 {
 						return make([]string, 0)
 					}
-					function:=library_symbol_table.functions[function_index]
+					function := library_symbol_table.functions[function_index]
 					if are_function_arguments_valid(code[0].children[1], function, symbol_table) {
 						return type_struct_translator(function.Type, library_symbol_table)
 					}
@@ -1038,16 +1089,16 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 			}
 			return make([]string, 0)
 		}
-		if len(code)>1 {
+		if len(code) > 1 {
 			for i := 0; i < len(code); i++ {
-				if i+2>=len(code) {
+				if i+2 >= len(code) {
 					return current_type
 				}
-				lhs:=current_type
+				lhs := current_type
 				if string_arr_compare(make([]string, 0), current_type) {
-					lhs=evaluate_type(symbol_table, []Token{code[i]}, 0)
+					lhs = evaluate_type(symbol_table, []Token{code[i]}, 0)
 				}
-				rhs:=evaluate_type(symbol_table, []Token{code[i+2]}, 0)
+				rhs := evaluate_type(symbol_table, []Token{code[i+2]}, 0)
 				if string_arr_compare(lhs, make([]string, 0)) {
 					return make([]string, 0)
 				}
@@ -1055,39 +1106,27 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 					return make([]string, 0)
 				}
 				i++
-				switch operator:=code[i]; operator.string_value {
-				case "+","*":
-					if lhs[0]=="[" && string_arr_compare(rhs,[]string{"num"}) {
-						current_type=lhs
-						continue
-					}
-					if rhs[0]=="[" && string_arr_compare(lhs,[]string{"num"}) {
-						current_type=rhs
-						continue
-					}
-					if operator.string_value=="*" {
+				switch operator := code[i]; operator.string_value {
+				case "+", "*":
+					if operator.string_value == "*" {
 						if (string_arr_compare(rhs, []string{"string"}) && string_arr_compare(lhs, []string{"num"})) || (string_arr_compare(rhs, []string{"num"}) && string_arr_compare(lhs, []string{"string"})) {
-							if rhs[0]=="[" {
-								current_type=rhs
-							} else {
-								current_type=lhs
-							}
+							current_type = lhs
 							continue
 						}
 					}
-					if string_arr_compare(rhs, lhs) || (string_arr_compare(rhs, []string{"num"}) && string_arr_compare(lhs, []string{"string"})) {
-						current_type=rhs
+					if operator.string_value == "+" && string_arr_compare(rhs, lhs) && (string_arr_compare(rhs, []string{"num"}) || string_arr_compare(rhs, []string{"string"})) {
+						current_type = rhs
 						continue
 					}
 					return make([]string, 0)
-				case "-","/","//","^","**","%","&&","||":
-					if (string_arr_compare(lhs, rhs) && string_arr_compare(lhs, []string{"num"})) {
-						current_type=rhs
+				case "-", "/", "//", "^", "**", "%", "&&", "||":
+					if string_arr_compare(lhs, rhs) && string_arr_compare(lhs, []string{"num"}) {
+						current_type = rhs
 						continue
 					}
 					return make([]string, 0)
-				case "==","!=",">","<":
-					if !string_arr_compare(lhs, rhs) {
+				case "==", "!=", ">", "<":
+					if !(string_arr_compare(lhs, rhs) && (string_arr_compare(lhs, []string{"num"}) || string_arr_compare(lhs, []string{"string"}))) {
 						return make([]string, 0)
 					}
 					return []string{"num"}
@@ -1101,21 +1140,24 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) ([]string
 	return current_type
 }
 
-func string_array_types_to_vitality_types(typesx []string, symbol_table Symbol_Table) []string  {
-	new_types:=make([]string, 0)
-	for _,str:=range typesx {
+func string_array_types_to_vitality_types(typesx []string, symbol_table Symbol_Table) []string {
+	if len(typesx) == 0 {
+		return make([]string, 0)
+	}
+	new_types := make([]string, 0)
+	for _, str := range typesx {
 		new_types = append(new_types, str)
 	}
-	types:=type_struct_translator(new_types, symbol_table)
-	output:=make([]string, 0)
-	if types[0]=="[" {
+	types := type_struct_translator(new_types, symbol_table)
+	output := make([]string, 0)
+	if types[0] == "[" {
 		output = append(output, "arr")
-		for _,type_string:=range string_array_types_to_vitality_types(types[1:len(types)-1], symbol_table) {
+		for _, type_string := range string_array_types_to_vitality_types(types[1:len(types)-1], symbol_table) {
 			output = append(output, type_string)
 		}
-	} else if types[0]=="{" {
+	} else if types[0] == "{" {
 		output = append(output, "dict")
-		for _,type_string:=range string_array_types_to_vitality_types(types[1:len(types)-1], symbol_table) {
+		for _, type_string := range string_array_types_to_vitality_types(types[1:len(types)-1], symbol_table) {
 			output = append(output, type_string)
 		}
 	} else {
@@ -1125,8 +1167,8 @@ func string_array_types_to_vitality_types(typesx []string, symbol_table Symbol_T
 }
 
 func get_variable(Type []string, symbol_table Symbol_Table) (string, Symbol_Table) {
-	if symbol_table.variable_mapping[strings.Join(Type, "")]=="" {
-		unique_combinations:=len(symbol_table.variable_mapping)
+	if symbol_table.variable_mapping[strings.Join(Type, "")] == "" {
+		unique_combinations := len(symbol_table.variable_mapping)
 		power_of_52 := 0
 		for true {
 			if math.Pow(52, float64(power_of_52)) > float64(unique_combinations) {
@@ -1135,319 +1177,567 @@ func get_variable(Type []string, symbol_table Symbol_Table) (string, Symbol_Tabl
 				power_of_52 += 1
 			}
 		}
-		if power_of_52!=0 {
-			power_of_52=power_of_52-1
+		if power_of_52 != 0 {
+			power_of_52 = power_of_52 - 1
 		}
-		output_variable:=strings.Repeat("Z", power_of_52)
-		output_variable+=string("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"[int(math.Mod(float64(unique_combinations), 52))])
-		symbol_table.variable_mapping[strings.Join(Type, "")]=output_variable
+		output_variable := strings.Repeat("Z", power_of_52)
+		output_variable += string("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"[int(math.Mod(float64(unique_combinations), 52))])
+		symbol_table.variable_mapping[strings.Join(Type, "")] = output_variable
 	}
-	variable_count:=0
-	for (true) {
-		found:=false
-		for _,i:=range symbol_table.used_variables[symbol_table.variable_mapping[strings.Join(Type, "")]] {
-			if i==variable_count {
-				found=true
+	variable_count := 0
+	for true {
+		found := false
+		for _, i := range symbol_table.used_variables[symbol_table.variable_mapping[strings.Join(Type, "")]] {
+			if i == variable_count {
+				found = true
 				break
 			}
 		}
 		if found {
-			variable_count+=1
+			variable_count += 1
 			continue
 		} else {
 			symbol_table.used_variables[symbol_table.variable_mapping[strings.Join(Type, "")]] = append(symbol_table.used_variables[symbol_table.variable_mapping[strings.Join(Type, "")]], variable_count)
-			return symbol_table.variable_mapping[strings.Join(Type, "")]+"_"+strconv.FormatInt(int64(variable_count), 10), symbol_table
+			return symbol_table.variable_mapping[strings.Join(Type, "")] + "_" + strconv.FormatInt(int64(variable_count), 10), symbol_table
 		}
 	}
 	return "", symbol_table
 }
 
 func free_variable(name string, symbol_table Symbol_Table) Symbol_Table {
-	new_used_variable:=make([]int, 0)
-	variable_index_int64,_:=strconv.ParseInt(strings.Split(name, "_")[1], 10, 64)
-	variable_index:=int(variable_index_int64)
-	for _,i:=range symbol_table.used_variables[strings.Split(name, "_")[0]] {
-		if i!=variable_index {
-			new_used_variable=append(new_used_variable, i)
+	new_used_variable := make([]int, 0)
+	variable_index_int64, _ := strconv.ParseInt(strings.Split(name, "_")[1], 10, 64)
+	variable_index := int(variable_index_int64)
+	for _, i := range symbol_table.used_variables[strings.Split(name, "_")[0]] {
+		if i != variable_index {
+			new_used_variable = append(new_used_variable, i)
 		}
 	}
-	symbol_table.used_variables[strings.Split(name, "_")[0]]=new_used_variable
+	symbol_table.used_variables[strings.Split(name, "_")[0]] = new_used_variable
 	return symbol_table
 }
 
-func expression_solver(tokens []Token, function_name string, symbol_table Symbol_Table) (string, []string, Symbol_Table) {
-	resultant_variable:=""
-	used_variables:=make([]string, 0)
-	if len(tokens)==1 {
-		if tokens[0].Type=="num" {
-			resultant_variable, symbol_table=get_variable([]string{"num"}, symbol_table)
+func var_init(variable_type []string, variable_name string, symbol_table Symbol_Table, function_name string) Symbol_Table {
+	if variable_type[0] == "string" {
+		string_index := str_index_in_arr("", symbol_table.data)
+		if string_index == -1 {
+			symbol_table.data = append(symbol_table.data, "")
+			string_index = len(symbol_table.data) - 1
+		}
+		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
+		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", variable_name, strconv.FormatInt(int64(string_index), 10)})
+	} else if variable_type[0] == "num" {
+		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
+		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", variable_name, "0"})
+	} else if variable_type[0] == "[" {
+		new_variable_type := make([]string, 0)
+		for _, vb := range variable_type {
+			new_variable_type = append(new_variable_type, vb)
+		}
+		data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+		if data_index == -1 {
+			symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
+			data_index = len(symbol_table.data) - 1
+		}
+		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: new_variable_type})
+		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init", variable_name, strconv.FormatInt(int64(data_index), 10)})
+	} else if variable_type[0] == "{" {
+		data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+		if data_index == -1 {
+			symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
+			data_index = len(symbol_table.data) - 1
+		}
+		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
+	} else if len(variable_type) == 1 {
+		if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
+			return symbol_table
+		}
+		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
+		variable_type = type_struct_translator(variable_type, symbol_table)
+		if str_index_in_arr(variable_type[0], symbol_table.data)==-1 {
+			symbol_table.data = append(symbol_table.data, variable_type[0])
+		}
+		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file+"-struct-"+variable_name, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+	}
+	return symbol_table
+}
+
+func expression_solver(tokens []Token, function_name string, symbol_table Symbol_Table, nested_nested_tokens bool) (string, []string, Symbol_Table) {
+	resultant_variable := ""
+	used_variables := make([]string, 0)
+	if len(tokens) == 1 {
+		if tokens[0].Type == "num" {
+			resultant_variable, symbol_table = get_variable([]string{"num"}, symbol_table)
 			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", resultant_variable, strconv.FormatInt(int64(tokens[0].num_value), 10)})
 			used_variables = append(used_variables, resultant_variable)
 			return resultant_variable, used_variables, symbol_table
 		}
-		if tokens[0].Type=="string" {
-			resultant_variable, symbol_table=get_variable([]string{"string"}, symbol_table)
+		if tokens[0].Type == "string" {
+			resultant_variable, symbol_table = get_variable([]string{"string"}, symbol_table)
 			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", resultant_variable, strconv.FormatInt(int64(str_index_in_arr(tokens[0].string_value, symbol_table.data)), 10)})
 			used_variables = append(used_variables, resultant_variable)
 			return resultant_variable, used_variables, symbol_table
 		}
-		if tokens[0].Type=="variable" {
-			if symbol_table.variable_mapping[tokens[0].string_value]!="" {
+		if tokens[0].Type == "variable" {
+			if symbol_table.variable_mapping[tokens[0].string_value] != "" {
 				return symbol_table.variable_mapping[tokens[0].string_value], used_variables, symbol_table
 			}
-			return symbol_table.current_file+"-"+tokens[0].string_value, used_variables, symbol_table
+			return symbol_table.current_file + "-" + tokens[0].string_value, used_variables, symbol_table
 		}
-		if tokens[0].Type=="expression" {
-			return expression_solver(tokens[0].children, function_name, symbol_table)
+		if tokens[0].Type == "expression" {
+			return expression_solver(tokens[0].children, function_name, symbol_table, false)
 		}
-		if tokens[0].Type=="array" {
-			array_variable, new_symbol_table:=get_variable(type_token_to_string_array(tokens[0].children[0]), symbol_table)
-			symbol_table=new_symbol_table
+		if tokens[0].Type == "array" {
+			array_variable, new_symbol_table := get_variable(type_token_to_string_array(tokens[0].children[0]), symbol_table)
+			symbol_table = new_symbol_table
 			used_variables = append(used_variables, array_variable)
-			type_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(type_token_to_string_array(tokens[0].children[0]), symbol_table)[1:], ","), symbol_table.data)
-			if type_index==-1 {
+			type_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(type_token_to_string_array(tokens[0].children[0]), symbol_table)[1:], ","), symbol_table.data)
+			if type_index == -1 {
 				symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(type_token_to_string_array(tokens[0].children[0]), symbol_table)[1:], ","))
-				type_index=len(symbol_table.data)-1
+				type_index = len(symbol_table.data) - 1
 			}
-			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init",array_variable,strconv.FormatInt(int64(type_index), 10)})
-			arguments:=make([][]Token,0)
-			cache:=make([]Token,0)
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init", array_variable, strconv.FormatInt(int64(type_index), 10)})
+			arguments := make([][]Token, 0)
+			cache := make([]Token, 0)
 			for i := 0; i < len(tokens[0].children[1].children); i++ {
-				if tokens[0].children[1].children[i].Type=="comma" {
+				if tokens[0].children[1].children[i].Type == "comma" {
 					arguments = append(arguments, cache)
-					cache=make([]Token, 0)
+					cache = make([]Token, 0)
 				} else {
 					cache = append(cache, tokens[0].children[1].children[i])
 				}
 			}
-			if len(cache)!=0 {
+			if len(cache) != 0 {
 				arguments = append(arguments, cache)
 			}
-			array_children:=make([]string, 0)
+			array_children := make([]string, 0)
 			for i := 0; i < len(arguments); i++ {
-				argument:=arguments[i]
-				new_resultant_variable, new_used_variables, new_symbol_table:=expression_solver(argument, function_name, symbol_table)
+				argument := arguments[i]
+				new_resultant_variable, new_used_variables, new_symbol_table := expression_solver(argument, function_name, symbol_table, false)
 				used_variables = append(used_variables, new_used_variables...)
 				array_children = append(array_children, new_resultant_variable)
-				symbol_table=new_symbol_table
-				symbol_table.operations[function_name] =  append(symbol_table.operations[function_name], []string{"arr.push",array_variable,new_resultant_variable})
+				symbol_table = new_symbol_table
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.push", array_variable, new_resultant_variable})
 			}
 			return array_variable, used_variables, symbol_table
 		}
-	} else {
+		if tokens[0].Type == "nested_tokens" {
+			if len(tokens[0].children)==2 {
+				variable_type:=evaluate_type(symbol_table, []Token{tokens[0].children[0]}, 0)
+				fmt.Println(variable_type)
+				if len(variable_type) == 1 && strings.Contains(variable_type[0], "-struct-") && strings.Contains(variable_type[0], symbol_table.current_file) {
+					variable_type=[]string{strings.Split(variable_type[0], "-struct-")[1]}
+				}
+				variable_struct:=symbol_table.structs[struct_index_in_symbol_table(variable_type[0], symbol_table)]
+				if len(variable_struct.fields[tokens[0].children[1].string_value])!=0 {
+					new_variable, new_symbol_table := get_variable(variable_struct.fields[tokens[0].children[1].string_value], symbol_table)
+					fmt.Println("DEKHO BHAI MILA TO YE HAI", new_variable)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{})
+					symbol_table = new_symbol_table
+					fmt.Println("CHalu karde ye struct", new_variable, variable_struct.fields[tokens[0].children[1].string_value])
+					new_symbol_table=var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name)
+					symbol_table=new_symbol_table
+					used_variables = append(used_variables, new_variable)
+					if str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)==-1 {
+						symbol_table.data = append(symbol_table.data, tokens[0].children[1].string_value)
+					}
+					//variable_name:=tokens[0].children[1].string_value
+					fmt.Println(tokens[0].children, "VERY IMPORTANT")
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull",symbol_table.current_file+"-struct-"+tokens[0].children[0].string_value,strconv.FormatInt(int64(str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)), 10), new_variable})
+				}
+			} else {
+				new_children:=[]Token{}
+				fmt.Println("PEHLE TO DEKHO YE KARUNGA")
+				fmt.Println(tokens[0].children[:2])
+				new_children = append(new_children, tokens[0].children[:2]...)
+				new_token:=Token{Type: "nested_tokens", children: new_children}
+				fmt.Println("chapri start", new_token)
+				resolved_type:=evaluate_type(symbol_table, []Token{new_token}, 0)
+				new_variable, new_symbol_table := get_variable(resolved_type, symbol_table)
+				fmt.Println("chapri end", resolved_type)
+				symbol_table = new_symbol_table
+				new_symbol_table=var_init(resolved_type, new_variable, symbol_table, function_name)
+				symbol_table = new_symbol_table
+				used_variables = append(used_variables, new_variable)
+				symbol_table.variables = append(symbol_table.variables, Variable{name: new_variable, Type: resolved_type})
+				new_children =make([]Token, 0)
+				new_children = append(new_children, Token{Type: "variable", string_value: new_variable})
+				new_children = append(new_children, tokens[0].children[2:]...)
+				new_token=Token{Type: tokens[0].Type, children: new_children}
+				new_children[0].string_value=new_variable
+				varying_value, new_used_variables, new_symbol_table:=expression_solver([]Token{new_token}, function_name, symbol_table, true)
+				used_variables = append(used_variables, new_used_variables...)
+				symbol_table = new_symbol_table
+				return varying_value, used_variables, symbol_table
+			}
 
+		}
+		// you need to add function calls and nested_tokens
+	} else {
+		lhs, new_used_variables, new_symbol_table:=expression_solver([]Token{tokens[0]}, function_name, symbol_table, false)
+		used_variables = append(used_variables, new_used_variables...)
+		symbol_table = new_symbol_table
+		lhs_type:=evaluate_type(symbol_table, []Token{tokens[0]}, 0)
+		for i := 0; i < len(tokens); i+=2 {
+			if i+2 > len(tokens) {
+				break
+			}
+			rhs, new_used_variables, new_symbol_table:=expression_solver([]Token{tokens[i+2]}, function_name, symbol_table, true)
+			used_variables = append(used_variables, new_used_variables...)
+			symbol_table = new_symbol_table
+			rhs_type:=evaluate_type(symbol_table, []Token{tokens[i+2]}, 0)
+			switch operator:=tokens[i+1].string_value; operator {
+			case "+":
+				if lhs_type[0]=="num" && rhs_type[0]=="num" {
+					new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
+					symbol_table = new_symbol_table
+					used_variables = append(used_variables, new_variable)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"add",lhs,rhs,new_variable})
+					lhs=new_variable
+					lhs_type=rhs_type
+				}
+				if (lhs_type[0]=="string" && rhs_type[0]=="string") {
+					new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
+					symbol_table = new_symbol_table
+					used_variables = append(used_variables, new_variable)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", new_variable, "0"})
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.add",lhs,rhs,new_variable})
+					lhs=new_variable
+					lhs_type=rhs_type
+				}
+			case "*":
+				if (lhs_type[0]=="num" && rhs_type[0]=="string") || (rhs_type[0]=="num" && lhs_type[0]=="string") {
+					var_1:=lhs
+					var_2:=rhs
+					if rhs_type[0]=="string" {
+						var_1=rhs
+						var_2=lhs
+					}
+					new_variable, new_symbol_table := get_variable([]string{"string"}, symbol_table)
+					symbol_table = new_symbol_table
+					used_variables = append(used_variables, new_variable)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", new_variable, "0"})
+					
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.mult",var_1,var_2,new_variable})
+					lhs=new_variable
+					lhs_type=[]string{"string"}
+				}
+				if (lhs_type[0]=="num" && rhs_type[0]=="num") {
+					new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
+					symbol_table = new_symbol_table
+					used_variables = append(used_variables, new_variable)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"mult",lhs,rhs,new_variable})
+					lhs=new_variable
+					lhs_type=rhs_type
+				}
+			case "-", "/", "//", "^", "**", "%", "&&", "||":
+				operation:=""
+				switch operator {
+				case "-":operation="sub"
+				case "/":operation="div"
+				case "//":operation="floor"
+				case "^":operation="xor"
+				case "**":operation="power"
+				case "%":operation="mod"
+				case "&&":operation="and"
+				case "||":operation="or"
+				}
+				new_variable, new_symbol_table := get_variable(lhs_type, symbol_table)
+				symbol_table = new_symbol_table
+				used_variables = append(used_variables, new_variable)
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{operation,lhs,rhs,new_variable})
+				lhs=new_variable
+				lhs_type=rhs_type
+			case "==", "!=", ">", "<":
+				operation:=""
+				if lhs_type[0]=="string" {
+					switch operator {
+						case "==":operation="str.equals"
+						case "!=":operation="str.equals"
+					}
+					if operator=="==" {
+						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
+						symbol_table = new_symbol_table
+						used_variables = append(used_variables, new_variable)
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.equals",lhs,rhs,new_variable})
+						lhs=new_variable
+						lhs_type=rhs_type
+					}
+					if operator=="!=" {
+						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
+						symbol_table = new_symbol_table
+						used_variables = append(used_variables, new_variable)
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{operation,lhs,rhs,new_variable})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",new_variable,"false", new_variable})
+						lhs=new_variable
+						lhs_type=rhs_type
+					}
+				}
+				if lhs_type[0]=="num" {
+					switch operator {
+						case "==":operation="equals"
+						case "!=":operation="equals"
+						case ">":operation="greater"
+						case "<":operation="greater"
+					}
+					if (operator=="!=" || operator=="==") {
+						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
+						symbol_table = new_symbol_table
+						used_variables = append(used_variables, new_variable)
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",lhs,rhs,new_variable})
+						if operator=="!=" {
+							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",new_variable,"false", new_variable})
+						}
+						lhs=new_variable
+						lhs_type=rhs_type
+					}
+					if (operator==">" || operator=="<") {
+						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
+						symbol_table = new_symbol_table
+						used_variables = append(used_variables, new_variable)
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"greater",lhs,rhs,new_variable})
+						if operator=="<" {
+							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals",new_variable,"false", new_variable})
+						}
+						lhs=new_variable
+						lhs_type=rhs_type
+					}
+				}
+			}
+		}
 	}
 	return resultant_variable, used_variables, symbol_table
 }
 
 func compiler(symbol_table Symbol_Table, function_name string, depth int, code []Token, in_loop bool) (string, Symbol_Table) {
-	new_symbol_table:=symbol_table
-	symbol_table=new_symbol_table // make a copy
-	if depth==0 {
+	if depth != 0 {
+		fmt.Println("Compiling", function_name)
+	}
+	new_symbol_table := symbol_table
+	symbol_table = new_symbol_table // make a copy
+	if depth == 0 {
 		for i := 0; i < len(symbol_table.functions); i++ {
-			if strings.Split(symbol_table.functions[i].name, "-")[0]!=symbol_table.current_file {
+			// compiling functions
+			if strings.Split(symbol_table.functions[i].name, "-")[0] != symbol_table.current_file {
 				continue
 			}
-			symbol_table.functions[i].Code=nested_puller(symbol_table.functions[i].Code)
-			if symbol_table.operations[symbol_table.functions[i].name]==nil {
-				symbol_table.operations[symbol_table.functions[i].name]=make([][]string, 0)
+			symbol_table.functions[i].Code = nested_puller(symbol_table.functions[i].Code)
+			if symbol_table.operations[symbol_table.functions[i].name] == nil {
+				symbol_table.operations[symbol_table.functions[i].name] = make([][]string, 0)
 			}
-			variable_names:=make([]string, 0)
-			for arg,arg_type:=range symbol_table.functions[i].args {
-				if variable_index_in_symbol_table(arg, symbol_table)!=-1 {
+			variable_names := make([]string, 0)
+			for arg, arg_type := range symbol_table.functions[i].args {
+				// adding function inputs to stack
+				if variable_index_in_symbol_table(arg, symbol_table) != -1 {
 					return "input_of_function_cannot_have_same_name_as_global_variable", symbol_table
 				}
-				variable_type:=arg_type
-				variable_name:=arg
+				variable_type := arg_type
+				variable_name := arg
 				variable_names = append(variable_names, variable_name)
-				symbol_table.variable_mapping[variable_name]=symbol_table.functions[i].name+"-"+"function_input:"+variable_name
-				if variable_type[0]=="string" {
-					string_index:=str_index_in_arr("", symbol_table.data)
-					if string_index==-1 {
+				symbol_table.variable_mapping[variable_name] = symbol_table.functions[i].name + "-" + "function_input:" + variable_name
+				if variable_type[0] == "string" {
+					string_index := str_index_in_arr("", symbol_table.data)
+					if string_index == -1 {
 						symbol_table.data = append(symbol_table.data, "")
-						string_index=len(symbol_table.data)-1
+						string_index = len(symbol_table.data) - 1
 					}
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
-					symbol_table.global_variables=append(symbol_table.global_variables, []string{"str.set", symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(string_index), 10)})
-				} else if variable_type[0]=="num" {
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"str.set", symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(string_index), 10)})
+				} else if variable_type[0] == "num" {
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
 					symbol_table.global_variables = append(symbol_table.global_variables, []string{"set", symbol_table.variable_mapping[variable_name], "0"})
-				} else if variable_type[0]=="[" {
-					new_variable_type:=make([]string, 0)
-					for _,vb:=range variable_type {
+				} else if variable_type[0] == "[" {
+					new_variable_type := make([]string, 0)
+					for _, vb := range variable_type {
 						new_variable_type = append(new_variable_type, vb)
 					}
-					data_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
-					if data_index==-1 {
+					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+					if data_index == -1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
-						data_index=len(symbol_table.data)-1
+						data_index = len(symbol_table.data) - 1
 					}
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: new_variable_type})
-					symbol_table.global_variables = append(symbol_table.global_variables, []string{"arr.init",symbol_table.variable_mapping[variable_name],strconv.FormatInt(int64(data_index), 10)})
-				} else if variable_type[0]=="{" {
-					data_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
-					if data_index==-1 {
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"arr.init", symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(data_index), 10)})
+				} else if variable_type[0] == "{" {
+					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+					if data_index == -1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
-						data_index=len(symbol_table.data)-1
+						data_index = len(symbol_table.data) - 1
 					}
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
-				} else if len(variable_type)==1 {
-					if struct_index_in_symbol_table(variable_type[0], symbol_table)==-1 {
+				} else if len(variable_type) == 1 {
+					if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 						return "Invalid variable initialisation", symbol_table
 					}
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
-					variable_type=type_struct_translator(variable_type, symbol_table)
-					symbol_table.data=append(symbol_table.data, variable_type[0])
-					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file+"-"+"struct"+"-"+symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+					variable_type = type_struct_translator(variable_type, symbol_table)
+					symbol_table.data = append(symbol_table.data, variable_type[0])
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 			}
-			err,returned_symbol_table:=compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0), in_loop)
-			symbol_table=returned_symbol_table
-			new_variables:=make([]Variable, 0)
-			for _,arg:=range symbol_table.variables {
-				if str_index_in_arr(arg.name, variable_names)==-1 {
+			err, returned_symbol_table := compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0), in_loop)
+			symbol_table = returned_symbol_table
+			new_variables := make([]Variable, 0)
+			for _, arg := range symbol_table.variables {
+				if str_index_in_arr(arg.name, variable_names) == -1 {
 					new_variables = append(new_variables, arg)
 				}
 			}
-			symbol_table.variables=new_variables
-			if err!="" {
+			symbol_table.variables = new_variables
+			if err != "" {
 				return err, symbol_table
 			}
 		}
 		return "", symbol_table
 	}
-	if depth>0 {
-		if len(function_name)!=0 && string(function_name[0])!="-"  {
-			code=symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Code
+	if depth > 0 {
+		// depth and recursive file compiling detection
+		if len(function_name) != 0 && string(function_name[0]) != "-" {
+			code = symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Code
 		}
-		if string(function_name[0])=="-" {
-			function_name=function_name[1:]
+		if string(function_name[0]) == "-" {
+			function_name = function_name[1:]
 		}
 		for i := 0; i < len(code); i++ {
-			if code[i].Type=="sys" && code[i].string_value=="var" && (len(code)-i)>=4 && code[i+1].Type=="variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type=="EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
+			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
-				variable_type:=type_token_to_string_array(code[i+2])
-				if variable_type[0]=="string" {
-					string_index:=str_index_in_arr("", symbol_table.data)
-					if string_index==-1 {
+				variable_type := type_token_to_string_array(code[i+2])
+				if variable_type[0] == "string" {
+					string_index := str_index_in_arr("", symbol_table.data)
+					if string_index == -1 {
 						symbol_table.data = append(symbol_table.data, "")
-						string_index=len(symbol_table.data)-1
+						string_index = len(symbol_table.data) - 1
 					}
-					symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"str.set", symbol_table.current_file+"-"+code[i+1].string_value, strconv.FormatInt(int64(string_index), 10)})
-				} else if variable_type[0]=="num" {
-					symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"set", symbol_table.current_file+"-"+code[i+1].string_value, "0"})
-				} else if variable_type[0]=="[" {
-					new_variable_type:=make([]string, 0)
-					for _,vb:=range variable_type {
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(string_index), 10)})
+				} else if variable_type[0] == "num" {
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", symbol_table.current_file + "-" + code[i+1].string_value, "0"})
+				} else if variable_type[0] == "[" {
+					new_variable_type := make([]string, 0)
+					for _, vb := range variable_type {
 						new_variable_type = append(new_variable_type, vb)
 					}
-					data_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
-					if data_index==-1 {
+					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+					if data_index == -1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
-						data_index=len(symbol_table.data)-1
+						data_index = len(symbol_table.data) - 1
 					}
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init",symbol_table.current_file+"-"+code[i+1].string_value,strconv.FormatInt(int64(data_index), 10)})
-				} else if variable_type[0]=="{" {
-					data_index:=str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
-					if data_index==-1 {
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(data_index), 10)})
+				} else if variable_type[0] == "{" {
+					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
+					if data_index == -1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
-						data_index=len(symbol_table.data)-1
+						data_index = len(symbol_table.data) - 1
 					}
-				} else if len(variable_type)==1 {
-					if struct_index_in_symbol_table(variable_type[0], symbol_table)==-1 {
+				} else if len(variable_type) == 1 {
+					if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 						return "Invalid variable initialisation", symbol_table
 					}
-					variable_type=type_struct_translator(variable_type, symbol_table)
-					symbol_table.data=append(symbol_table.data, variable_type[0])
-					symbol_table.operations[function_name]=append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file+"-"+"struct"+"-"+code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+					variable_type = type_struct_translator(variable_type, symbol_table)
+					symbol_table.data = append(symbol_table.data, variable_type[0])
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
 				// you need to add the compiler
-				i+=3
+				i += 3
 				continue
 			}
-			if (len(code)-i)>=4 && (code[i].Type=="lookup" || code[i].Type=="variable" || code[i].Type=="nested_tokens") && code[i+1].Type=="operator" && strings.Contains(code[i+1].string_value, "=") {
+			if (len(code)-i) >= 4 && (code[i].Type == "lookup" || code[i].Type == "variable" || code[i].Type == "nested_tokens") && code[i+1].Type == "operator" && strings.Contains(code[i+1].string_value, "=") {
 				i++
 				i++
-				tokens,err:=get_current_statement_tokens(code[i:])
-				if err!=0 {
+				tokens, err := get_current_statement_tokens(code[i:])
+				if err != 0 {
 					return "unexpected end of statement", symbol_table
 				}
-				lhs:=evaluate_type(symbol_table, []Token{code[i-2]}, 0)
-				rhs:=evaluate_type(symbol_table, tokens, 0)
-				resultant_variable:=""
-				used_variable:=make([]string,0)
-				resultant_variable,used_variable,symbol_table=expression_solver(tokens, function_name, symbol_table)
-				for _,variable:=range used_variable {
+				new_tokens:=make([]Token, 0)
+				for _,x:=range tokens {
+					new_struct,_,_:=CloneMyStruct(x)
+					new_tokens = append(new_tokens, new_struct)
+				}
+				lhs := evaluate_type(symbol_table, []Token{code[i-2]}, 0)
+				rhs := evaluate_type(symbol_table, new_tokens, 0)
+				resultant_variable := ""
+				used_variable := make([]string, 0)
+				resultant_variable, used_variable, symbol_table = expression_solver(tokens, function_name, symbol_table, false)
+				for _, variable := range used_variable {
 					free_variable(variable, symbol_table)
 				}
 				fmt.Println("result at", resultant_variable, tokens)
 				if string_arr_compare(lhs, []string{}) {
-					return "invalid type on lhs:"+symbol_table.current_file, symbol_table
+					return "invalid type on lhs:" + symbol_table.current_file, symbol_table
 				}
 				if string_arr_compare(rhs, []string{}) {
-					return "invalid type on rhs:"+symbol_table.current_file, symbol_table
+					return "invalid type on rhs:" + symbol_table.current_file, symbol_table
 				}
 				if !string_arr_compare(lhs, rhs) {
 					return "types on lhs and rhs do not match", symbol_table
 				}
-				i+=len(tokens)
+				i += len(tokens)
 				continue
 			}
-			if (code[i].Type=="branch") {
+			if code[i].Type == "branch" {
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
 					return "branch condition is invalid", symbol_table
 				}
-				err,st:=compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, in_loop)
-				symbol_table=st
-				if err!="" {
+				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, in_loop)
+				symbol_table = st
+				if err != "" {
 					return err, symbol_table
 				}
 				continue
 			}
-			if (code[i].Type=="while") {
+			if code[i].Type == "while" {
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
 					return "branch condition for while is invalid", symbol_table
 				}
-				err,st:=compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, true)
-				symbol_table=st
-				if err!="" {
+				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, true)
+				symbol_table = st
+				if err != "" {
 					return err, symbol_table
 				}
 				continue
 			}
-			if code[i].string_value=="return" && code[i].Type=="sys" {
-				tokens,err :=get_current_statement_tokens(code[i+1:])
-				if err!=0 {
+			if code[i].string_value == "return" && code[i].Type == "sys" {
+				tokens, err := get_current_statement_tokens(code[i+1:])
+				if err != 0 {
 					return "Unexpected EOS", symbol_table
 				}
-				if len(tokens)==0 && len(symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Type)==0 {
-					i+=1
+				if len(tokens) == 0 && len(symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Type) == 0 {
+					i += 1
 					continue
 				}
-				returned_type:=evaluate_type(symbol_table, tokens, 0)
-				if len(returned_type)==0 {
+				returned_type := evaluate_type(symbol_table, tokens, 0)
+				if len(returned_type) == 0 {
 					return "Invalid return type", symbol_table
 				}
 				if !string_arr_compare(returned_type, symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Type) {
 					return "Return type does not match", symbol_table
 				}
-				i+=len(tokens)+1
+				i += len(tokens) + 1
 				continue
 			}
-			if code[i].string_value=="continue" && code[i].Type=="sys" {
+			if code[i].string_value == "continue" && code[i].Type == "sys" {
 				if !in_loop {
 					return "cannot loop", symbol_table
 				}
-				i+=1
+				i += 1
 				continue
 			}
-			if code[i].string_value=="break" && code[i].Type=="sys" {
+			if code[i].string_value == "break" && code[i].Type == "sys" {
 				if !in_loop {
 					return "cannot break loop", symbol_table
 				}
-				i+=1
+				i += 1
 				continue
+			}
+			if code[i].Type == "array" {
+				fmt.Println(code[i])
 			}
 			fmt.Println("missed token", code[i], symbol_table.current_file, function_name)
 			return "error_token_not_parsed", symbol_table
@@ -1457,25 +1747,25 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 }
 
 func data_encoder(data []string) string {
-	result:=""
-	for _,data_item:=range data {
-		result+="    \""+strings.ReplaceAll(data_item, "\n", "\\n")+"\""+"    \n"
+	result := ""
+	for _, data_item := range data {
+		result += "    \"" + strings.ReplaceAll(data_item, "\n", "\\n") + "\"" + "    \n"
 	}
 	return strings.Trim(result, "\n")
 }
 
 func tokens_to_string_constants(tokens []Token) []string {
-	out:=make([]string, 0)
-	for _,token:=range tokens {
-		if len(token.children)!=0 {
-			for _,string_constants:=range tokens_to_string_constants(token.children) {
-				if str_index_in_arr(string_constants, out)==-1 {
+	out := make([]string, 0)
+	for _, token := range tokens {
+		if len(token.children) != 0 {
+			for _, string_constants := range tokens_to_string_constants(token.children) {
+				if str_index_in_arr(string_constants, out) == -1 {
 					out = append(out, string_constants)
 				}
 			}
 		}
-		if token.Type=="string" {
-			if str_index_in_arr(token.string_value, out)==-1 {
+		if token.Type == "string" {
+			if str_index_in_arr(token.string_value, out) == -1 {
 				out = append(out, token.string_value)
 			}
 		}
@@ -1484,74 +1774,127 @@ func tokens_to_string_constants(tokens []Token) []string {
 }
 
 func formatter(output string) string {
-	formatted_code:=""
-	keep_adding:=false
-	for _,line:=range strings.Split(output, "\n") {
+	formatted_code := ""
+	keep_adding := false
+	for i, line := range strings.Split(output, "\n") {
 		if keep_adding {
-			formatted_code+=line+"\n"
+			formatted_code += line + "\n"
 			continue
 		}
 		if strings.HasPrefix(line, "define.jump") {
-			formatted_code+="\n    "+line+"\n"
+			formatted_code += "\n    " + line + "\n"
+			continue
+		} else if i==0 && strings.HasPrefix(line, "jump.def.always") {
+			formatted_code += "\n    " + line + "\n"
 			continue
 		}
 		if strings.HasPrefix(line, ".data") {
-			formatted_code+="\n.data"
-			keep_adding=true
+			formatted_code += "\n.data"
+			keep_adding = true
 			continue
-		} 
-		formatted_code+="        "+line+"\n"
+		}
+		formatted_code += "        " + line + "\n"
 	}
 	return formatted_code
 }
 
+func is_base_type(Type []string) bool {
+	if len(Type) == 0 {
+		return true
+	}
+	valid_final_types := []string{"num", "string"}
+	if len(Type)%2 == 0 {
+		return false
+	}
+	for i := 0; i < ((len(Type)-1)/2)-1; i++ {
+		if Type[i] == "{" && Type[len(Type)-1] == "}" {
+			continue
+		}
+		if Type[i] == "[" && Type[len(Type)-1] == "]" {
+			continue
+		}
+		return false
+	}
+	if str_index_in_arr(Type[(len(Type)-1)/2], valid_final_types) != -1 {
+		return true
+	}
+	return false
+}
+
 func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol_Table) {
+	file_name := symbol_table.current_file
 	symbol_table.data = append(symbol_table.data, tokens_to_string_constants(tokens)...)
-	err,symbol_table:=pre_parser(symbol_table, tokens, 0)
-	if err!="" {
-		return "Error: "+err, symbol_table
+	err, symbol_table := pre_parser(symbol_table, tokens, 0)
+	if err != "" {
+		return "Error: " + err, symbol_table
 	}
-	result:=""
-	if depth==0 {
+	result := ""
+	if depth == 0 {
 		if !does_function_exist(symbol_table.current_file+"-"+"main", symbol_table) {
-			return "Error: "+"main function does not exist", symbol_table
+			return "Error: " + "main function does not exist", symbol_table
 		}
-		main_function:=symbol_table.functions[function_index_in_symbol_table(symbol_table.current_file+"-"+"main", symbol_table)]
-		if len(main_function.args)!=0 {
-			return "Error: "+"main function cant have arguments", symbol_table
+		main_function := symbol_table.functions[function_index_in_symbol_table(symbol_table.current_file+"-"+"main", symbol_table)]
+		if len(main_function.args) != 0 {
+			return "Error: " + "main function cant have arguments", symbol_table
 		}
-		if len(main_function.Type)!=0 {
-			return "Error: "+"main function cannot have a type definition", symbol_table
+		if len(main_function.Type) != 0 {
+			return "Error: " + "main function cannot have a type definition", symbol_table
 		}
 	}
-	err,final_symbol_table:=compiler(symbol_table, "this_does_not_matter", 0, make([]Token, 0), false)
-	symbol_table=final_symbol_table
-	if depth==0 {
-		data_index:=str_index_in_arr("stack-init", symbol_table.data)
-		if data_index==-1 {
+	err, final_symbol_table := compiler(symbol_table, "this_does_not_matter", 0, make([]Token, 0), false)
+	symbol_table = final_symbol_table
+	for function := range symbol_table.operations {
+		result += "define.jump " + strconv.FormatInt(int64(str_index_in_arr(function, symbol_table.data)), 10) + " // " + function + "\n"
+		for _, operations := range symbol_table.operations[function] {
+			if len(operations)!=0 {
+				result += operations[0] + " " + strings.Join(operations[1:], ",") + "\n"
+			}
+		}
+	}
+	if err != "" {
+		return "Error: " + err, symbol_table
+	}
+	if depth == 0 {
+		data_index := str_index_in_arr("stack-init", symbol_table.data)
+		if data_index == -1 {
 			symbol_table.data = append(symbol_table.data, "stack-init")
-			data_index=len(symbol_table.data)-1
+			data_index = len(symbol_table.data) - 1
 		}
-		result+="define.jump "+strconv.FormatInt(int64(data_index),10)+" // stack init\n"
-		for _,var_initialisation:=range final_symbol_table.struct_registration {
-			result+=var_initialisation[0]+" "+strings.Join(var_initialisation[1:], ",")+"\n"
+		prefix_result:=""
+		prefix_result += "jump.def.always " + strconv.FormatInt(int64(data_index), 10)+"\ndefine.jump " + strconv.FormatInt(int64(data_index), 10) + " // stack init\n"
+		prefix_result+="set true,1\nset false,0\n"
+		for _, var_initialisation := range final_symbol_table.struct_registration {
+			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
 		}
-		for _,var_initialisation:=range final_symbol_table.global_variables {
-			result+=var_initialisation[0]+" "+strings.Join(var_initialisation[1:], ",")+"\n"
+		for _, var_initialisation := range final_symbol_table.global_variables {
+			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
 		}
-	}
-	for function:=range symbol_table.operations {
-		result+="define.jump "+strconv.FormatInt(int64(str_index_in_arr(function, symbol_table.data)), 10)+" // "+function+"\n"
-		for _,operations:=range symbol_table.operations[function] {
-			result+=operations[0]+" "+strings.Join(operations[1:], ",")+"\n"
+		prefix_result += "jump.def.always " + strconv.FormatInt(int64(str_index_in_arr(symbol_table.current_file+"-"+"main", symbol_table.data)), 10) + "\n"
+		result = formatter(prefix_result+result)
+		build_info := make([]string, 0)
+		for _, function := range symbol_table.functions {
+			if strings.Split(function.name, "-")[0] != file_name {
+				continue
+			}
+			if !is_base_type(function.Type) {
+				continue
+			}
+			continue_external := false
+			all_arguments := make([]string, 0)
+			for _, argument := range function.args {
+				if !is_base_type(argument) {
+					continue_external = true
+					break
+				}
+				all_arguments = append(all_arguments, strings.Join(string_array_types_to_vitality_types(argument, symbol_table), ","))
+			}
+			if continue_external {
+				continue
+			}
+			build_info = append(build_info, strings.Split(function.name, "-")[1]+"::"+strings.Join(string_array_types_to_vitality_types(function.Type, symbol_table), ",")+"::"+strings.Join(all_arguments, ".."))
 		}
+		symbol_table.data = append(symbol_table.data, strings.Join(build_info, ";"))
 	}
-	if err!="" {
-		return "Error: "+err, symbol_table
-	}
-	if depth==0 {
-		result=formatter(result)
-	}
-	symbol_table.finished_importing=true
-	return ".code\n"+result+".data\n"+data_encoder(symbol_table.data), symbol_table
+	symbol_table.finished_importing = true
+	return ".code\n" + result + ".data\n" + data_encoder(symbol_table.data), symbol_table
 }

@@ -1,6 +1,6 @@
 00 set                                # Setting value to a constant number
 01 refset                             # Setting value to a referenced variable number
-02 jump                               # Jumping to a line number
+02 jump                               # Jumping to line number a with condition b
 03 equals                             # Verifying if numbers are equal
 04 greater                            # Verifying if a > b
 05 add                                # Adding a + b and store value in c
@@ -12,7 +12,7 @@
 11 mod                                # Modding a % b and storing the value in c
 12 str.set                            # Set a variable as a string value
 14 str.add                            # Add 2 strings a + b and store value in string c
-15 str.mult                           # Multiplying 2 strings a * b and storing the value in c
+15 str.mult                           # Multiplying string a b times and storing the value in c
 16 str.refset                         # Setting value to a referenced string variable
 17 define.jump                        # Defines the line to be a jumpable reference
 18 jump.def                           # Jump to a definition 
@@ -57,3 +57,5 @@
 57 struct.init                        # Create the struct variable a of struct index b
 58 struct.set                         # Set struct a's field b (data constant index) to c
 59 struct.pull                        # Get struct a's field b (data constant index) into c
+60 jump.def.always                    # Jump to definition with no condition
+61 jump_n_lines                       # Jump a lines with condition b

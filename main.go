@@ -37,6 +37,7 @@ func main() {
 		build_output,_:=build(symbol_table, tokens_, 0)
 		fmt.Println("OUTPUT:")
 		fmt.Println(build_output)
+		fmt.Println("VENGINE RUN:")
 		Vengine(build_output, true)
 	}
 }

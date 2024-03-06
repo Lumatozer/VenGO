@@ -173,7 +173,7 @@ type VI_Object struct {
 	children    []VI_Object
 	dict_keys   []string
 	scope       int
-	_struct     map[string]VI_Object
+	_struct     map[int]VI_Object
 }
 
 func (object *VI_Object) fill_defaults() {}
@@ -293,13 +293,13 @@ func Debug_printf(a ...any) {
 }
 
 func spawn_struct_default(var_name string, object_type string) VI_Object {
-	struct_default:=VI_Object{var_name: var_name, object_type: []string{object_type}, _struct: map[string]VI_Object{}}
-	for _,value:=range registered_structs[object_type] {
+	struct_default:=VI_Object{var_name: var_name, object_type: []string{object_type}, _struct: map[int]VI_Object{}}
+	for i,value:=range registered_structs[object_type] {
 		raw_type:=strings.Split(strings.Split(value, "->")[1], ",")
 		if str_index_in_arr(raw_type[0], []string{"arr","dict","string","num"})==-1 && len(raw_type)==1 {
-			struct_default._struct[strings.Split(value, "->")[0]]=spawn_struct_default(strings.Split(value, "->")[0], raw_type[0])
+			struct_default._struct[i]=spawn_struct_default(strings.Split(value, "->")[0], raw_type[0])
 		} else {
-			struct_default._struct[strings.Split(value, "->")[0]]=VI_Object{var_name: strings.Split(value, "->")[0], object_type: raw_type}
+			struct_default._struct[i]=VI_Object{var_name: strings.Split(value, "->")[0], object_type: raw_type}
 		}
 	}
 	return struct_default
@@ -772,7 +772,7 @@ func Vengine(code string, debug bool) int64 {
 			}
 			obj1_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
 			if obj1_var["result"] == 0 {
-				Debug_print("Variable", args[0], "of type array has not been initialised yet")
+				Debug_print("Variable", args[0], "of type object has not been initialised yet")
 				return current_gas
 			}
 			obj2_var := plain_in_arr_VI_Object(VI_Object{var_name: args[1]}, symbol_table, "var_name")
@@ -1473,7 +1473,7 @@ func Vengine(code string, debug bool) int64 {
 			args[1]=string_consts[num]
 			struct_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
 			if struct_var["result"] == 0 {
-				Debug_print("Variable", args[0], "of type array has not been initialised yet")
+				Debug_print("Variable", args[0], "of type struct has not been initialised yet")
 				return current_gas
 			}
 			if len(symbol_table[struct_var["index"]].object_type)!=1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], registered_structs["structs"])==-1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], []string{"num","string"})!=-1 {
@@ -1519,7 +1519,7 @@ func Vengine(code string, debug bool) int64 {
 			args[1]=string_consts[num]
 			struct_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
 			if struct_var["result"] == 0 {
-				Debug_print("Variable", args[0], "of type array has not been initialised yet")
+				Debug_print("Variable", args[0], "of type struct has not been initialised yet")
 				return current_gas
 			}
 			if len(symbol_table[struct_var["index"]].object_type)!=1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], registered_structs["structs"])==-1 || str_index_in_arr(symbol_table[struct_var["index"]].object_type[0], []string{"num","string"})!=-1 {
@@ -1546,6 +1546,43 @@ func Vengine(code string, debug bool) int64 {
 				return current_gas
 			}
 			current_byte_code = append(current_byte_code, 59, struct_var["index"], int(num), push_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "jump.def.always":
+			if len(args) != 1 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			num, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				Debug_print(err)
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 60, int(num))
+			byte_code = append(byte_code, current_byte_code)
+		case "jump_n_lines":
+			if len(args) != 2 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			set_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: get_plain_type("num")}, symbol_table, "var_name")
+			reference := plain_in_arr_VI_Object(VI_Object{var_name: args[1], object_type: get_plain_type("num")}, symbol_table, "var_name")
+			if set_var["index"] == -1 {
+				Debug_print("Variable", args[0], "has not been initialised yet")
+				return current_gas
+			}
+			if set_var["error"] == 1 {
+				Debug_print("Data types did not match")
+				return current_gas
+			}
+			if reference["index"] == -1 {
+				Debug_print("Variable", args[1], "has not been initialised yet")
+				return current_gas
+			}
+			if reference["error"] == 1 {
+				Debug_print("Data types did not match")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 61, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
 		}
 	}
@@ -1775,11 +1812,17 @@ func Vengine(code string, debug bool) int64 {
 			symbol_table[current_byte_code[1]]=spawn_struct_default("", string_consts[current_byte_code[2]])
 			symbol_table[current_byte_code[1]].var_name=current_var_name
 		case 58:
-			symbol_table[current_byte_code[1]]._struct[string_consts[current_byte_code[2]]]=symbol_table[current_byte_code[3]]
+			symbol_table[current_byte_code[1]]._struct[current_byte_code[2]]=symbol_table[current_byte_code[3]]
 		case 59:
 			current_var_name:=symbol_table[current_byte_code[3]].var_name
-			symbol_table[current_byte_code[3]]=symbol_table[current_byte_code[1]]._struct[string_consts[current_byte_code[2]]]
+			symbol_table[current_byte_code[3]]=symbol_table[current_byte_code[1]]._struct[current_byte_code[2]]
 			symbol_table[current_byte_code[3]].var_name=current_var_name
+		case 60:
+			i = jump_table[current_byte_code[1]]
+		case 61:
+			if symbol_table[current_byte_code[2]].num_value != 0 {
+				i+=int(symbol_table[current_byte_code[1]].num_value)
+			}
 		}
 	}
 	global_table[scope_count] = symbol_table
