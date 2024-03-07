@@ -1349,11 +1349,18 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 				symbol_table = new_symbol_table
 				used_variables = append(used_variables, new_variable)
 				symbol_table.variables = append(symbol_table.variables, Variable{name: new_variable, Type: resolved_type})
+				fmt.Println(new_children)
+				new_modified_variable:=new_children[1].string_value
+				if str_index_in_arr(new_modified_variable, symbol_table.data)==-1 {
+					symbol_table.data = append(symbol_table.data, new_modified_variable)
+				}
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file+"-struct-"+new_children[0].string_value, strconv.FormatInt(int64(str_index_in_arr(new_modified_variable, symbol_table.data)), 10), symbol_table.current_file+"-struct-"+new_variable})
 				new_children = make([]Token, 0)
 				new_children = append(new_children, Token{Type: "variable", string_value: new_variable})
 				new_children = append(new_children, tokens[0].children[2:]...)
 				new_token = Token{Type: tokens[0].Type, children: new_children}
 				new_children[0].string_value = new_variable
+				//symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file + "-struct-" + tokens[0].children[0].string_value, strconv.FormatInt(int64(str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)), 10), new_variable})
 				varying_value, new_used_variables, new_symbol_table := expression_solver([]Token{new_token}, function_name, symbol_table, true)
 				used_variables = append(used_variables, new_used_variables...)
 				symbol_table = new_symbol_table
@@ -1666,7 +1673,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				}
 				lhs := evaluate_type(symbol_table, []Token{code[i-2]}, 0)
 				rhs := evaluate_type(symbol_table, new_tokens, 0)
-				fmt.Println(rhs, "hello?", new_tokens[0].children[0])
 				resultant_variable := ""
 				used_variable := make([]string, 0)
 				resultant_variable, used_variable, symbol_table = expression_solver(tokens, function_name, symbol_table, false)
