@@ -32,9 +32,9 @@ func main() {
 	} else {
 		// // fmt.Println(tokensier(code,true))
 		tokens_, _:=tokens_parser(tokensier(code,true),false)
-		fmt.Println(tokens_,"hi")
-		fmt.Println(tokens_parser(tokensier(code,true),true))
-		fmt.Println("----------")
+		// fmt.Println(tokens_,"hi")
+		// fmt.Println(tokens_parser(tokensier(code,true),true))
+		// fmt.Println("----------")
 		// // fmt.Println(tokens_)
 		tokens_, _=token_grouper(tokens_, true)
 		// fmt.Println(tokens_, len(tokens_))

@@ -1106,7 +1106,7 @@ func evaluate_type(symbol_table Symbol_Table, code []Token, depth int) []string 
 				switch operator := code[i]; operator.string_value {
 				case "+", "*":
 					if operator.string_value == "*" {
-						if (string_arr_compare(rhs, []string{"string"}) && string_arr_compare(lhs, []string{"num"})) || (string_arr_compare(rhs, []string{"num"}) && string_arr_compare(lhs, []string{"string"})) {
+						if (string_arr_compare(rhs, []string{"string"}) && string_arr_compare(lhs, []string{"num"})) || (string_arr_compare(rhs, []string{"num"}) && string_arr_compare(lhs, []string{"string"})) || (string_arr_compare(rhs, []string{"num"}) && string_arr_compare(lhs, []string{"num"})) {
 							current_type = lhs
 							continue
 						}
@@ -1672,6 +1672,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					new_tokens = append(new_tokens, new_struct)
 				}
 				lhs := evaluate_type(symbol_table, []Token{code[i-2]}, 0)
+				fmt.Println(new_tokens, "?")
 				rhs := evaluate_type(symbol_table, new_tokens, 0)
 				resultant_variable := ""
 				used_variable := make([]string, 0)
