@@ -44,10 +44,11 @@ type Variable struct {
 }
 
 type Scope struct {
-	looping                  bool
-	current_loop_jump_line   int64
-	current_return_jump_line int64
-	branch_counts 			 int
+	looping                  	bool
+	current_loop_continue_line  int
+	current_loop_break_line  	int
+	current_return_jump_line 	int64
+	branch_counts 			 	int
 }
 
 // add scope
@@ -1267,7 +1268,7 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 	if len(tokens) == 1 {
 		if tokens[0].Type == "num" {
 			resultant_variable, symbol_table = get_variable([]string{"num"}, symbol_table)
-			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", resultant_variable, strconv.FormatInt(int64(tokens[0].num_value), 10)})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", resultant_variable, strconv.FormatFloat(float64(tokens[0].num_value), 'f', 8, 64)})
 			used_variables = append(used_variables, resultant_variable)
 			return resultant_variable, used_variables, symbol_table
 		}
@@ -1494,7 +1495,7 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 					case ">":
 						operation = "greater"
 					case "<":
-						operation = "greater"
+						operation = "smaller"
 					}
 					if operator == "!=" || operator == "==" {
 						new_variable, new_symbol_table := get_variable([]string{"num"}, symbol_table)
@@ -1513,9 +1514,10 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 						symbol_table = new_symbol_table
 						used_variables = append(used_variables, new_variable)
 						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", new_variable, "0"})
-						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"greater", lhs, rhs, new_variable})
 						if operator == "<" {
-							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", new_variable, "false", new_variable})
+							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"smaller", lhs, rhs, new_variable})
+						} else {
+							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"greater", lhs, rhs, new_variable})
 						}
 						lhs = new_variable
 						lhs_type = rhs_type
@@ -1529,6 +1531,7 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 }
 
 func compiler(symbol_table Symbol_Table, function_name string, depth int, code []Token, in_loop bool) (string, Symbol_Table) {
+	new_data:=make([]string, 0)
 	if depth != 0 {
 		fmt.Println("Compiling", function_name)
 	}
@@ -1615,12 +1618,11 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 		if string(function_name[0]) == "-" {
 			function_name = function_name[1:]
 		}
-		over_ride_data:=false
-		new_data:=symbol_table.data
+		
 		for i := 0; i < len(code); i++ {
-			if over_ride_data {
-				symbol_table.data=new_data
-				over_ride_data=false
+			if len(new_data)!=0 {
+				symbol_table.data=append([]string(nil), new_data...)
+				new_data=append([]string(nil))
 			}
 			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
@@ -1709,40 +1711,70 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					free_variable(variable, symbol_table)
 				}
 				symbol_table.current_scope.branch_counts+=1
-				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", resultant_variable, "false", resultant_variable})
-				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", "", resultant_variable})
+				flip_variable,symbol_table:=get_variable([]string{"num"}, symbol_table)
+				symbol_table=free_variable(flip_variable, symbol_table)
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"refset", flip_variable, resultant_variable})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", flip_variable, "false", flip_variable})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", "", flip_variable})
 				operations_before_compilation:=len(symbol_table.operations[function_name])
-				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, in_loop)
-				branch_string:="branch_"+strconv.FormatInt(int64(st.current_scope.branch_counts), 10)
-				branch_index_in_symbol_table:=str_index_in_arr(branch_string, st.data)
+				branch_string:="branch_"+strconv.FormatInt(int64(symbol_table.current_scope.branch_counts), 10)
+				branch_index_in_symbol_table:=str_index_in_arr(branch_string, symbol_table.data)
 				if branch_index_in_symbol_table==-1 {
-					branch_index_in_symbol_table=len(st.data)
-					st.data = append(st.data, branch_string)
+					branch_index_in_symbol_table=len(symbol_table.data)
+					symbol_table.data = append(symbol_table.data, branch_string)
 				}
+				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, in_loop)
 				st.operations[function_name][operations_before_compilation-1][1]=strconv.FormatInt(int64(branch_index_in_symbol_table), 10)
-				st.operations[function_name] = append(st.operations[function_name], []string{"define.jump", strconv.FormatInt(int64(branch_index_in_symbol_table), 10)+" // to continue code after if"})
+				st.operations[function_name] = append(st.operations[function_name], []string{"define.jump", strconv.FormatInt(int64(branch_index_in_symbol_table), 10)+" // to continue code after if in function "+symbol_table.current_file+"-"+function_name})
 				if err != "" {
 					return err, st
 				}
 				symbol_table = st
-
-				copy_of_symbol_table_data:=symbol_table.data
-				new_data=make([]string, 0)
-				for _,object:=range copy_of_symbol_table_data {
-					new_data = append(new_data, object)
-				}
-				over_ride_data=true
+				new_data = append([]string(nil), symbol_table.data...)
 				continue
 			}
 			if code[i].Type == "while" {
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
 					return "while condition for while is invalid", symbol_table
 				}
-				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, true)
-				symbol_table = st
-				if err != "" {
-					return err, symbol_table
+				symbol_table.current_scope.branch_counts+=1
+				loop_condition_variable:="branch_"+strconv.FormatInt(int64(symbol_table.current_scope.branch_counts), 10)
+				loop_condition_index:=str_index_in_arr(loop_condition_variable, symbol_table.data)
+				if loop_condition_index==-1 {
+					symbol_table.data = append(symbol_table.data, loop_condition_variable)
+					loop_condition_index = len(symbol_table.data)-1
 				}
+				symbol_table.current_scope.branch_counts+=1
+				after_loop_variable:="branch_"+strconv.FormatInt(int64(symbol_table.current_scope.branch_counts), 10)
+				after_loop_index:=str_index_in_arr(after_loop_variable, symbol_table.data)
+				if after_loop_index==-1 {
+					symbol_table.data = append(symbol_table.data, after_loop_variable)
+					after_loop_index = len(symbol_table.data)-1
+				}
+				current_scope:=symbol_table.current_scope
+				symbol_table.current_scope.current_loop_continue_line =  loop_condition_index
+				symbol_table.current_scope.current_loop_break_line = after_loop_index
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"define.jump", strconv.FormatInt(int64(loop_condition_index), 10)+" // to reevaluate while condition in function "+symbol_table.current_file+"-"+function_name})
+				used_variable := make([]string, 0)
+				resultant_variable, used_variable, symbol_table := expression_solver(code[i].children[0].children, function_name, symbol_table, false)
+				for _, variable := range used_variable {
+					free_variable(variable, symbol_table)
+				}
+				flip_variable,symbol_table:=get_variable([]string{"num"}, symbol_table)
+				symbol_table=free_variable(flip_variable, symbol_table)
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"refset", flip_variable, resultant_variable})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", flip_variable, "false", flip_variable})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", strconv.FormatInt(int64(after_loop_index), 10), flip_variable})
+				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, true)
+				if err != "" {
+					return err, st
+				}
+				symbol_table = st
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", strconv.FormatInt(int64(loop_condition_index), 10), "true"})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"define.jump", strconv.FormatInt(int64(after_loop_index), 10)+" // to continue after while in function "+symbol_table.current_file+"-"+function_name})
+				symbol_table.current_scope.current_loop_continue_line=current_scope.current_loop_continue_line
+				symbol_table.current_scope.current_loop_break_line=current_scope.current_loop_break_line
+				new_data = append([]string(nil), symbol_table.data...)
 				continue
 			}
 			if code[i].string_value == "return" && code[i].Type == "sys" {
@@ -1768,6 +1800,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				if !in_loop {
 					return "cannot loop", symbol_table
 				}
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", strconv.FormatInt(int64(symbol_table.current_scope.current_loop_continue_line), 10), "true"})
 				i += 1
 				continue
 			}
@@ -1775,6 +1808,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				if !in_loop {
 					return "cannot break loop", symbol_table
 				}
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", strconv.FormatInt(int64(symbol_table.current_scope.current_loop_break_line), 10), "true"})
 				i += 1
 				continue
 			}
@@ -1783,6 +1817,10 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 			}
 			fmt.Println("missed token", code[i], symbol_table.current_file, function_name)
 			return "error_token_not_parsed", symbol_table
+		}
+		if len(new_data)!=0 {
+			symbol_table.data=append([]string(nil), new_data...)
+			new_data=append([]string(nil))
 		}
 	}
 	return "", symbol_table

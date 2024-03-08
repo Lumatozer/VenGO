@@ -392,7 +392,7 @@ func Vengine(code string, debug bool) int64 {
 			}
 			current_byte_code = append(current_byte_code, intopcode, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
-		case "equals", "greater", "add", "sub", "mult", "div", "floor", "mod", "power", "round", "and", "or", "xor":
+		case "equals", "greater", "add", "sub", "mult", "div", "floor", "mod", "power", "round", "and", "or", "xor","smaller":
 			if len(args) != 3 {
 				Debug_print("Invalid number of arguments")
 				return current_gas
@@ -444,6 +444,8 @@ func Vengine(code string, debug bool) int64 {
 				intopcode = 21
 			case "xor":
 				intopcode = 23
+			case "smaller":
+				intopcode = 64
 			}
 			current_byte_code = append(current_byte_code, intopcode, var_1["index"], var_2["index"], var_res["index"])
 			byte_code = append(byte_code, current_byte_code)
@@ -1829,6 +1831,12 @@ func Vengine(code string, debug bool) int64 {
 		case 61:
 			if symbol_table[current_byte_code[2]].num_value != 0 {
 				i+=int(symbol_table[current_byte_code[1]].num_value)
+			}
+		case 64:
+			if symbol_table[current_byte_code[1]].num_value < symbol_table[current_byte_code[2]].num_value {
+				symbol_table[current_byte_code[3]].num_value = 1
+			} else {
+				symbol_table[current_byte_code[3]].num_value = 0
 			}
 		}
 	}
