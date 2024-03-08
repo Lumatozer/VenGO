@@ -1584,6 +1584,13 @@ func Vengine(code string, debug bool) int64 {
 			}
 			current_byte_code = append(current_byte_code, 61, set_var["index"], reference["index"])
 			byte_code = append(byte_code, current_byte_code)
+		case "padding":
+			if len(args) != 0 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 62)
+			byte_code = append(byte_code, current_byte_code)
 		}
 	}
 	Debug_print(byte_code)

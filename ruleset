@@ -59,3 +59,4 @@
 59 struct.pull                        # Get struct a's field b (data constant index) into c
 60 jump.def.always                    # Jump to definition with no condition
 61 jump_n_lines                       # Jump a lines with condition b
+62 padding                            # Padding instruction

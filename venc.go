@@ -47,6 +47,7 @@ type Scope struct {
 	looping                  bool
 	current_loop_jump_line   int64
 	current_return_jump_line int64
+	branch_counts 			 int
 }
 
 // add scope
@@ -790,7 +791,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 					data:                make([]string, 0),
 					operations:          make(map[string][][]string),
 					variable_mapping:    make(map[string]string),
-					current_scope:       Scope{},
+					current_scope:       Scope{branch_counts: symbol_table.current_scope.branch_counts},
 					files:               symbol_table.files,
 					struct_registration: make([][]string, 0),
 					imported_libraries:  make(map[string]string),
@@ -815,6 +816,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 						return err_, symbol_table
 					}
 					symbol_table.files[new_file_name] = new_file
+					symbol_table.current_scope.branch_counts=new_file.current_scope.branch_counts
 					new_symbol_table_data := new_file.data
 					new_symbol_table_data = append(new_symbol_table_data, symbol_table.data...)
 					symbol_table.data = new_symbol_table_data
@@ -1349,7 +1351,6 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 				symbol_table = new_symbol_table
 				used_variables = append(used_variables, new_variable)
 				symbol_table.variables = append(symbol_table.variables, Variable{name: new_variable, Type: resolved_type})
-				fmt.Println(new_children)
 				new_modified_variable:=new_children[1].string_value
 				if str_index_in_arr(new_modified_variable, symbol_table.data)==-1 {
 					symbol_table.data = append(symbol_table.data, new_modified_variable)
@@ -1375,7 +1376,6 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 		symbol_table = new_symbol_table
 		lhs_type := evaluate_type(symbol_table, []Token{tokens[0]}, 0)
 		for i := 0; i < len(tokens); i += 2 {
-			fmt.Println(tokens, len(tokens))
 			if i+2 > len(tokens) {
 				break
 			}
@@ -1522,6 +1522,7 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 					}
 				}
 			}
+			resultant_variable=lhs
 		}
 	}
 	return resultant_variable, used_variables, symbol_table
@@ -1531,8 +1532,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 	if depth != 0 {
 		fmt.Println("Compiling", function_name)
 	}
-	new_symbol_table := symbol_table
-	symbol_table = new_symbol_table // make a copy
 	if depth == 0 {
 		for i := 0; i < len(symbol_table.functions); i++ {
 			// compiling functions
@@ -1616,7 +1615,13 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 		if string(function_name[0]) == "-" {
 			function_name = function_name[1:]
 		}
+		over_ride_data:=false
+		new_data:=symbol_table.data
 		for i := 0; i < len(code); i++ {
+			if over_ride_data {
+				symbol_table.data=new_data
+				over_ride_data=false
+			}
 			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
 				variable_type := type_token_to_string_array(code[i+2])
@@ -1672,7 +1677,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					new_tokens = append(new_tokens, new_struct)
 				}
 				lhs := evaluate_type(symbol_table, []Token{code[i-2]}, 0)
-				fmt.Println(new_tokens, "?")
 				rhs := evaluate_type(symbol_table, new_tokens, 0)
 				resultant_variable := ""
 				used_variable := make([]string, 0)
@@ -1680,7 +1684,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				for _, variable := range used_variable {
 					free_variable(variable, symbol_table)
 				}
-				fmt.Println("result at", resultant_variable, tokens)
 				if string_arr_compare(lhs, []string{}) {
 					return "invalid type on lhs:" + symbol_table.current_file, symbol_table
 				}
@@ -1690,6 +1693,9 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				if !string_arr_compare(lhs, rhs) {
 					return "types on lhs and rhs do not match", symbol_table
 				}
+				if lhs[0]=="num" {
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"refset", symbol_table.current_file+"-"+code[i-2].string_value, resultant_variable})
+				}
 				i += len(tokens)
 				continue
 			}
@@ -1697,16 +1703,40 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
 					return "branch condition is invalid", symbol_table
 				}
-				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, in_loop)
-				symbol_table = st
-				if err != "" {
-					return err, symbol_table
+				used_variable := make([]string, 0)
+				resultant_variable, used_variable, symbol_table := expression_solver(code[i].children[0].children, function_name, symbol_table, false)
+				for _, variable := range used_variable {
+					free_variable(variable, symbol_table)
 				}
+				symbol_table.current_scope.branch_counts+=1
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", resultant_variable, "false", resultant_variable})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", "", resultant_variable})
+				operations_before_compilation:=len(symbol_table.operations[function_name])
+				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, in_loop)
+				branch_string:="branch_"+strconv.FormatInt(int64(st.current_scope.branch_counts), 10)
+				branch_index_in_symbol_table:=str_index_in_arr(branch_string, st.data)
+				if branch_index_in_symbol_table==-1 {
+					branch_index_in_symbol_table=len(st.data)
+					st.data = append(st.data, branch_string)
+				}
+				st.operations[function_name][operations_before_compilation-1][1]=strconv.FormatInt(int64(branch_index_in_symbol_table), 10)
+				st.operations[function_name] = append(st.operations[function_name], []string{"define.jump", strconv.FormatInt(int64(branch_index_in_symbol_table), 10)+" // to continue code after if"})
+				if err != "" {
+					return err, st
+				}
+				symbol_table = st
+
+				copy_of_symbol_table_data:=symbol_table.data
+				new_data=make([]string, 0)
+				for _,object:=range copy_of_symbol_table_data {
+					new_data = append(new_data, object)
+				}
+				over_ride_data=true
 				continue
 			}
 			if code[i].Type == "while" {
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
-					return "branch condition for while is invalid", symbol_table
+					return "while condition for while is invalid", symbol_table
 				}
 				err, st := compiler(symbol_table, "-"+function_name, depth+1, code[i].children[1].children, true)
 				symbol_table = st
