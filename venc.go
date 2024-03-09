@@ -1268,7 +1268,7 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 	if len(tokens) == 1 {
 		if tokens[0].Type == "num" {
 			resultant_variable, symbol_table = get_variable([]string{"num"}, symbol_table)
-			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", resultant_variable, strings.Trim(strings.Trim(strconv.FormatFloat(float64(tokens[0].num_value), 'f', 8, 64), "0"), ".")})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", resultant_variable, strings.TrimRight(strings.TrimRight(strconv.FormatFloat(float64(tokens[0].num_value), 'f', 8, 64), "0"), ".")})
 			used_variables = append(used_variables, resultant_variable)
 			return resultant_variable, used_variables, symbol_table
 		}
