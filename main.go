@@ -1,9 +1,11 @@
 package main
 
 import (
-	"github.com/lumatozer/VenGO/database"
-	"os"
 	"fmt"
+	"os"
+	"strings"
+
+	"github.com/lumatozer/VenGO/database"
 )
 
 func diff(arr1 []Token, arr2 []Token) {
@@ -20,7 +22,11 @@ func main() {
 	// database.DB_set("alu","aa")
 	// database.DB_delete("alux")
 	// fmt.Println(database.DB_get("alu"))
-	dat, err := os.ReadFile("alu.vi")
+	if len(os.Args)<2 {
+		fmt.Println("No file mentioned")
+		return
+	}
+	dat, err := os.ReadFile(os.Args[1])
 
 	if (err!=nil) {
 		fmt.Println(err)
@@ -31,6 +37,9 @@ func main() {
 		fmt.Println(Vengine(code,true))
 	} else {
 		// // fmt.Println(tokensier(code,true))
+		if strings.HasSuffix(os.Args[1], ".ts") {
+			code=ts_translator(code)
+		}
 		tokens_, _:=tokens_parser(tokensier(code,true),false)
 		// fmt.Println(tokens_,"hi")
 		// fmt.Println(tokens_parser(tokensier(code,true),true))

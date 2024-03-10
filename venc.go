@@ -725,6 +725,7 @@ func pre_parser(symbol_table Symbol_Table, code []Token, depth int) (string, Sym
 				if err != 0 {
 					return "error", symbol_table
 				}
+				// this crashes sometimes
 				to_ignore := len(tokens[1 : len(tokens)-1])
 				err_, tokens := branch_parser(tokens[1 : len(tokens)-1])
 				if err_ != "" {
@@ -1814,6 +1815,20 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 			}
 			if code[i].Type == "array" {
 				fmt.Println(code[i])
+			}
+			if code[i].Type == "funcall" {
+				if code[i].children[0].string_value=="print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"string"}) {
+					used_variable := make([]string, 0)
+					resultant_variable, used_variable, symbol_table := expression_solver(code[i].children[1].children, function_name, symbol_table, false)
+					for _, variable := range used_variable {
+						free_variable(variable, symbol_table)
+					}
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"debug.print", resultant_variable})
+					if len(code)>i+1 && code[i+1].Type=="EOS" {
+						i+=1
+					}
+					continue
+				}
 			}
 			fmt.Println("missed token", code[i], symbol_table.current_file, function_name)
 			return "error_token_not_parsed", symbol_table
