@@ -1829,6 +1829,20 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					}
 					continue
 				}
+				if code[i].children[0].string_value=="print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"num"}) {
+					used_variable := make([]string, 0)
+					resultant_variable, used_variable, symbol_table := expression_solver(code[i].children[1].children, function_name, symbol_table, false)
+					for _, variable := range used_variable {
+						free_variable(variable, symbol_table)
+					}
+					var_num_to_str, symbol_table:=get_variable([]string{"string"}, symbol_table)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"num_to_str", resultant_variable, var_num_to_str})
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"debug.print", var_num_to_str})
+					if len(code)>i+1 && code[i+1].Type=="EOS" {
+						i+=1
+					}
+					continue
+				}
 			}
 			fmt.Println("missed token", code[i], symbol_table.current_file, function_name)
 			return "error_token_not_parsed", symbol_table
