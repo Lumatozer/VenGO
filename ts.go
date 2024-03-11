@@ -25,21 +25,26 @@ func ts_translator(input string) string {
 	pattern := fmt.Sprintf("(%s)|(%s)|(%s)|(%s)|(%s)|(%s)|(%s)", strings.Join(keywords, "|"), identifiers, operators, literals, colon, delimiters, returnType)
 	tokenPattern := regexp.MustCompile(pattern)
 	tokens := tokenPattern.FindAllString(cleanCode, -1)
-	new_tokens:=make([]string, 0)
-	for token:=0; token < len(tokens); token++ {
-		if len(tokens)>=token+2 && tokens[token]=="console" && tokens[token+1]=="." && tokens[token+2]=="log" {
+	new_tokens := make([]string, 0)
+	for token := 0; token < len(tokens); token++ {
+		if len(tokens) >= token+2 && tokens[token] == "console" && tokens[token+1] == "." && tokens[token+2] == "log" {
 			new_tokens = append(new_tokens, "print")
-			token+=2
+			token += 2
 			continue
 		}
-		if len(tokens)>=token+1 && tokens[token]=="!=" && tokens[token+1]=="="{
+		if len(tokens) >= token+1 && tokens[token] == "!=" && tokens[token+1] == "=" {
 			new_tokens = append(new_tokens, "!=")
-			token+=1
+			token += 1
 			continue
 		}
-		if len(tokens)>=token+2 && tokens[token]=="=" && tokens[token+1]=="=" && tokens[token+2]=="=" {
+		if len(tokens) >= token+2 && tokens[token] == "=" && tokens[token+1] == "=" && tokens[token+2] == "=" {
 			new_tokens = append(new_tokens, "==")
-			token+=2
+			token += 2
+			continue
+		}
+		if len(tokens) >= token+1 && len(new_tokens)>=1 && tokens[token] == "[" && tokens[token+1] == "]" && (tokens[token-1] == "num" || tokens[token-1] == "string" || (string(new_tokens[len(new_tokens)-1][0])=="[" && string(new_tokens[len(new_tokens)-1][len(new_tokens[len(new_tokens)-1])-1])=="]")) {
+			new_tokens[len(new_tokens)-1] = "["+new_tokens[len(new_tokens)-1]+"]"
+			token += 1
 			continue
 		}
 		if tokens[token] == ":" {
@@ -59,5 +64,6 @@ func ts_translator(input string) string {
 		}
 		new_tokens = append(new_tokens, tokens[token])
 	}
+	fmt.Println(strings.Join(new_tokens, " "))
 	return strings.Join(new_tokens, " ")
 }

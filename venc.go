@@ -1331,16 +1331,18 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 				variable_struct := symbol_table.structs[struct_index_in_symbol_table(variable_type[0], symbol_table)]
 				if len(variable_struct.fields[tokens[0].children[1].string_value]) != 0 {
 					new_variable, new_symbol_table := get_variable(variable_struct.fields[tokens[0].children[1].string_value], symbol_table)
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{})
 					symbol_table = new_symbol_table
 					new_symbol_table = var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name)
 					symbol_table = new_symbol_table
 					used_variables = append(used_variables, new_variable)
-					if str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data) == -1 {
+					field_index_in_struct:=str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)
+					if field_index_in_struct==-1 {
+						field_index_in_struct=len(symbol_table.data)
 						symbol_table.data = append(symbol_table.data, tokens[0].children[1].string_value)
 					}
 					//variable_name:=tokens[0].children[1].string_value
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file + "-struct-" + tokens[0].children[0].string_value, strconv.FormatInt(int64(str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)), 10), new_variable})
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file + "-struct-" + tokens[0].children[0].string_value, strconv.FormatInt(int64(field_index_in_struct), 10), new_variable})
+					return new_variable, used_variables, symbol_table
 				}
 			} else {
 				new_children := []Token{}
@@ -1665,6 +1667,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
 				// you need to add the compiler
 				i += 3
+				new_data = symbol_table.data
 				continue
 			}
 			if (len(code)-i) >= 4 && (code[i].Type == "lookup" || code[i].Type == "variable" || code[i].Type == "nested_tokens") && code[i+1].Type == "operator" && strings.Contains(code[i+1].string_value, "=") {
@@ -1700,6 +1703,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"refset", symbol_table.current_file+"-"+code[i-2].string_value, resultant_variable})
 				}
 				i += len(tokens)
+				new_data = symbol_table.data
 				continue
 			}
 			if code[i].Type == "branch" {
@@ -1827,6 +1831,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					if len(code)>i+1 && code[i+1].Type=="EOS" {
 						i+=1
 					}
+					new_data = symbol_table.data
 					continue
 				}
 				if code[i].children[0].string_value=="print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"num"}) {
@@ -1836,11 +1841,13 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 						free_variable(variable, symbol_table)
 					}
 					var_num_to_str, symbol_table:=get_variable([]string{"string"}, symbol_table)
+					symbol_table=var_init([]string{"string"}, var_num_to_str, symbol_table, function_name)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"num_to_str", resultant_variable, var_num_to_str})
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"debug.print", var_num_to_str})
 					if len(code)>i+1 && code[i+1].Type=="EOS" {
 						i+=1
 					}
+					new_data = symbol_table.data
 					continue
 				}
 			}
