@@ -61,3 +61,7 @@
 61 jump_n_lines                       # Jump a lines with condition b
 62 padding                            # Padding instruction
 64 smaller                            # Verifying if a < b
+65 obj_copy                           # Copy b into a as long as type(a)==type(b)
+66 obj_copy_update_scope              # Copy b into a and update scope
+67 jump.always.var                    # Jump to a variable line number a without a condition
+68 current_line_number                # Put current position of instruction pointer into a

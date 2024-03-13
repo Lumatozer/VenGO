@@ -273,7 +273,6 @@ func type_evaluator(obj_type []string) bool {
 	check_arr := remove_string_from_index(obj_type, len(obj_type)-1)
 	for i := 0; i < len(check_arr); i++ {
 		if check_arr[i] != "dict" && check_arr[i] != "arr" {
-			fmt.Println("uhuh")
 			return false
 		}
 	}
@@ -303,6 +302,22 @@ func spawn_struct_default(var_name string, object_type string) VI_Object {
 		}
 	}
 	return struct_default
+}
+
+func copy_VI_Object(a VI_Object) VI_Object {
+	new_children:=make([]VI_Object, 0)
+	for _,child:=range a.children {
+		new_children = append(new_children, copy_VI_Object(child))
+	}
+	new_dict_keys:=make([]string, 0)
+	for _,dict_key:=range a.dict_keys {
+		new_dict_keys = append(new_dict_keys, dict_key)
+	}
+	new_struct:=make(map[int]VI_Object)
+	for i,struct_:=range a._struct {
+		new_struct[i]=struct_
+	}
+	return VI_Object{var_name: strings.Clone(a.var_name), num_value: (float64(a.num_value)+-1)+1, str_value: strings.Clone(a.str_value), object_type: a.object_type, children: new_children, scope: int(int64(a.scope)), _struct: new_struct}
 }
 
 func Vengine(code string, debug bool) int64 {
@@ -1593,6 +1608,80 @@ func Vengine(code string, debug bool) int64 {
 			}
 			current_byte_code = append(current_byte_code, 62)
 			byte_code = append(byte_code, current_byte_code)
+		case "obj_copy":
+			if len(args)!=2 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			reference := plain_in_arr_VI_Object(VI_Object{var_name: args[1]}, symbol_table, "var_name")
+			set_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
+			if set_var["index"] == -1 {
+				Debug_print("Variable", args[0], "has not been initialised yet")
+				return current_gas
+			}
+			if reference["index"] == -1 {
+				Debug_print("Variable", args[1], "has not been initialised yet")
+				return current_gas
+			}
+			if !string_arr_compare(symbol_table[set_var["index"]].object_type, symbol_table[reference["index"]].object_type) {
+				Debug_print("Object b must have same type as object a")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 65, set_var["index"], reference["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "obj_copy_update_scope":
+			if len(args)!=2 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			reference := plain_in_arr_VI_Object(VI_Object{var_name: args[1]}, symbol_table, "var_name")
+			set_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
+			if set_var["index"] == -1 {
+				Debug_print("Variable", args[0], "has not been initialised yet")
+				return current_gas
+			}
+			if reference["index"] == -1 {
+				Debug_print("Variable", args[1], "has not been initialised yet")
+				return current_gas
+			}
+			if !string_arr_compare(symbol_table[set_var["index"]].object_type, symbol_table[reference["index"]].object_type) {
+				Debug_print("Object b must have same type as object a", symbol_table[set_var["index"]], symbol_table[reference["index"]])
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 66, set_var["index"], reference["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "jump.always.var":
+			if len(args) != 1 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			set_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: get_plain_type("num")}, symbol_table, "var_name")
+			if set_var["index"] == -1 {
+				Debug_print("Variable", args[0], "has not been initialised yet")
+				return current_gas
+			}
+			if set_var["error"] == 1 {
+				Debug_print("Data types did not match")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 67, set_var["index"])
+			byte_code = append(byte_code, current_byte_code)
+		case "current_line_number":
+			if len(args) != 1 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			set_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0], object_type: get_plain_type("num")}, symbol_table, "var_name")
+			if set_var["index"] == -1 {
+				Debug_print("Variable", args[0], "has not been initialised yet")
+				return current_gas
+			}
+			if set_var["error"] == 1 {
+				Debug_print("Data types did not match")
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 68, set_var["index"])
+			byte_code = append(byte_code, current_byte_code)
 		}
 	}
 	Debug_print(byte_code)
@@ -1775,9 +1864,11 @@ func Vengine(code string, debug bool) int64 {
 			if scope_count == 0 {
 				continue
 			}
-			for i, variable := range symbol_table {
+			for i_, variable := range symbol_table {
 				if variable.scope < scope_count {
-					global_table[scope_count-1][i] = variable
+					if global_table[scope_count-1][i_].var_name=="return_to" {
+					}
+					global_table[scope_count-1][i_] = variable
 				}
 			}
 			global_table = global_table[:len(global_table)-1]
@@ -1838,6 +1929,15 @@ func Vengine(code string, debug bool) int64 {
 			} else {
 				symbol_table[current_byte_code[3]].num_value = 0
 			}
+		case 65:
+			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]])
+		case 66:
+			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]])
+			symbol_table[current_byte_code[1]].scope = scope_count
+		case 67:
+			i = int(symbol_table[current_byte_code[1]].num_value)-1
+		case 68:
+			symbol_table[current_byte_code[1]].num_value = float64(i)
 		}
 	}
 	global_table[scope_count] = symbol_table

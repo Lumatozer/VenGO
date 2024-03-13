@@ -1218,7 +1218,7 @@ func free_variable(name string, symbol_table Symbol_Table) Symbol_Table {
 	return symbol_table
 }
 
-func var_init(variable_type []string, variable_name string, symbol_table Symbol_Table, function_name string) Symbol_Table {
+func var_init(variable_type []string, variable_name string, symbol_table Symbol_Table, function_name string, add_to_stack_init bool, strict_name bool) Symbol_Table {
 	if variable_type[0] == "string" {
 		string_index := str_index_in_arr("", symbol_table.data)
 		if string_index == -1 {
@@ -1226,10 +1226,18 @@ func var_init(variable_type []string, variable_name string, symbol_table Symbol_
 			string_index = len(symbol_table.data) - 1
 		}
 		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
-		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", variable_name, strconv.FormatInt(int64(string_index), 10)})
+		if add_to_stack_init {
+			symbol_table.global_variables = append(symbol_table.global_variables, []string{"str.set", variable_name, strconv.FormatInt(int64(string_index), 10)})
+		} else {
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", variable_name, strconv.FormatInt(int64(string_index), 10)})
+		}
 	} else if variable_type[0] == "num" {
 		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
-		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", variable_name, "0"})
+		if add_to_stack_init {
+			symbol_table.global_variables = append(symbol_table.global_variables, []string{"set", variable_name, "0"})
+		} else {
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", variable_name, "0"})
+		}
 	} else if variable_type[0] == "[" {
 		new_variable_type := make([]string, 0)
 		for _, vb := range variable_type {
@@ -1241,7 +1249,11 @@ func var_init(variable_type []string, variable_name string, symbol_table Symbol_
 			data_index = len(symbol_table.data) - 1
 		}
 		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: new_variable_type})
-		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init", variable_name, strconv.FormatInt(int64(data_index), 10)})
+		if add_to_stack_init {
+			symbol_table.global_variables = append(symbol_table.global_variables, []string{"arr.init", variable_name, strconv.FormatInt(int64(data_index), 10)})
+		} else {
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init", variable_name, strconv.FormatInt(int64(data_index), 10)})
+		}
 	} else if variable_type[0] == "{" {
 		data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
 		if data_index == -1 {
@@ -1249,6 +1261,7 @@ func var_init(variable_type []string, variable_name string, symbol_table Symbol_
 			data_index = len(symbol_table.data) - 1
 		}
 		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
+		// you need to add this
 	} else if len(variable_type) == 1 {
 		if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 			return symbol_table
@@ -1258,7 +1271,15 @@ func var_init(variable_type []string, variable_name string, symbol_table Symbol_
 		if str_index_in_arr(variable_type[0], symbol_table.data) == -1 {
 			symbol_table.data = append(symbol_table.data, variable_type[0])
 		}
-		symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file + "-struct-" + variable_name, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+		var_name:=symbol_table.current_file + "-struct-" + variable_name
+		if strict_name {
+			var_name=variable_name
+		}
+		if add_to_stack_init {
+			symbol_table.global_variables= append(symbol_table.global_variables, []string{"struct.init", var_name, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+		} else {
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.init", var_name, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+		}
 	}
 	return symbol_table
 }
@@ -1332,7 +1353,7 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 				if len(variable_struct.fields[tokens[0].children[1].string_value]) != 0 {
 					new_variable, new_symbol_table := get_variable(variable_struct.fields[tokens[0].children[1].string_value], symbol_table)
 					symbol_table = new_symbol_table
-					new_symbol_table = var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name)
+					new_symbol_table = var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name, false, false)
 					symbol_table = new_symbol_table
 					used_variables = append(used_variables, new_variable)
 					field_index_in_struct:=str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)
@@ -1351,7 +1372,7 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 				resolved_type := evaluate_type(symbol_table, []Token{new_token}, 0)
 				new_variable, new_symbol_table := get_variable(resolved_type, symbol_table)
 				symbol_table = new_symbol_table
-				new_symbol_table = var_init(resolved_type, new_variable, symbol_table, function_name)
+				new_symbol_table = var_init(resolved_type, new_variable, symbol_table, function_name, false, false)
 				symbol_table = new_symbol_table
 				used_variables = append(used_variables, new_variable)
 				symbol_table.variables = append(symbol_table.variables, Variable{name: new_variable, Type: resolved_type})
@@ -1372,6 +1393,48 @@ func expression_solver(tokens []Token, function_name string, symbol_table Symbol
 				return varying_value, used_variables, symbol_table
 			}
 
+		}
+		if tokens[0].Type=="funcall" {
+			provided_arguments:=make([][]Token, 0)
+			cache:=make([]Token, 0)
+			for _,tkn:=range tokens[0].children[1].children {
+				if tkn.Type=="comma" {
+					provided_arguments = append(provided_arguments, cache)
+					cache=make([]Token, 0)
+				} else {
+					cache = append(cache, tkn)
+				}
+			}
+			if len(cache)!=0 {
+				provided_arguments = append(provided_arguments, cache)
+			}
+			resolved_arguments:=make([]string, 0)
+			for _,argument:=range provided_arguments {
+				lhs, new_used_variables, new_symbol_table := expression_solver(argument, function_name, symbol_table, false)
+				used_variables = append(used_variables, new_used_variables...)
+				symbol_table = new_symbol_table
+				resolved_arguments = append(resolved_arguments, lhs)
+			}
+			calling_function_name:=symbol_table.current_file+"-"+tokens[0].children[0].string_value
+			function:=symbol_table.functions[function_index_in_symbol_table(calling_function_name, symbol_table)]
+			argument_counter:=0
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"scope.new"})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set","return_to","0"})
+			for arg:=range function.args {
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"obj_copy_update_scope",calling_function_name+"-function_input:"+arg, resolved_arguments[argument_counter]})
+				argument_counter+=1
+			}
+			calling_function_name_index:=str_index_in_arr(calling_function_name, symbol_table.data)
+			if calling_function_name_index==-1 {
+				calling_function_name_index=len(symbol_table.data)
+				symbol_table.data = append(symbol_table.data, calling_function_name)
+			}
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"current_line_number","return_to"})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", "four", "4"})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"add", "return_to", "four", "return_to"})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def.always", strconv.FormatInt(int64(calling_function_name_index), 10)})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"scope.exit"})
+			return calling_function_name+"-return-variable", used_variables, symbol_table
 		}
 		// you need to add function calls and nested_tokens
 	} else {
@@ -1627,7 +1690,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				symbol_table.data=append([]string(nil), new_data...)
 				new_data=append([]string(nil))
 			}
-			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) {
+			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) && function_index_in_symbol_table(symbol_table.current_file+"-"+code[i+1].string_value, symbol_table)==-1 {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
 				variable_type := type_token_to_string_array(code[i+2])
 				if variable_type[0] == "string" {
@@ -1636,9 +1699,9 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 						symbol_table.data = append(symbol_table.data, "")
 						string_index = len(symbol_table.data) - 1
 					}
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.set", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(string_index), 10)})
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"str.set", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(string_index), 10)})
 				} else if variable_type[0] == "num" {
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", symbol_table.current_file + "-" + code[i+1].string_value, "0"})
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"set", symbol_table.current_file + "-" + code[i+1].string_value, "0"})
 				} else if variable_type[0] == "[" {
 					new_variable_type := make([]string, 0)
 					for _, vb := range variable_type {
@@ -1649,7 +1712,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
 						data_index = len(symbol_table.data) - 1
 					}
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.init", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(data_index), 10)})
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"arr.init", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(data_index), 10)})
 				} else if variable_type[0] == "{" {
 					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
 					if data_index == -1 {
@@ -1662,7 +1725,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					}
 					variable_type = type_struct_translator(variable_type, symbol_table)
 					symbol_table.data = append(symbol_table.data, variable_type[0])
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
 				// you need to add the compiler
@@ -1694,13 +1757,24 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 					return "invalid type on lhs:" + symbol_table.current_file, symbol_table
 				}
 				if string_arr_compare(rhs, []string{}) {
+					fmt.Println(new_tokens)
 					return "invalid type on rhs:" + symbol_table.current_file, symbol_table
 				}
 				if !string_arr_compare(lhs, rhs) {
 					return "types on lhs and rhs do not match", symbol_table
 				}
-				if lhs[0]=="num" {
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"refset", symbol_table.current_file+"-"+code[i-2].string_value, resultant_variable})
+				if lhs[0]=="num" || lhs[0]=="string" {
+					lhs_resultant_variable:=""
+					lhs_resultant_variable, used_variable, symbol_table = expression_solver([]Token{code[i-2]}, function_name, symbol_table, false)
+					for _, variable := range used_variable {
+						free_variable(variable, symbol_table)
+					}
+					if lhs[0]=="num" {
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"refset", lhs_resultant_variable, resultant_variable})
+					}
+					if lhs[0]=="string" {
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.refset", lhs_resultant_variable, resultant_variable})
+					}
 				}
 				i += len(tokens)
 				new_data = symbol_table.data
@@ -1798,6 +1872,13 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 				if !string_arr_compare(returned_type, symbol_table.functions[function_index_in_symbol_table(function_name, symbol_table)].Type) {
 					return "Return type does not match", symbol_table
 				}
+				used_variable := make([]string, 0)
+				resultant_variable, used_variable, symbol_table := expression_solver(tokens, function_name, symbol_table, false)
+				for _, variable := range used_variable {
+					free_variable(variable, symbol_table)
+				}
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"obj_copy", function_name+"-"+"return-variable", resultant_variable})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.always.var","return_to"})
 				i += len(tokens) + 1
 				continue
 			}
@@ -1841,7 +1922,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code [
 						free_variable(variable, symbol_table)
 					}
 					var_num_to_str, symbol_table:=get_variable([]string{"string"}, symbol_table)
-					symbol_table=var_init([]string{"string"}, var_num_to_str, symbol_table, function_name)
+					symbol_table=var_init([]string{"string"}, var_num_to_str, symbol_table, function_name, false, false)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"num_to_str", resultant_variable, var_num_to_str})
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"debug.print", var_num_to_str})
 					if len(code)>i+1 && code[i+1].Type=="EOS" {
@@ -1977,16 +2058,6 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 			data_index = len(symbol_table.data) - 1
 		}
 		prefix_result := ""
-		prefix_result += "jump.def.always " + strconv.FormatInt(int64(data_index), 10) + "\ndefine.jump " + strconv.FormatInt(int64(data_index), 10) + " // stack init\n"
-		prefix_result += "set true,1\nset false,0\n"
-		for _, var_initialisation := range final_symbol_table.struct_registration {
-			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
-		}
-		for _, var_initialisation := range final_symbol_table.global_variables {
-			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
-		}
-		prefix_result += "jump.def.always " + strconv.FormatInt(int64(str_index_in_arr(symbol_table.current_file+"-"+"main", symbol_table.data)), 10) + "\n"
-		result = formatter(prefix_result + result)
 		build_info := make([]string, 0)
 		for _, function := range symbol_table.functions {
 			if strings.Split(function.name, "-")[0] != file_name {
@@ -2004,11 +2075,24 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 				}
 				all_arguments = append(all_arguments, strings.Join(string_array_types_to_vitality_types(argument, symbol_table), ","))
 			}
+			if !string_arr_compare(function.Type, []string{}) {
+				symbol_table=var_init(function.Type, function.name+"-"+"return-variable", symbol_table, "does_not_matter", true, true)
+			}
 			if continue_external {
 				continue
 			}
 			build_info = append(build_info, strings.Split(function.name, "-")[1]+"::"+strings.Join(string_array_types_to_vitality_types(function.Type, symbol_table), ",")+"::"+strings.Join(all_arguments, ".."))
 		}
+		prefix_result += "jump.def.always " + strconv.FormatInt(int64(data_index), 10) + "\ndefine.jump " + strconv.FormatInt(int64(data_index), 10) + " // stack init\n"
+		prefix_result += "set true,1\nset false,0\nset return_to,0\n"
+		for _, var_initialisation := range symbol_table.struct_registration {
+			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
+		}
+		for _, var_initialisation := range symbol_table.global_variables {
+			prefix_result += var_initialisation[0] + " " + strings.Join(var_initialisation[1:], ",") + "\n"
+		}
+		prefix_result += "jump.def.always " + strconv.FormatInt(int64(str_index_in_arr(symbol_table.current_file+"-"+"main", symbol_table.data)), 10) + "\n"
+		result = formatter(prefix_result + result)
 		symbol_table.data = append(symbol_table.data, strings.Join(build_info, ";"))
 	}
 	symbol_table.finished_importing = true

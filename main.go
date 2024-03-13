@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
-
 	"github.com/lumatozer/VenGO/database"
 )
 
@@ -37,9 +35,6 @@ func main() {
 		fmt.Println(Vengine(code,true))
 	} else {
 		// // fmt.Println(tokensier(code,true))
-		if strings.HasSuffix(os.Args[1], ".ts") {
-			code=ts_translator(code)
-		}
 		tokens_, _:=tokens_parser(tokensier(code,true),false)
 		// fmt.Println(tokens_,"hi")
 		// fmt.Println(tokens_parser(tokensier(code,true),true))
