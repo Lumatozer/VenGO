@@ -1431,6 +1431,8 @@ func Vengine(code string, debug bool) int64 {
 				}
 			}
 			registered_structs["structs"] = append(registered_structs["structs"], args[0])
+			current_byte_code = append(current_byte_code, 56)
+			byte_code = append(byte_code, current_byte_code)
 		case "struct.init":
 			if len(args) != 2 {
 				Debug_print("Invalid number of arguments")
@@ -1866,8 +1868,6 @@ func Vengine(code string, debug bool) int64 {
 			}
 			for i_, variable := range symbol_table {
 				if variable.scope < scope_count {
-					if global_table[scope_count-1][i_].var_name=="return_to" {
-					}
 					global_table[scope_count-1][i_] = variable
 				}
 			}
