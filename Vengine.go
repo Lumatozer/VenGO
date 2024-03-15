@@ -1,4 +1,5 @@
 // make sure that you do run the smart contract code while verifying so that just in case the vengine crashes you can mark the blocvk as false
+// branches and while have some issue, update the entire symbol_table after scope changes
 
 package main
 
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"fmt"
 	"reflect"
+	"time"
 )
 
 var Debug bool = false;
@@ -304,10 +306,10 @@ func spawn_struct_default(var_name string, object_type string) VI_Object {
 	return struct_default
 }
 
-func copy_VI_Object(a VI_Object) VI_Object {
+func copy_VI_Object(a VI_Object, scope_of_current_object int) VI_Object {
 	new_children:=make([]VI_Object, 0)
 	for _,child:=range a.children {
-		new_children = append(new_children, copy_VI_Object(child))
+		new_children = append(new_children, copy_VI_Object(child, scope_of_current_object))
 	}
 	new_dict_keys:=make([]string, 0)
 	for _,dict_key:=range a.dict_keys {
@@ -317,7 +319,7 @@ func copy_VI_Object(a VI_Object) VI_Object {
 	for i,struct_:=range a._struct {
 		new_struct[i]=struct_
 	}
-	return VI_Object{var_name: strings.Clone(a.var_name), num_value: (float64(a.num_value)+-1)+1, str_value: strings.Clone(a.str_value), object_type: a.object_type, children: new_children, scope: int(int64(a.scope)), _struct: new_struct}
+	return VI_Object{var_name: strings.Clone(a.var_name), num_value: (float64(a.num_value)+-1)+1, str_value: strings.Clone(a.str_value), object_type: a.object_type, children: new_children, scope: scope_of_current_object, _struct: new_struct}
 }
 
 func Vengine(code string, debug bool) int64 {
@@ -1688,6 +1690,7 @@ func Vengine(code string, debug bool) int64 {
 	}
 	Debug_print(byte_code)
 	continue_exec := true
+	start_time:=time.Now()
 	for i := 0; i < len(byte_code); i++ {
 		current_gas += 1
 		if current_gas < gas_limit || !continue_exec {
@@ -1930,16 +1933,22 @@ func Vengine(code string, debug bool) int64 {
 				symbol_table[current_byte_code[3]].num_value = 0
 			}
 		case 65:
-			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]])
+			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]], symbol_table[current_byte_code[1]].scope)
 		case 66:
-			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]])
+			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]], symbol_table[current_byte_code[1]].scope)
 			symbol_table[current_byte_code[1]].scope = scope_count
 		case 67:
+			if symbol_table[current_byte_code[1]].num_value==-1 {
+				break
+			}
 			i = int(symbol_table[current_byte_code[1]].num_value)-1
 		case 68:
 			symbol_table[current_byte_code[1]].num_value = float64(i)
 		}
 	}
+	end_time:=time.Now()
+	time_taken:=end_time.UnixMilli()-start_time.UnixMilli()
+	fmt.Println("Time taken", time_taken)
 	global_table[scope_count] = symbol_table
 	for current_global_table_index := range global_table {
 		Debug_print(global_table[current_global_table_index])

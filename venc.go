@@ -50,7 +50,6 @@ type Scope struct {
 	current_loop_continue_line  int
 	current_loop_break_line  	int
 	current_return_jump_line 	int64
-	branch_counts 			 	int
 }
 
 // add scope
@@ -653,7 +652,7 @@ func branch_parser(code_original []Token) (string, []Token) {
 func type_struct_translator(Type []string, symbol_table Symbol_Table) []string {
 	for _, struct_ := range symbol_table.structs {
 		if struct_.name == Type[len(Type)/2] {
-			Type[len(Type)/2] = symbol_table.current_file + "-" + "struct" + "-" + Type[len(Type)/2]
+			Type[len(Type)/2] = symbol_table.current_file + "-" + Type[len(Type)/2]
 		}
 	}
 	return Type
@@ -705,9 +704,9 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 					symbol_table.data = append(symbol_table.data, strings.Join(fields_converted, ";"))
 					data_index = len(symbol_table.data) - 1
 				}
-				symbol_table.struct_registration = append(symbol_table.struct_registration, []string{"register_struct", symbol_table.current_file + "-" + "struct" + "-" + code[i-1].string_value, strconv.FormatInt(int64(data_index), 10)})
+				symbol_table.struct_registration = append(symbol_table.struct_registration, []string{"register_struct", symbol_table.current_file + "-" + code[i-1].string_value, strconv.FormatInt(int64(data_index), 10)})
 				symbol_table.structs = append(symbol_table.structs, Struct{name: code[i-1].string_value, fields: Struct_Variables})
-				symbol_table.struct_mapping[symbol_table.current_file+"-struct-"+code[i-1].string_value]=code[i-1].string_value
+				symbol_table.struct_mapping[symbol_table.current_file+"-"+code[i-1].string_value]=code[i-1].string_value
 				i += len(tokens) + 1
 				continue
 			}
@@ -785,12 +784,14 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 						data_index = len(symbol_table.data) - 1
 					}
 				} else if len(variable_type) == 1 {
+					if !strings.Contains(variable_type[0], "-") {
+						variable_type = []string{symbol_table.current_file + "-" + variable_type[0]}
+					}
 					if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 						return "Invalid variable initialisation", symbol_table
 					}
-					variable_type = type_struct_translator(variable_type, symbol_table)
 					symbol_table.data = append(symbol_table.data, variable_type[0])
-					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
 				// you need to add the compiler
@@ -812,7 +813,7 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 					data:                make([]string, 0),
 					operations:          make(map[string][][]string),
 					variable_mapping:    make(map[string]string),
-					current_scope:       Scope{branch_counts: symbol_table.current_scope.branch_counts},
+					current_scope:       Scope{},
 					files:               symbol_table.files,
 					struct_registration: make([][]string, 0),
 					imported_libraries:  make(map[string]string),
@@ -820,7 +821,7 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 					global_variables:    symbol_table.global_variables,
 					struct_mapping:      make(map[string]string),
 				}
-				new_file_name := code[i+1].string_value
+				new_file_name := code[i+3].string_value
 				debug_keys := make([]string, 0)
 				for name, _ := range symbol_table.files {
 					debug_keys = append(debug_keys, name)
@@ -837,7 +838,6 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 						return err_, symbol_table
 					}
 					symbol_table.files[new_file_name] = new_file
-					symbol_table.current_scope.branch_counts=new_file.current_scope.branch_counts
 					new_symbol_table_data := new_file.data
 					new_symbol_table_data = append(new_symbol_table_data, symbol_table.data...)
 					symbol_table.data = new_symbol_table_data
@@ -851,14 +851,18 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 					symbol_table.global_variables = append(symbol_table.global_variables, new_file.global_variables...)
 					symbol_table.struct_registration = append(symbol_table.struct_registration, new_file.struct_registration...)
 					for _, struct_ := range new_file.structs {
-						struct_.name = new_file.current_file + "-struct-" + struct_.name
+						struct_.name = new_file.current_file + "-" + struct_.name
 						symbol_table.structs = append(symbol_table.structs, struct_)
+					}
+					for key,val:=range new_file.struct_mapping {
+						symbol_table.struct_mapping[key]=new_file.current_file + "-" + val
 					}
 				}
 				i += 4
 				continue
 			}
 		}
+		fmt.Println(code[i])
 		return "error_token_not_parsed", symbol_table
 	}
 	return result, symbol_table
@@ -1094,11 +1098,7 @@ func evaluate_type(symbol_table Symbol_Table, code_original []Token, depth int) 
 						code_[0].children = code[0].children[1:]
 						return evaluate_type(symbol_table, code_, 1)
 					} else {
-						if depth == 0 {
-							return res
-						} else {
-							return res
-						}
+						return res
 					}
 					return make([]string, 0)
 				}
@@ -1130,6 +1130,7 @@ func evaluate_type(symbol_table Symbol_Table, code_original []Token, depth int) 
 						return make([]string, 0)
 					}
 					function := library_symbol_table.functions[function_index]
+
 					if are_function_arguments_valid(code[0].children[1], function, symbol_table) {
 						return type_struct_translator(function.Type, library_symbol_table)
 					}
@@ -1314,15 +1315,18 @@ func var_init(variable_type []string, variable_name string, symbol_table Symbol_
 		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
 		// you need to add this
 	} else if len(variable_type) == 1 {
+		if !strings.Contains(variable_type[0], "-") {
+			variable_type = []string{symbol_table.current_file + "-" + variable_type[0]}
+		}
 		if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 			return symbol_table
 		}
 		symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
-		variable_type = type_struct_translator(variable_type, symbol_table)
+		
 		if str_index_in_arr(variable_type[0], symbol_table.data) == -1 {
 			symbol_table.data = append(symbol_table.data, variable_type[0])
 		}
-		var_name:=symbol_table.current_file + "-struct-" + variable_name
+		var_name:=symbol_table.current_file + "-" + variable_name
 		if strict_name {
 			var_name=variable_name
 		}
@@ -1333,6 +1337,17 @@ func var_init(variable_type []string, variable_name string, symbol_table Symbol_
 		}
 	}
 	return symbol_table
+}
+
+func resolve_function_name(code []Token, symbol_table Symbol_Table) string {
+	path:=make([]string, 0)
+	for _,each:=range code {
+		path = append(path, each.string_value)
+	}
+	if len(path)==2 {
+		return path[0]+"-"+path[1]
+	}
+	return ""
 }
 
 func expression_solver(tokens_original []Token, function_name string, symbol_table Symbol_Table, nested_nested_tokens bool) (string, []string, Symbol_Table) {
@@ -1401,24 +1416,42 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 		if tokens[0].Type == "nested_tokens" {
 			if len(tokens[0].children) == 2 {
 				variable_type := evaluate_type(symbol_table, []Token{tokens[0].children[0]}, 0)
-				if len(variable_type) == 1 && strings.Contains(variable_type[0], "-struct-") && strings.Contains(variable_type[0], symbol_table.current_file) {
-					variable_type = []string{strings.Split(variable_type[0], "-struct-")[1]}
-				}
 				variable_struct := symbol_table.structs[struct_index_in_symbol_table(variable_type[0], symbol_table)]
 				if len(variable_struct.fields[tokens[0].children[1].string_value]) != 0 {
-					new_variable, new_symbol_table := get_variable(variable_struct.fields[tokens[0].children[1].string_value], symbol_table)
-					symbol_table = new_symbol_table
-					new_symbol_table = var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name, false, false)
-					symbol_table = new_symbol_table
-					used_variables = append(used_variables, new_variable)
-					field_index_in_struct:=str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)
-					if field_index_in_struct==-1 {
-						field_index_in_struct=len(symbol_table.data)
-						symbol_table.data = append(symbol_table.data, tokens[0].children[1].string_value)
+					if nested_nested_tokens || tokens[0].children[0].Type=="variable" {
+						new_variable, new_symbol_table := get_variable(variable_struct.fields[tokens[0].children[1].string_value], symbol_table)
+						symbol_table = new_symbol_table
+						new_symbol_table = var_init(variable_struct.fields[tokens[0].children[1].string_value], new_variable, symbol_table, function_name, false, false)
+						symbol_table = new_symbol_table
+						used_variables = append(used_variables, new_variable)
+						field_index_in_struct:=str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)
+						if field_index_in_struct==-1 {
+							field_index_in_struct=len(symbol_table.data)
+							symbol_table.data = append(symbol_table.data, tokens[0].children[1].string_value)
+						}
+						//variable_name:=tokens[0].children[1].string_value
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file + "-" + tokens[0].children[0].string_value, strconv.FormatInt(int64(field_index_in_struct), 10), new_variable})
+						return new_variable, used_variables, symbol_table
+					} else {
+						rhs_pretype:=evaluate_type(symbol_table, []Token{tokens[0].children[0]}, 0)
+						rhs_pretype=symbol_table.structs[struct_index_in_symbol_table(rhs_pretype[0], symbol_table)].fields[tokens[0].children[1].string_value]
+						new_variable, new_symbol_table := get_variable(rhs_pretype, symbol_table)
+						symbol_table = new_symbol_table
+						new_symbol_table = var_init(rhs_pretype, new_variable, symbol_table, function_name, false, false)
+						symbol_table = new_symbol_table
+						lhs, new_used_variables, new_symbol_table := expression_solver([]Token{tokens[0].children[0]}, function_name, symbol_table, false)
+						used_variables = append(used_variables, new_used_variables...)
+						symbol_table = new_symbol_table
+
+						field_index_in_struct:=str_index_in_arr(tokens[0].children[1].string_value, symbol_table.data)
+						if field_index_in_struct==-1 {
+							field_index_in_struct=len(symbol_table.data)
+							symbol_table.data = append(symbol_table.data, tokens[0].children[1].string_value)
+						}
+
+						symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", lhs, strconv.FormatInt(int64(field_index_in_struct), 10), new_variable})
+						return new_variable, used_variables, symbol_table
 					}
-					//variable_name:=tokens[0].children[1].string_value
-					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file + "-struct-" + tokens[0].children[0].string_value, strconv.FormatInt(int64(field_index_in_struct), 10), new_variable})
-					return new_variable, used_variables, symbol_table
 				}
 			} else {
 				new_children := []Token{}
@@ -1435,7 +1468,7 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 				if str_index_in_arr(new_modified_variable, symbol_table.data)==-1 {
 					symbol_table.data = append(symbol_table.data, new_modified_variable)
 				}
-				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file+"-struct-"+new_children[0].string_value, strconv.FormatInt(int64(str_index_in_arr(new_modified_variable, symbol_table.data)), 10), symbol_table.current_file+"-struct-"+new_variable})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"struct.pull", symbol_table.current_file+"-"+new_children[0].string_value, strconv.FormatInt(int64(str_index_in_arr(new_modified_variable, symbol_table.data)), 10), symbol_table.current_file+"-"+new_variable})
 				new_children = make([]Token, 0)
 				new_children = append(new_children, Token{Type: "variable", string_value: new_variable})
 				new_children = append(new_children, tokens[0].children[2:]...)
@@ -1470,7 +1503,12 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 				symbol_table = new_symbol_table
 				resolved_arguments = append(resolved_arguments, lhs)
 			}
-			calling_function_name:=symbol_table.current_file+"-"+tokens[0].children[0].string_value
+			calling_function_name:=""
+			if tokens[0].children[0].Type!="nested_tokens" {
+				calling_function_name=symbol_table.current_file+"-"+tokens[0].children[0].string_value
+			} else {
+				calling_function_name=resolve_function_name(tokens[0].children[0].children, symbol_table)
+			}
 			function:=symbol_table.functions[function_index_in_symbol_table(calling_function_name, symbol_table)]
 			argument_counter:=0
 			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"scope.new"})
@@ -1651,6 +1689,17 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 	return resultant_variable, used_variables, symbol_table
 }
 
+func get_branch_counts(symbol_table Symbol_Table) int {
+	i:=0
+	for {
+		i+=1
+		branch_str:="branch_"+strconv.FormatInt(int64(i), 10)
+		if str_index_in_arr(branch_str, symbol_table.data)==-1 {
+			return i
+		}
+	}
+}
+
 func compiler(symbol_table Symbol_Table, function_name string, depth int, code_original []Token, in_loop bool) (string, Symbol_Table) {
 	code:=make([]Token, 0)
 	for _,code_obj:=range code_original {
@@ -1712,13 +1761,15 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 					}
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
 				} else if len(variable_type) == 1 {
+					if !strings.Contains(variable_type[0], "-") {
+						variable_type = []string{symbol_table.current_file + "-" + variable_type[0]}
+					}
 					if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 						return "Invalid variable initialisation", symbol_table
 					}
 					symbol_table.variables = append(symbol_table.variables, Variable{name: variable_name, Type: variable_type})
-					variable_type = type_struct_translator(variable_type, symbol_table)
 					symbol_table.data = append(symbol_table.data, variable_type[0])
-					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + symbol_table.variable_mapping[variable_name], strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 			}
 			err, returned_symbol_table := compiler(symbol_table, symbol_table.functions[i].name, depth+1, make([]Token, 0), in_loop)
@@ -1788,12 +1839,16 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 						data_index = len(symbol_table.data) - 1
 					}
 				} else if len(variable_type) == 1 {
+					if !strings.Contains(variable_type[0], "-") {
+						variable_type = []string{symbol_table.current_file + "-" + variable_type[0]}
+					}
 					if struct_index_in_symbol_table(variable_type[0], symbol_table) == -1 {
 						return "Invalid variable initialisation", symbol_table
 					}
-					variable_type = type_struct_translator(variable_type, symbol_table)
-					symbol_table.data = append(symbol_table.data, variable_type[0])
-					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + "struct" + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
+					if str_index_in_arr(variable_type[0], symbol_table.data)==-1 {
+						symbol_table.data = append(symbol_table.data, variable_type[0])
+					}
+					symbol_table.global_variables = append(symbol_table.global_variables, []string{"struct.init", symbol_table.current_file + "-" + code[i+1].string_value, strconv.FormatInt(int64(str_index_in_arr(variable_type[0], symbol_table.data)), 10)})
 				}
 				// symbol_table.operations[function_name]=append(symbol_table.operations[function_name], )
 				// you need to add the compiler
@@ -1825,6 +1880,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 					return "invalid type on lhs:" + symbol_table.current_file, symbol_table
 				}
 				if string_arr_compare(rhs, []string{}) {
+					fmt.Println(new_tokens)
 					return "invalid type on rhs:" + symbol_table.current_file, symbol_table
 				}
 				if !string_arr_compare(lhs, rhs) {
@@ -1856,14 +1912,13 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				for _, variable := range used_variable {
 					free_variable(variable, symbol_table)
 				}
-				symbol_table.current_scope.branch_counts+=1
 				flip_variable,symbol_table:=get_variable([]string{"num"}, symbol_table)
 				symbol_table=free_variable(flip_variable, symbol_table)
 				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"refset", flip_variable, resultant_variable})
 				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"equals", flip_variable, "false", flip_variable})
 				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"jump.def", "", flip_variable})
 				operations_before_compilation:=len(symbol_table.operations[function_name])
-				branch_string:="branch_"+strconv.FormatInt(int64(symbol_table.current_scope.branch_counts), 10)
+				branch_string:="branch_"+strconv.FormatInt(int64(get_branch_counts(symbol_table)), 10)
 				branch_index_in_symbol_table:=str_index_in_arr(branch_string, symbol_table.data)
 				if branch_index_in_symbol_table==-1 {
 					branch_index_in_symbol_table=len(symbol_table.data)
@@ -1883,15 +1938,13 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				if !string_arr_compare(evaluate_type(symbol_table, code[i].children[0].children, 0), []string{"num"}) {
 					return "while condition for while is invalid", symbol_table
 				}
-				symbol_table.current_scope.branch_counts+=1
-				loop_condition_variable:="branch_"+strconv.FormatInt(int64(symbol_table.current_scope.branch_counts), 10)
+				loop_condition_variable:="branch_"+strconv.FormatInt(int64(get_branch_counts(symbol_table)), 10)
 				loop_condition_index:=str_index_in_arr(loop_condition_variable, symbol_table.data)
 				if loop_condition_index==-1 {
 					symbol_table.data = append(symbol_table.data, loop_condition_variable)
 					loop_condition_index = len(symbol_table.data)-1
 				}
-				symbol_table.current_scope.branch_counts+=1
-				after_loop_variable:="branch_"+strconv.FormatInt(int64(symbol_table.current_scope.branch_counts), 10)
+				after_loop_variable:="branch_"+strconv.FormatInt(int64(get_branch_counts(symbol_table)), 10)
 				after_loop_index:=str_index_in_arr(after_loop_variable, symbol_table.data)
 				if after_loop_index==-1 {
 					symbol_table.data = append(symbol_table.data, after_loop_variable)
@@ -2110,9 +2163,12 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 	err, final_symbol_table := compiler(symbol_table, "this_does_not_matter", 0, make([]Token, 0), false)
 	symbol_table = final_symbol_table
 	for _,fn := range symbol_table.functions {
-		if depth==0 && strings.Split(fn.name, "-")[0] == file_name && strings.Split(fn.name, "-")[1] != "main" {
+		if depth==0 && strings.Split(fn.name, "-")[0] == file_name {
 			if strings.Split(fn.name, "-")[1] != "main" {
 				symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"jump.always.var","return_to // returning by default"})
+			} else {
+				symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"set","return_to","-1"})
+				symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"jump.always.var","return_to // returning after main"})
 			}
 		}
 		function:=fn.name
@@ -2135,6 +2191,12 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 		prefix_result := ""
 		build_info := make([]string, 0)
 		for _, function := range symbol_table.functions {
+			if !string_arr_compare(function.Type, []string{}) {
+				actual_current_file:=strings.Clone(symbol_table.current_file)
+				symbol_table.current_file=strings.Split(function.name, "-")[0]
+				symbol_table=var_init(function.Type, function.name+"-"+"return-variable", symbol_table, "does_not_matter", true, true)
+				symbol_table.current_file=strings.Clone(actual_current_file)
+			}
 			if strings.Split(function.name, "-")[0] != file_name {
 				continue
 			}
@@ -2146,9 +2208,6 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 					break
 				}
 				all_arguments = append(all_arguments, strings.Join(string_array_types_to_vitality_types(function.args[argument], symbol_table), ","))
-			}
-			if !string_arr_compare(function.Type, []string{}) {
-				symbol_table=var_init(function.Type, function.name+"-"+"return-variable", symbol_table, "does_not_matter", true, true)
 			}
 			if continue_external {
 				continue
