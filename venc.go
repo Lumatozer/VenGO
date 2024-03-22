@@ -1077,6 +1077,15 @@ func evaluate_type(symbol_table Symbol_Table, code_original []Token, depth int) 
 				return make([]string, 0)
 			}
 			if code[0].Type == "funcall" {
+				if code[0].children[0].string_value == "len" {
+					input_type := evaluate_type(symbol_table, code[0].children[1].children, 0)
+					if input_type[0] == "[" {
+						return []string{"num"}
+					}
+					if input_type[0] == "string" {
+						return []string{"num"}
+					}
+				}
 				if code[0].children[0].Type == "variable" {
 					function_index := function_index_in_symbol_table(symbol_table.current_file+"-"+code[0].children[0].string_value, symbol_table)
 					if function_index == -1 {
@@ -1455,6 +1464,7 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 
 		}
 		if tokens[0].Type == "funcall" {
+			res_var := ""
 			provided_arguments := make([][]Token, 0)
 			cache := make([]Token, 0)
 			for _, tkn := range tokens[0].children[1].children {
@@ -1474,6 +1484,21 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 				used_variables = append(used_variables, new_used_variables...)
 				symbol_table = new_symbol_table
 				resolved_arguments = append(resolved_arguments, lhs)
+			}
+			if tokens[0].children[0].string_value == "len" {
+				lhs_type := evaluate_type(symbol_table, provided_arguments[0], 0)
+				if lhs_type[0] == "[" {
+					res_var, symbol_table = get_variable([]string{"num"}, symbol_table)
+					symbol_table = var_init([]string{"num"}, res_var, symbol_table, function_name, false, true)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.length", resolved_arguments[0], res_var})
+					return res_var, used_variables, symbol_table
+				}
+				if lhs_type[0] == "string" {
+					res_var, symbol_table = get_variable([]string{"num"}, symbol_table)
+					symbol_table = var_init([]string{"num"}, res_var, symbol_table, function_name, false, true)
+					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"str.length", resolved_arguments[0], res_var})
+					return res_var, used_variables, symbol_table
+				}
 			}
 			calling_function_name := ""
 			if tokens[0].children[0].Type != "nested_tokens" {
@@ -1503,9 +1528,9 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 		}
 		if tokens[0].Type == "lookup" {
 			lhs_type := evaluate_type(symbol_table, tokens[0].children[0].children, 0)
-			resultant_type := lhs_type[1:len(lhs_type)-1]
-			if lhs_type[0]=="[" {
-				res_var:=""
+			resultant_type := lhs_type[1 : len(lhs_type)-1]
+			if lhs_type[0] == "[" {
+				res_var := ""
 				lhs, new_used_variables, new_symbol_table := expression_solver(tokens[0].children[0].children, function_name, symbol_table, false)
 				used_variables = append(used_variables, new_used_variables...)
 				symbol_table = new_symbol_table
@@ -1514,7 +1539,7 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 				used_variables = append(used_variables, new_used_variables...)
 				symbol_table = new_symbol_table
 
-				res_var,symbol_table=get_variable(resultant_type, symbol_table)
+				res_var, symbol_table = get_variable(resultant_type, symbol_table)
 				symbol_table = var_init(resultant_type, res_var, symbol_table, function_name, false, true)
 
 				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"arr.pull", lhs, rhs, res_var})
