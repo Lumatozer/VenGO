@@ -783,7 +783,7 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 					variables:           make([]Variable, 0),
 					data:                make([]string, 0),
 					operations:          make(map[string][][]string),
-					variable_mapping:    make(map[string]string),
+					variable_mapping:    symbol_table.variable_mapping,
 					current_scope:       Scope{},
 					files:               symbol_table.files,
 					struct_registration: make([][]string, 0),
@@ -828,6 +828,7 @@ func pre_parser(symbol_table Symbol_Table, code_original []Token, depth int) (st
 					for key,val:=range new_file.struct_mapping {
 						symbol_table.struct_mapping[key]=new_file.current_file + "-" + val
 					}
+					symbol_table.variable_mapping=new_file.variable_mapping
 				}
 				i += 4
 				continue

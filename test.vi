@@ -1,6 +1,0 @@
-import "atharv.vi" as atharv;
-
-function main() {
-    var a->string;
-    a=atharv.kaam_karo("figma\n");
-}
