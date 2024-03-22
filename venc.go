@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -87,34 +86,6 @@ func unpack_token_struct(orig Serializable_Token) Token {
 		new_children = append(new_children, unpack_token_struct(child))
 	}
 	return Token{Type: orig.Type, string_value: orig.String_value, num_value: orig.Num_value, children: new_children}
-}
-
-func CloneMyStruct(orig Token) (Token, Serializable_Token, error) {
-	new_children := make([]Serializable_Token, 0)
-	for _, child := range orig.children {
-		_, new_child, _ := CloneMyStruct(child)
-		new_children = append(new_children, new_child)
-	}
-	new_keys := make([]Serializable_Token, 0)
-	for _, key := range orig.children {
-		_, new_key, _ := CloneMyStruct(key)
-		new_keys = append(new_keys, new_key)
-	}
-	new_orig := Serializable_Token{Type: (orig).Type, Children: new_children, String_value: (orig).string_value, Num_value: (orig).num_value, Keys: new_keys}
-	origJSON, err := json.Marshal(&new_orig)
-	if err != nil {
-		return Token{Type: "check clone my struct 1"}, Serializable_Token{Type: "check clone my struct 1"}, err
-	}
-
-	clone := Serializable_Token{}
-	if err = json.Unmarshal(origJSON, &clone); err != nil {
-		return Token{Type: "check clone my struct 2"}, Serializable_Token{Type: "check clone my struct 2"}, err
-	}
-	new_unpacked_children := make([]Token, 0)
-	for _, child := range clone.Children {
-		new_unpacked_children = append(new_unpacked_children, unpack_token_struct(child))
-	}
-	return Token{Type: clone.Type, children: new_unpacked_children, string_value: clone.String_value, num_value: clone.Num_value}, clone, nil
 }
 
 func remove_token_at_index(i int, tokens []Token) []Token {
@@ -1805,10 +1776,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				symbol_table.data=new_data
 				new_data=make([]string, 0)
 			}
-			code:=make([]Token, 0)
-			for _,code_obj:=range copy_of_code {
-				code = append(code, code_obj)
-			}
 			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) && function_index_in_symbol_table(symbol_table.current_file+"-"+code[i+1].string_value, symbol_table)==-1 {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
 				variable_type := type_token_to_string_array(code[i+2])
@@ -1857,6 +1824,7 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				continue
 			}
 			if (len(code)-i) >= 4 && (code[i].Type == "lookup" || code[i].Type == "variable" || code[i].Type == "nested_tokens") && code[i+1].Type == "operator" && strings.Contains(code[i+1].string_value, "=") {
+				fmt.Println(code)
 				i++
 				i++
 				tokens, err := get_current_statement_tokens(code[i:])
@@ -1865,9 +1833,10 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				}
 				new_tokens := make([]Token, 0)
 				for _, x := range tokens {
-					new_struct, _, _ := CloneMyStruct(x)
+					new_struct := clone_token(x)
 					new_tokens = append(new_tokens, new_struct)
 				}
+				fmt.Println(new_tokens)
 				lhs := evaluate_type(symbol_table, []Token{code[i-2]}, 0)
 				rhs := evaluate_type(symbol_table, new_tokens, 0)
 				resultant_variable := ""
@@ -1880,7 +1849,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 					return "invalid type on lhs:" + symbol_table.current_file, symbol_table
 				}
 				if string_arr_compare(rhs, []string{}) {
-					fmt.Println(new_tokens)
 					return "invalid type on rhs:" + symbol_table.current_file, symbol_table
 				}
 				if !string_arr_compare(lhs, rhs) {
@@ -2021,9 +1989,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				new_data=symbol_table.data
 				continue
 			}
-			if code[i].Type == "array" {
-				fmt.Println(code[i])
-			}
 			if code[i].Type == "funcall" {
 				if code[i].children[0].string_value=="print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"string"}) {
 					used_variable := make([]string, 0)
@@ -2163,12 +2128,14 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 	err, final_symbol_table := compiler(symbol_table, "this_does_not_matter", 0, make([]Token, 0), false)
 	symbol_table = final_symbol_table
 	for _,fn := range symbol_table.functions {
-		if depth==0 && strings.Split(fn.name, "-")[0] == file_name {
+		if depth==0 {
 			if strings.Split(fn.name, "-")[1] != "main" {
 				symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"jump.always.var","return_to // returning by default"})
 			} else {
-				symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"set","return_to","-1"})
-				symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"jump.always.var","return_to // returning after main"})
+				if (strings.Split(fn.name, "-")[0] == file_name) {
+					symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"set","return_to","-1"})
+					symbol_table.operations[fn.name] = append(symbol_table.operations[fn.name], []string{"jump.always.var","return_to // returning after main"})
+				}
 			}
 		}
 		function:=fn.name
