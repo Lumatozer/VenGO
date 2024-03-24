@@ -2207,6 +2207,7 @@ func build(symbol_table Symbol_Table, tokens []Token, depth int) (string, Symbol
 				actual_current_file := strings.Clone(symbol_table.current_file)
 				symbol_table.current_file = strings.Split(function.name, "-")[0]
 				// do not change to true in var_init
+				// update: check before setting to false
 				symbol_table = var_init(function.Type, function.name+"-"+"return-variable", symbol_table, "does_not_matter", true, true)
 				symbol_table.current_file = strings.Clone(actual_current_file)
 			}
