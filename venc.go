@@ -1832,6 +1832,9 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 					rhs = append(rhs, token)
 				}
 				variable_type:=evaluate_type(symbol_table, rhs, 0)
+				if len(variable_type)==0 {
+					return "Invalid RHS type", symbol_table
+				}
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i].string_value, Type: variable_type})
 				variable_name:=symbol_table.current_file+"-"+code[i].string_value
 				symbol_table=var_init(variable_type, symbol_table.current_file+"-"+code[i].string_value, symbol_table, function_name, true, true)
@@ -1841,7 +1844,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				for _, variable := range used_variable {
 					free_variable(variable, symbol_table)
 				}
-				fmt.Println(resultant_variable)
 				i+=2+len(rhs)
 				new_data=symbol_table.data
 				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"obj_copy", variable_name, resultant_variable})
