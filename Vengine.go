@@ -1933,10 +1933,14 @@ func Vengine(code string, debug bool) int64 {
 				symbol_table[current_byte_code[3]].num_value = 0
 			}
 		case 65:
+			original_name:=symbol_table[current_byte_code[1]].var_name
 			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]], symbol_table[current_byte_code[1]].scope)
+			symbol_table[current_byte_code[1]].var_name=original_name
 		case 66:
+			original_name:=symbol_table[current_byte_code[1]].var_name
 			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]], symbol_table[current_byte_code[1]].scope)
 			symbol_table[current_byte_code[1]].scope = scope_count
+			symbol_table[current_byte_code[1]].var_name=original_name
 		case 67:
 			if symbol_table[current_byte_code[1]].num_value==-1 {
 				break

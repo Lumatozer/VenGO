@@ -72,7 +72,7 @@ type Symbol_Table struct {
 
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "print", "len"}
 var type_tokens = []string{"string", "num"}
-var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "%"}
+var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "%", ":="}
 var end_of_statements = []string{";"}
 var brackets = []string{"(", ")", "[", "]", "{", "}"}
 var string_quotes = []string{"\"", "'"}
@@ -516,10 +516,10 @@ func valid_type(Type []string, symbol_table Symbol_Table) bool {
 	for _, Struct := range symbol_table.structs {
 		valid_final_types = append(valid_final_types, Struct.name)
 	}
-	if str_index_in_arr(Type[(len(Type)-1)/2], valid_final_types) != -1 {
-		return true
-	}
-	return false
+	// for _, Struct := range symbol_table.struct_mapping {
+	// 	valid_final_types = append(valid_final_types, Struct)
+	// }
+	return str_index_in_arr(Type[(len(Type)-1)/2], valid_final_types) != -1
 }
 
 func does_function_exist(function_name string, symbol_table Symbol_Table) bool {
@@ -1823,6 +1823,30 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				symbol_table.data = new_data
 				new_data = make([]string, 0)
 			}
+			if code[i].Type == "variable" && (len(code)-i) >= 3 && code[i+1].Type=="operator" && code[i+1].string_value==":=" && valid_var_name(code[i].string_value) &&  variable_doesnot_exist(symbol_table, code[i].string_value) && function_index_in_symbol_table(symbol_table.current_file+"-"+code[i].string_value, symbol_table) == -1 {
+				rhs:=make([]Token, 0)
+				for _,token:=range code[i+2:] {
+					if token.Type=="EOS" {
+						break
+					}
+					rhs = append(rhs, token)
+				}
+				variable_type:=evaluate_type(symbol_table, rhs, 0)
+				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i].string_value, Type: variable_type})
+				variable_name:=symbol_table.current_file+"-"+code[i].string_value
+				symbol_table=var_init(variable_type, symbol_table.current_file+"-"+code[i].string_value, symbol_table, function_name, true, true)
+				resultant_variable:=""
+				used_variable:=make([]string, 0)
+				resultant_variable, used_variable, symbol_table = expression_solver(rhs, function_name, symbol_table, false)
+				for _, variable := range used_variable {
+					free_variable(variable, symbol_table)
+				}
+				fmt.Println(resultant_variable)
+				i+=2+len(rhs)
+				new_data=symbol_table.data
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"obj_copy", variable_name, resultant_variable})
+				continue
+			}
 			if code[i].Type == "sys" && code[i].string_value == "var" && (len(code)-i) >= 4 && code[i+1].Type == "variable" && valid_var_name(code[i+1].string_value) && valid_type(type_token_to_string_array(code[i+2]), symbol_table) && code[i+3].Type == "EOS" && variable_doesnot_exist(symbol_table, code[i+1].string_value) && function_index_in_symbol_table(symbol_table.current_file+"-"+code[i+1].string_value, symbol_table) == -1 {
 				symbol_table.variables = append(symbol_table.variables, Variable{name: code[i+1].string_value, Type: type_token_to_string_array(code[i+2])})
 				variable_type := type_token_to_string_array(code[i+2])
@@ -1836,10 +1860,6 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				} else if variable_type[0] == "num" {
 					symbol_table.global_variables = append(symbol_table.global_variables, []string{"set", symbol_table.current_file + "-" + code[i+1].string_value, "0"})
 				} else if variable_type[0] == "[" {
-					new_variable_type := make([]string, 0)
-					for _, vb := range variable_type {
-						new_variable_type = append(new_variable_type, vb)
-					}
 					data_index := str_index_in_arr(strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","), symbol_table.data)
 					if data_index == -1 {
 						symbol_table.data = append(symbol_table.data, strings.Join(string_array_types_to_vitality_types(variable_type, symbol_table)[1:], ","))
