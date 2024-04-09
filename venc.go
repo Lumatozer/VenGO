@@ -1509,9 +1509,9 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 			function := symbol_table.functions[function_index_in_symbol_table(calling_function_name, symbol_table)]
 			argument_counter := 0
 			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"scope.new"})
-			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", "return_to", "0"})
+			symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"set", "return_to", "-1"})
 			for _, arg := range function.args_keys {
-				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"obj_copy_update_scope", calling_function_name + "-function_input:" + arg, resolved_arguments[argument_counter]})
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"shallow_copy", calling_function_name + "-function_input:" + arg, resolved_arguments[argument_counter]})
 				argument_counter += 1
 			}
 			calling_function_name_index := str_index_in_arr(calling_function_name, symbol_table.data)

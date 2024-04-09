@@ -65,3 +65,4 @@
 66 obj_copy_update_scope              # Copy b into a and update scope
 67 jump.always.var                    # Jump to a variable line number a without a condition
 68 current_line_number                # Put current position of instruction pointer into a
+69 shallow_copy                       # Shallow copies b into a such that each time you refset the value of b and a both are modified

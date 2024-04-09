@@ -176,6 +176,7 @@ type VI_Object struct {
 	dict_keys   []string
 	scope       int
 	_struct     map[int]VI_Object
+	shallow_copy int
 }
 
 func (object *VI_Object) fill_defaults() {}
@@ -319,7 +320,7 @@ func copy_VI_Object(a VI_Object, scope_of_current_object int) VI_Object {
 	for i,struct_:=range a._struct {
 		new_struct[i]=struct_
 	}
-	return VI_Object{var_name: strings.Clone(a.var_name), num_value: (float64(a.num_value)+-1)+1, str_value: strings.Clone(a.str_value), object_type: a.object_type, children: new_children, scope: scope_of_current_object, _struct: new_struct}
+	return VI_Object{var_name: strings.Clone(a.var_name), num_value: (float64(a.num_value)+-1)+1, str_value: strings.Clone(a.str_value), object_type: a.object_type, children: new_children, scope: scope_of_current_object, _struct: new_struct, shallow_copy: a.shallow_copy}
 }
 
 func Vengine(code string, debug bool) int64 {
@@ -1686,6 +1687,27 @@ func Vengine(code string, debug bool) int64 {
 			}
 			current_byte_code = append(current_byte_code, 68, set_var["index"])
 			byte_code = append(byte_code, current_byte_code)
+		case "shallow_copy":
+			if len(args)!=2 {
+				Debug_print("Invalid number of arguments")
+				return current_gas
+			}
+			reference := plain_in_arr_VI_Object(VI_Object{var_name: args[1]}, symbol_table, "var_name")
+			set_var := plain_in_arr_VI_Object(VI_Object{var_name: args[0]}, symbol_table, "var_name")
+			if set_var["index"] == -1 {
+				Debug_print("Variable", args[0], "has not been initialised yet")
+				return current_gas
+			}
+			if reference["index"] == -1 {
+				Debug_print("Variable", args[1], "has not been initialised yet")
+				return current_gas
+			}
+			if !string_arr_compare(symbol_table[set_var["index"]].object_type, symbol_table[reference["index"]].object_type) {
+				Debug_print("Object b must have same type as object a", symbol_table[set_var["index"]], symbol_table[reference["index"]])
+				return current_gas
+			}
+			current_byte_code = append(current_byte_code, 69, set_var["index"], reference["index"])
+			byte_code = append(byte_code, current_byte_code)
 		}
 	}
 	Debug_print(byte_code)
@@ -1703,6 +1725,10 @@ func Vengine(code string, debug bool) int64 {
 			symbol_table[current_byte_code[1]].scope = scope_count
 		case 1:
 			symbol_table[current_byte_code[1]].num_value = symbol_table[current_byte_code[2]].num_value
+			fmt.Println(symbol_table[current_byte_code[1]].shallow_copy, "shallow_copy")
+			if symbol_table[current_byte_code[1]].shallow_copy!=0 {
+				symbol_table[symbol_table[current_byte_code[1]].shallow_copy-1].num_value = symbol_table[current_byte_code[2]].num_value
+			}
 		case 2:
 			if symbol_table[current_byte_code[2]].num_value != 0 {
 				i = int(symbol_table[current_byte_code[1]].num_value) - 1
@@ -1742,6 +1768,9 @@ func Vengine(code string, debug bool) int64 {
 			symbol_table[current_byte_code[3]].str_value = strings.Repeat(symbol_table[current_byte_code[1]].str_value, int(symbol_table[current_byte_code[2]].num_value))
 		case 16:
 			symbol_table[current_byte_code[1]].str_value = symbol_table[current_byte_code[2]].str_value
+			if symbol_table[current_byte_code[1]].shallow_copy!=0 {
+				symbol_table[symbol_table[current_byte_code[1]].shallow_copy-1].str_value = symbol_table[current_byte_code[2]].str_value
+			}
 		case 17:
 			jump_table[current_byte_code[1]] = current_byte_code[2]
 		case 18:
@@ -1787,6 +1816,9 @@ func Vengine(code string, debug bool) int64 {
 			symbol_table[current_byte_code[2]].num_value = float64(len(symbol_table[current_byte_code[1]].children))
 		case 31:
 			symbol_table[current_byte_code[1]].children = symbol_table[current_byte_code[2]].children
+			if symbol_table[current_byte_code[1]].shallow_copy!=0 {
+				symbol_table[symbol_table[current_byte_code[1]].shallow_copy-1].children = symbol_table[current_byte_code[2]].children
+			}
 		case 32:
 			arr_var := symbol_table[current_byte_code[1]].children
 			check_var := symbol_table[current_byte_code[2]]
@@ -1835,6 +1867,10 @@ func Vengine(code string, debug bool) int64 {
 		case 40:
 			symbol_table[current_byte_code[1]].children = symbol_table[current_byte_code[2]].children
 			symbol_table[current_byte_code[1]].dict_keys = symbol_table[current_byte_code[2]].dict_keys
+			if symbol_table[current_byte_code[1]].shallow_copy!=0 {
+				symbol_table[symbol_table[current_byte_code[1]].shallow_copy-1].children = symbol_table[current_byte_code[2]].children
+				symbol_table[symbol_table[current_byte_code[1]].shallow_copy-1].dict_keys = symbol_table[current_byte_code[2]].dict_keys
+			}
 		case 41:
 			symbol_table[current_byte_code[3]].num_value = bool_to_num(str_index_in_arr(symbol_table[current_byte_code[2]].str_value, symbol_table[current_byte_code[1]].dict_keys) != -1)
 		case 42:
@@ -1861,7 +1897,7 @@ func Vengine(code string, debug bool) int64 {
 			scope_count += 1
 			previous_scope := make([]VI_Object, 0)
 			for _, object := range symbol_table {
-				previous_scope = append(previous_scope, VI_Object{var_name: object.var_name, num_value: object.num_value, str_value: object.str_value, object_type: object.object_type, children: object.children, scope: object.scope, dict_keys: object.dict_keys})
+				previous_scope = append(previous_scope, VI_Object{var_name: object.var_name, num_value: object.num_value, str_value: object.str_value, object_type: object.object_type, children: object.children, scope: object.scope, dict_keys: object.dict_keys, shallow_copy: object.shallow_copy})
 			}
 			global_table = append(global_table, previous_scope)
 			symbol_table = previous_scope
@@ -1943,11 +1979,16 @@ func Vengine(code string, debug bool) int64 {
 			symbol_table[current_byte_code[1]].var_name=original_name
 		case 67:
 			if symbol_table[current_byte_code[1]].num_value==-1 {
-				break
+				continue_exec=false
 			}
 			i = int(symbol_table[current_byte_code[1]].num_value)-1
 		case 68:
 			symbol_table[current_byte_code[1]].num_value = float64(i)
+		case 69:
+			original_name:=symbol_table[current_byte_code[1]].var_name
+			symbol_table[current_byte_code[1]]=copy_VI_Object(symbol_table[current_byte_code[2]], symbol_table[current_byte_code[1]].scope)
+			symbol_table[current_byte_code[1]].var_name=original_name
+			symbol_table[current_byte_code[1]].shallow_copy=current_byte_code[2]+1
 		}
 	}
 	end_time:=time.Now()
