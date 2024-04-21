@@ -1293,7 +1293,11 @@ func Vengine(code string, debug bool) int64 {
 				Debug_print("Variable", args[0], "has not been initialised yet")
 				return current_gas
 			}
-			dereferencing_variable := plain_in_arr_VI_Object(VI_Object{var_name: args[1]}, symbol_table, "var_name")
+			dereferencing_variable := plain_in_arr_VI_Object(VI_Object{var_name: args[1], object_type: get_plain_type("num")}, symbol_table, "var_name")
+			if dereferencing_variable["error"] == 1 {
+				Debug_print("Data types did not match")
+				return current_gas
+			}
 			if dereferencing_variable["result"] == 0 {
 				Debug_print("Variable", args[1], "has not been initialised yet")
 				return current_gas
@@ -1725,7 +1729,6 @@ func Vengine(code string, debug bool) int64 {
 			symbol_table[current_byte_code[1]].scope = scope_count
 		case 1:
 			symbol_table[current_byte_code[1]].num_value = symbol_table[current_byte_code[2]].num_value
-			fmt.Println(symbol_table[current_byte_code[1]].shallow_copy, "shallow_copy")
 			if symbol_table[current_byte_code[1]].shallow_copy!=0 {
 				symbol_table[symbol_table[current_byte_code[1]].shallow_copy-1].num_value = symbol_table[current_byte_code[2]].num_value
 			}
@@ -1922,15 +1925,21 @@ func Vengine(code string, debug bool) int64 {
 				continue_exec = false
 				continue
 			}
-			dereferenced_variable := symbol_table[int(memory_location)]
-			dereferencing_to_variable := symbol_table[current_byte_code[2]]
-			if !string_arr_compare(dereferenced_variable.object_type, dereferencing_to_variable.object_type) {
-				Debug_print("Invalid deferenced variable type")
+			if len(symbol_table) <= int(symbol_table[current_byte_code[2]].num_value) {
+				Debug_print("Illegal memory access")
 				continue_exec = false
 				continue
 			}
+			dereferenced_variable := symbol_table[int(memory_location)]
+			dereferencing_to_variable := symbol_table[int(symbol_table[current_byte_code[2]].num_value)]
+			// if !string_arr_compare(dereferenced_variable.object_type, dereferencing_to_variable.object_type) {
+			// 	Debug_print("Invalid deferenced variable type")
+			// 	continue_exec = false
+			// 	continue
+			// }
+			// type checks disabled for dereferencing
 			dereferenced_variable.var_name = dereferencing_to_variable.var_name
-			symbol_table[current_byte_code[2]] = dereferenced_variable
+			symbol_table[int(symbol_table[current_byte_code[2]].num_value)] = dereferenced_variable
 		case 52:
 			symbol_table[current_byte_code[2]].str_value = strconv.FormatFloat(symbol_table[current_byte_code[1]].num_value, 'f', 8, 64)
 		case 53:

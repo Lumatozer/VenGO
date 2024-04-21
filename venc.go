@@ -70,7 +70,7 @@ type Symbol_Table struct {
 	struct_mapping      map[string]string
 }
 
-var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "print", "len"}
+var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "print", "len", "pointer", "dereference_into"}
 var type_tokens = []string{"string", "num"}
 var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "%", ":="}
 var end_of_statements = []string{";"}
@@ -405,7 +405,7 @@ func token_grouper(code []Token, debug bool) ([]Token, error) {
 			continue
 		}
 		if len(grouped_tokens) > 0 && code[i].Type == "expression" {
-			if grouped_tokens[len(grouped_tokens)-1].Type == "sys" && (grouped_tokens[len(grouped_tokens)-1].string_value == "print" || grouped_tokens[len(grouped_tokens)-1].string_value == "len") {
+			if grouped_tokens[len(grouped_tokens)-1].Type == "sys" && (str_index_in_arr(grouped_tokens[len(grouped_tokens)-1].string_value, []string{"print", "len", "pointer", "dereference_into"})!=-1) {
 				grouped_tokens[len(grouped_tokens)-1].Type = "variable"
 			}
 			if grouped_tokens[len(grouped_tokens)-1].Type == "variable" || grouped_tokens[len(grouped_tokens)-1].Type == "lookup" || grouped_tokens[len(grouped_tokens)-1].Type == "expression" || grouped_tokens[len(grouped_tokens)-1].Type == "funcall" || grouped_tokens[len(grouped_tokens)-1].Type == "nested_tokens" {
@@ -1077,6 +1077,12 @@ func evaluate_type(symbol_table Symbol_Table, code_original []Token, depth int) 
 				return make([]string, 0)
 			}
 			if code[0].Type == "funcall" {
+				if code[0].children[0].string_value=="pointer" {
+					if len(code[0].children[1].children)!=1 || len(evaluate_type(symbol_table, code[0].children[1].children, 0))==0 {
+						return []string{}
+					}
+					return []string{"num"}
+				}
 				if code[0].children[0].string_value == "len" {
 					input_type := evaluate_type(symbol_table, code[0].children[1].children, 0)
 					if input_type[0] == "[" {
@@ -1500,6 +1506,12 @@ func expression_solver(tokens_original []Token, function_name string, symbol_tab
 					return res_var, used_variables, symbol_table
 				}
 			}
+			if tokens[0].children[0].string_value == "pointer" {
+				res_var, symbol_table = get_variable([]string{"num"}, symbol_table)
+				symbol_table = var_init([]string{"num"}, res_var, symbol_table, function_name, false, true)
+				symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"pointer.init", res_var,  resolved_arguments[0]})
+				return res_var, used_variables, symbol_table
+			}
 			calling_function_name := ""
 			if tokens[0].children[0].Type != "nested_tokens" {
 				calling_function_name = symbol_table.current_file + "-" + tokens[0].children[0].string_value
@@ -1906,17 +1918,17 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				}
 				lhs := evaluate_type(symbol_table, []Token{code[i-2]}, 0)
 				rhs := evaluate_type(symbol_table, new_tokens, 0)
-				resultant_variable := ""
-				used_variable := make([]string, 0)
-				resultant_variable, used_variable, symbol_table = expression_solver(tokens, function_name, symbol_table, false)
-				for _, variable := range used_variable {
-					free_variable(variable, symbol_table)
-				}
 				if string_arr_compare(lhs, []string{}) {
 					return "invalid type on lhs:" + symbol_table.current_file, symbol_table
 				}
 				if string_arr_compare(rhs, []string{}) {
 					return "invalid type on rhs:" + symbol_table.current_file, symbol_table
+				}
+				resultant_variable := ""
+				used_variable := make([]string, 0)
+				resultant_variable, used_variable, symbol_table = expression_solver(tokens, function_name, symbol_table, false)
+				for _, variable := range used_variable {
+					free_variable(variable, symbol_table)
 				}
 				if !string_arr_compare(lhs, rhs) {
 					return "types on lhs and rhs do not match", symbol_table
@@ -2057,20 +2069,18 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 				continue
 			}
 			if code[i].Type == "funcall" {
-				if code[i].children[0].string_value == "print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"string"}) {
+				if code[i].children[0].string_value == "print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"string"}) && len(code) > i+1 && code[i+1].Type == "EOS" {
 					used_variable := make([]string, 0)
 					resultant_variable, used_variable, symbol_table := expression_solver(code[i].children[1].children, function_name, symbol_table, false)
 					for _, variable := range used_variable {
 						free_variable(variable, symbol_table)
 					}
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"debug.print", resultant_variable})
-					if len(code) > i+1 && code[i+1].Type == "EOS" {
-						i += 1
-					}
+					i += 1
 					new_data = symbol_table.data
 					continue
 				}
-				if code[i].children[0].string_value == "print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"num"}) {
+				if code[i].children[0].string_value == "print" && string_arr_compare(evaluate_type(symbol_table, []Token{code[i].children[1]}, 0), []string{"num"}) && len(code) > i+1 && code[i+1].Type == "EOS" {
 					used_variable := make([]string, 0)
 					resultant_variable, used_variable, symbol_table := expression_solver(code[i].children[1].children, function_name, symbol_table, false)
 					for _, variable := range used_variable {
@@ -2080,11 +2090,53 @@ func compiler(symbol_table Symbol_Table, function_name string, depth int, code_o
 					symbol_table = var_init([]string{"string"}, var_num_to_str, symbol_table, function_name, false, true)
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"num_to_str", resultant_variable, var_num_to_str})
 					symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"debug.print", var_num_to_str})
-					if len(code) > i+1 && code[i+1].Type == "EOS" {
-						i += 1
-					}
+					i += 1
 					new_data = symbol_table.data
 					continue
+				}
+				if code[i].children[0].string_value == "dereference_into" && len(code) > i+1 && code[i+1].Type == "EOS" {
+					function_arguments:=make([][]Token, 0)
+					temp:=make([]Token, 0)
+					to_continue:=true
+					for _,argument_token:=range code[i].children[1].children {
+						if argument_token.Type=="comma" {
+							if len(temp)==0 {
+								to_continue=false
+								break
+							}
+							function_arguments = append(function_arguments, temp)
+							temp=make([]Token, 0)
+							continue
+						}
+						temp = append(temp, argument_token)
+					}
+					if len(temp)!=0 {
+						function_arguments = append(function_arguments, temp)
+					}
+					if len(function_arguments)!=2 {
+						to_continue=false
+					}
+					if to_continue {
+						for _,argument:=range function_arguments {
+							if !string_arr_compare(evaluate_type(symbol_table, argument, 0), []string{"num"}) {
+								to_continue=false
+								break
+							}
+						}
+						if to_continue {
+							resolved_arguments:=make([]string, 0)
+							for _,argument:=range function_arguments {
+								resultant_variable, used_variable, symbol_table := expression_solver(argument, function_name, symbol_table, false)
+								for _, variable := range used_variable {
+									free_variable(variable, symbol_table)
+								}
+								resolved_arguments = append(resolved_arguments, resultant_variable)
+							}
+							symbol_table.operations[function_name] = append(symbol_table.operations[function_name], []string{"pointer.dereference", resolved_arguments[0], resolved_arguments[1]})
+							i+=1
+							continue
+						}
+					}
 				}
 			}
 			fmt.Println("missed token", code[i], symbol_table.current_file, function_name)
