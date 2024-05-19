@@ -1,0 +1,19 @@
+import (
+    "grammar.vtl" as grammar,
+    "vengine.vtl" as vengine
+);
+
+function _start:
+    a []byte, b string, c [][]byte
+    []byte, string, int64
+
+    
+    int a b c d;
+    int64 e;
+
+    call grammar._start(grammar.a, grammar.b, grammar.c) {
+        grammar.a,
+        grammar.b,
+        grammar.c
+    }
+
