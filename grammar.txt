@@ -1,19 +1,12 @@
-import (
-    "grammar.vtl" as grammar,
-    "vengine.vtl" as vengine
-);
+.link
+    grammar.vtl grammar
+    v1.vtl      v1
 
-function _start:
-    a []byte, b string, c [][]byte
-    []byte, string, int64
-
-    
-    int a b c d;
-    int64 e;
-
-    call grammar._start(grammar.a, grammar.b, grammar.c) {
-        grammar.a,
-        grammar.b,
-        grammar.c
+.function _start (a bytes, b bytes)->(string)
+    int a, b, c
+    call (grammar._start, grammar.a, grammar.b) -> (a, b)
+    add a, b -> c
+    .if a {
+        
     }
-
+    return a, b
