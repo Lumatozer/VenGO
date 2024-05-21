@@ -1,0 +1,21 @@
+import random
+
+def generate_random_list(size, lower_bound, upper_bound):
+    return [random.randint(lower_bound, upper_bound) for _ in range(size)]
+
+def find_median(data):
+    sorted_data = sorted(data)
+    n = len(sorted_data)
+    if n % 2 == 1:
+        return sorted_data[n // 2]
+    else:
+        mid1, mid2 = sorted_data[n // 2 - 1], sorted_data[n // 2]
+        return (mid1 + mid2) / 2
+
+# Generate a random list of 15 integers between 1 and 100
+random_list = generate_random_list(15, 1, 100)
+print("Random List:", random_list)
+
+# Find the median of the random list
+median_value = find_median(random_list)
+print("Median Value:", median_value)

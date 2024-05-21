@@ -1,12 +1,9 @@
-.link
-    grammar.vtl grammar
-    v1.vtl      v1
+import (
+    "grammar.vi" as grammar
+    "std" as std
+)
 
-.function _start (a bytes, b bytes)->(string)
-    int a, b, c
-    call (grammar._start, grammar.a, grammar.b) -> (a, b)
-    add a, b -> c
-    .if a {
-        
-    }
-    return a, b
+function _start(a bytes)->(bytes) {
+    bytes_append a, a;
+    return a;
+}
