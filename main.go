@@ -15,5 +15,12 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(Tokenizer(string(data)))
+	fmt.Println("Tokenizer")
+	tokens,err:=Tokenizer(string(data))
+	if err!=nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(tokens)
+	fmt.Println("Grouped Tokens")
 }
