@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func Parse(code string) (error, []string) {
+func Tokenizer(code string) ([]string, error) {
 	tokens:=make([]string, 0)
 	in_string:=false
 	cache:=""
@@ -23,7 +23,7 @@ func Parse(code string) (error, []string) {
 					continue
 				}
 			} else {
-				return errors.New("Unexpected EOF"), make([]string, 0)
+				return make([]string, 0), errors.New("Unexpected EOF")
 			}
 		}
 		if char=="\"" {
@@ -105,5 +105,5 @@ func Parse(code string) (error, []string) {
 	if cache!="" {
 		tokens = append(tokens, cache)
 	}
-	return nil, tokens
+	return tokens, nil
 }

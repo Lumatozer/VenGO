@@ -15,5 +15,5 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(Parse(string(data)))
+	fmt.Println(Tokenizer(string(data)))
 }
