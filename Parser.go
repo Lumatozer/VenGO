@@ -141,6 +141,10 @@ func Tokenizer(code string) ([]Token, error) {
 				filtered_tokens = append(filtered_tokens, Token{Type: "comma", Value: tokens[i].Value})
 				continue
 			}
+			if tokens[i].Value=="." {
+				filtered_tokens = append(filtered_tokens, Token{Type: "dot", Value: tokens[i].Value})
+				continue
+			}
 			if tokens[i].Value==";" {
 				filtered_tokens = append(filtered_tokens, Token{Type: "semicolon", Value: tokens[i].Value})
 				continue
