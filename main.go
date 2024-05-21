@@ -23,4 +23,10 @@ func main() {
 	}
 	fmt.Println(tokens)
 	fmt.Println("Grouped Tokens")
+	groups,err:=Grouper(tokens)
+	if err!=nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(groups)
 }

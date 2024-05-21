@@ -6,7 +6,9 @@ import (
 )
 
 type Group struct {
-
+	Name               string
+	Token_Children     []Token
+	Mapped_Children    map[string][]Token
 }
 
 type Token struct {
