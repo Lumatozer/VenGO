@@ -10,8 +10,10 @@ type Group struct {
 }
 
 type Token struct {
-	Type  string
-	Value string
+	Type  		  string
+	Value 		  string
+	Str_Children  []string
+	Tok_Children  []string
 }
 
 var Keywords []string=[]string{
