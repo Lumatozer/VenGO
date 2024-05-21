@@ -3,8 +3,6 @@ import (
     "std" as std
 )
 
-function _start(a bytes)->(bytes) {
+function _start(a bytes) {
     set a, 12345.345;
-    bytes_append a, a;
-    return a;
 }
