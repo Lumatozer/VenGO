@@ -26,18 +26,21 @@ var Primitive_Types []string=[]string{
 	"bytes", "int", "int64", "float", "float64", "string", "void",
 }
 
-func Is_Parsed_Type_Valid(parsed_type []string) bool {
+func Is_Parsed_Type_Valid(parsed_type []string, depth int) bool {
 	if len(parsed_type)%2!=1 {
 		return false
 	}
 	if len(parsed_type)==1 && !strings.Contains("()[]{}", parsed_type[0]) {
+		if depth!=0 && parsed_type[0]=="void" {
+			return false
+		}
 		return true
 	}
 	if parsed_type[0]=="{" && parsed_type[len(parsed_type)-1]=="}" && len(parsed_type)>=5 && parsed_type[2]=="->" && str_index_in_str_arr(parsed_type[1], []string{"bytes", "int", "int64", "float", "float64", "string"})!=-1 {
-		return Is_Parsed_Type_Valid(parsed_type[3:len(parsed_type)-1])
+		return Is_Parsed_Type_Valid(parsed_type[3:len(parsed_type)-1], 1)
 	}
 	if parsed_type[0]=="[" && parsed_type[len(parsed_type)-1]=="]" && len(parsed_type)>=3 {
-		return Is_Parsed_Type_Valid(parsed_type[1:len(parsed_type)-1])
+		return Is_Parsed_Type_Valid(parsed_type[1:len(parsed_type)-1], 1)
 	}
 	return false
 }
@@ -229,7 +232,7 @@ func Tokenizer(code string) ([]Token, error) {
 					break
 				}
 			}
-			if !Is_Parsed_Type_Valid(type_strings) {
+			if !Is_Parsed_Type_Valid(type_strings, 0) {
 				return make([]Token, 0), errors.New("Invalid Type specification")
 			}
 			filtered_tokens_2 = append(filtered_tokens_2, Token{Type: "type", Tok_Children: Type_Parser(type_strings)})

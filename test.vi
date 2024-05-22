@@ -3,7 +3,7 @@ import (
     "std" as std
 )
 
-function _start(a bytes)->{string->[bytes]} {
+function _start(a bytes)->void {
     bytes_append a, a;
     return a;
 }
