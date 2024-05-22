@@ -28,7 +28,6 @@ var Primitive_Types []string=[]string{
 
 func Is_Parsed_Type_Valid(parsed_type []string) bool {
 	if len(parsed_type)%2!=1 {
-		
 		return false
 	}
 	if len(parsed_type)==1 && !strings.Contains("()[]{}", parsed_type[0]) {
