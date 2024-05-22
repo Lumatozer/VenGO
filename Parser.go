@@ -23,7 +23,7 @@ var Keywords []string=[]string{
 }
 
 var Primitive_Types []string=[]string{
-	"bytes", "int", "int64", "float", "float64", "string",
+	"bytes", "int", "int64", "float", "float64", "string", "void",
 }
 
 func Is_Parsed_Type_Valid(parsed_type []string) bool {

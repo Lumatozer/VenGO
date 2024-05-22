@@ -1,6 +1,9 @@
-->
-[
-    {
-        string->grammar.B
-    }
-]
+import (
+    "grammar.vi" as grammar
+    "std" as std
+)
+
+function _start(a bytes)->{string->[bytes]} {
+    bytes_append a, a;
+    return a;
+}
