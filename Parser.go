@@ -4,7 +4,11 @@ type Object struct {
 	Type 			    Type
 	Location        	int
 	Callable_Functions  []int
-	Mapped_Children     map[int]*Object
+	Int_Mapping         map[int]*Object
+	Int64_Mapping       map[int64]*Object
+	Float64_Mapping     map[float32]*Object // uses the same space as a pointer when uninitialised (8 bytes on 64 bit)
+	Float_Mapping       map[float64]*Object
+	Field_Children      map[int]*Object
 	Children            []*Object
 }
 

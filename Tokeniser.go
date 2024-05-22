@@ -30,7 +30,7 @@ func Is_Parsed_Type_Valid(parsed_type []string, depth int) bool {
 		}
 		return true
 	}
-	if parsed_type[0]=="{" && parsed_type[len(parsed_type)-1]=="}" && len(parsed_type)>=5 && parsed_type[2]=="->" && str_index_in_str_arr(parsed_type[1], []string{"bytes", "int", "int64", "float", "float64", "string"})!=-1 {
+	if parsed_type[0]=="{" && parsed_type[len(parsed_type)-1]=="}" && len(parsed_type)>=5 && parsed_type[2]=="->" && str_index_in_str_arr(parsed_type[1], []string{"int", "int64", "float", "float64", "string"})!=-1 {
 		return Is_Parsed_Type_Valid(parsed_type[3:len(parsed_type)-1], 1)
 	}
 	if parsed_type[0]=="[" && parsed_type[len(parsed_type)-1]=="]" && len(parsed_type)>=3 {
