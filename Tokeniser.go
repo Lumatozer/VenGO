@@ -5,12 +5,6 @@ import (
 	"strings"
 )
 
-type Group struct {
-	Name               string
-	Token_Children     []Token
-	Mapped_Children    map[string][]Token
-}
-
 type Token struct {
 	Type  		  string
 	Value 		  string
@@ -242,12 +236,4 @@ func Tokenizer(code string) ([]Token, error) {
 		filtered_tokens_2 = append(filtered_tokens_2, filtered_tokens[i])
 	}
 	return filtered_tokens_2, nil
-}
-
-func Grouper(code []Token) ([]Group, error) {
-	result:=make([]Group, 0)
-	for i:=0; i<len(code); i++ {
-		
-	}
-	return result, nil
 }
