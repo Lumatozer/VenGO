@@ -1,9 +1,4 @@
-import (
-    "grammar.vi" as grammar
-    "std" as std
-)
-
-function _start(a bytes)->void {
-    bytes_append a, a;
-    return a;
+struct A {
+    a -> [string]
+    b -> {int64->int64}
 }
