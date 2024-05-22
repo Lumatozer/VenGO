@@ -1,8 +1,6 @@
-import (
-    "grammar.vi" as grammar
-    "std" as std
-)
-
-function _start(a bytes) {
-    set grammar.a, 12345.345;
-}
+->
+[
+    {
+        string->grammar.B
+    }
+]
