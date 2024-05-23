@@ -1,5 +1,7 @@
 package main
 
+// no type validation for instructions
+
 type Object struct {
 	Type 			    *Type
 	Location        	int
@@ -25,42 +27,21 @@ type Type struct {
 type Function struct {
 	Id                  int
 	Name 				string
-	Callable_Scopes		[]int // *, function_a etc.
-	Arguments           map[string]Type
-	Out_Type            Type
+	Stack_Spec          []int        // initialize these objects with new pointers for this scope
+	Instructions        [][]int      // Instruction set for this function
 }
 
-func Create_Flow() Flow {
-	return Flow{
-		Structs: map[string]Type{
-			"int":Type{
-				Is_Primitive: true,
-				Primitive_Type: "int",
-			},
-			"int64":Type{
-				Is_Primitive: true,
-				Primitive_Type: "int64",
-			},
-			"float":Type{
-				Is_Primitive: true,
-				Primitive_Type: "float",
-			},
-			"float64":Type{
-				Is_Primitive: true,
-				Primitive_Type: "float64",
-			},
-			"string":Type{
-				Is_Primitive: true,
-				Primitive_Type: "string",
-			},
-		},
-	}
+type Scope struct {
+	Ip                  int
+	Objects             []*Object
+	// Return_Scope        *Scope not needed as you will anyways recursively grow the scope, it will anyways return to the last scope
 }
 
-func Parse_Flow(tokens []Token, flow *Flow) {
-	for i:=0; i<len(tokens); i++ {
-		if tokens[i].Type=="struct" {
+type Program struct {
+	Functions			[]*Function
+	Structs             []*Type
+}
 
-		}
-	}
+type Execution struct {
+	
 }
