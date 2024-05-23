@@ -30,28 +30,37 @@ type Function struct {
 	Out_Type            Type
 }
 
-type Scope struct {
-	Instruction_Pointer int
-	Scope_Id            int
-	Objects             []*Object
-	Integers            []int
-	Integers_64         []int64
-	Floats              []float32
-	Floats_64           []float64
-	Return_Scope        int
-	Scopes_On_Top       []int
+func Create_Flow() Flow {
+	return Flow{
+		Structs: map[string]Type{
+			"int":Type{
+				Is_Primitive: true,
+				Primitive_Type: "int",
+			},
+			"int64":Type{
+				Is_Primitive: true,
+				Primitive_Type: "int64",
+			},
+			"float":Type{
+				Is_Primitive: true,
+				Primitive_Type: "float",
+			},
+			"float64":Type{
+				Is_Primitive: true,
+				Primitive_Type: "float64",
+			},
+			"string":Type{
+				Is_Primitive: true,
+				Primitive_Type: "string",
+			},
+		},
+	}
 }
 
-type Flow struct {
-	Instructions        [][]int
-	Scopes				map[int]Scope
-	Structs             map[string]Type
-}
+func Parse_Flow(tokens []Token, flow *Flow) {
+	for i:=0; i<len(tokens); i++ {
+		if tokens[i].Type=="struct" {
 
-type Program struct {
-	Flows []Flow
-}
-
-func Parse() Program {
-	return Program{}
+		}
+	}
 }
