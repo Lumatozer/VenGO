@@ -1,7 +1,7 @@
 package main
 
 type Object struct {
-	Type 			    Type
+	Type 			    *Type
 	Location        	int
 	Callable_Functions  []int
 	Int_Mapping         map[int]int
