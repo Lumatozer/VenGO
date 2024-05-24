@@ -22,4 +22,5 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
+	Parse_Program(tokens)
 }
