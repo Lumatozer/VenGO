@@ -1,6 +1,7 @@
+import (
+    "lib.vi" as lib
+)
+
 struct A {
-    a -> string
-}
-struct B {
-    a -> [{string->[A]}]
+    a -> lib.B
 }

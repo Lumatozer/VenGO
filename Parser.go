@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 )
 
 type Object struct {
@@ -96,6 +97,47 @@ func Parse_Program(code []Token) (Program, error) {
 			}
 			program.Structs[code[i+1].Value]=this_struct
 			i+=len(struct_tokens)+2+1
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="import" && len(code)-i>=6 && code[i+1].Type=="bracket" && code[i+1].Value=="(" {
+			import_tokens:=make([]Token, 0)
+			normal_exit:=false
+			for j:=i+2; j<len(code); j++ {
+				if code[j].Type=="bracket" && code[j].Value==")" {
+					normal_exit=true
+					break
+				}
+				import_tokens = append(import_tokens, code[j])
+			}
+			if !normal_exit || len(import_tokens)<3 || len(import_tokens)%3!=0 {
+				return program, errors.New("Unexpected EOF while parsing import statement")
+			}
+			files_to_read:=make(map[string]Program)
+			module_names:=make([]string, 0)
+			for j:=0; j<len(import_tokens); j+=3 {
+				if import_tokens[j].Type!="string" || import_tokens[j+1].Type!="sys" || import_tokens[j+1].Type!="as" || import_tokens[j+2].Type!="variable" || !Is_Valid_Variable_Name(import_tokens[j+2].Value) {
+					file_data,err:=os.ReadFile(import_tokens[j].Value)
+					if err!=nil {
+						return program, err
+					}
+					file_tokens,err:=Tokenizer(string(file_data))
+					if err!=nil {
+						return program, err
+					}
+					file_program, err:=Parse_Program(file_tokens)
+					if err!=nil {
+						return program, err
+					}
+					files_to_read[import_tokens[j+2].Value]=file_program
+					module_names = append(module_names, import_tokens[j+2].Value)
+				}
+			}
+			for _,module:=range module_names {
+				for module_struct:=range files_to_read[module].Structs {
+					program.Structs[module+"."+module_struct]=files_to_read[module].Structs[module_struct]
+				}
+			}
+			i+=2+len(import_tokens)
 			continue
 		}
 		fmt.Println("Unexpected Token", code[i])
