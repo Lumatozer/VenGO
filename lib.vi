@@ -1,3 +1,7 @@
+import (
+    "lib1.vi" as libone
+)
+
 struct B {
-    a->string
+    a->libone.One
 }

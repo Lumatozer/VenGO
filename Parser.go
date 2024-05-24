@@ -61,7 +61,7 @@ type Execution struct {
 	Programs               []Program
 }
 
-func Parse_Program(code []Token, imported []string) (Program, error) {
+func Parse_Program(code []Token, importing []string) (Program, error) {
 	program:=Program{
 		Structs: make(map[string]map[string]Type),
 		Rendered_Scope: Scope{},
@@ -119,18 +119,17 @@ func Parse_Program(code []Token, imported []string) (Program, error) {
 			if !normal_exit || len(import_tokens)<3 || len(import_tokens)%3!=0 {
 				return program, errors.New("Unexpected EOF while parsing import statement")
 			}
-			files_to_read:=make(map[string]Program)
+			files_to_read:=make(map[string]*Program)
 			module_names:=make([]string, 0)
 			for j:=0; j<len(import_tokens); j+=3 {
 				if import_tokens[j].Type!="string" || import_tokens[j+1].Type!="sys" || import_tokens[j+1].Value!="as" || import_tokens[j+2].Type!="variable" || !Is_Valid_Variable_Name(import_tokens[j+2].Value) {
 					return program, errors.New("invalid syntax for importing")
 				}
-				if str_index_in_str_arr(filepath.Clean(import_tokens[j+2].Value), imported)!=-1 {
+				if str_index_in_str_arr(filepath.Clean(import_tokens[j+2].Value), importing)!=-1 {
 					return program, errors.New("circular imports detected")
 				}
 				import_tokens[j].Value=filepath.Clean(import_tokens[j].Value)
 				module_names = append(module_names, import_tokens[j+2].Value)
-				imported = append(imported, import_tokens[j+2].Value)
 				file_data,err:=os.ReadFile(import_tokens[j].Value)
 				if err!=nil {
 					return program, err
@@ -139,11 +138,11 @@ func Parse_Program(code []Token, imported []string) (Program, error) {
 				if err!=nil {
 					return program, err
 				}
-				file_program, err:=Parse_Program(file_tokens, imported)
+				file_program, err:=Parse_Program(file_tokens, append(importing, import_tokens[j+2].Value))
 				if err!=nil {
 					return program, err
 				}
-				files_to_read[import_tokens[j+2].Value]=file_program
+				files_to_read[import_tokens[j+2].Value]=&file_program
 			}
 			for _,module:=range module_names {
 				for module_struct:=range files_to_read[module].Structs {

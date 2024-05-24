@@ -1,5 +1,6 @@
 import (
     "lib.vi" as lib
+    "lib1.vi" as libone
 )
 
-var a b->int;
+var a b->lib.B;
