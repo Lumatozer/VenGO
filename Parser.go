@@ -8,13 +8,14 @@ import (
 )
 
 type Object struct {
+	Name                   string
 	Type                   Type
 	Location               int
-	Callable_Functions     []int
 	Int_Mapping            map[int]*Object
 	Int64_Mapping          map[int64]*Object
-	Float64_Mapping        map[float32]*Object
-	Float_Mapping          map[float64]*Object
+	String_Mapping         map[string]*Object
+	Float_Mapping          map[float32]*Object
+	Float64_Mapping        map[float64]*Object
 	Field_Children         map[int]*Object
 	Children               []*Object
 }
@@ -32,6 +33,11 @@ type Function struct {
 type Scope struct {
 	Ip                     int
 	Objects                []*Object
+	Int_Objects            []int
+	Int64_Objects          []int64
+	String_Objects         []string
+	Float_Objects          []float32
+	Float64_Objects        []float64
 }
 
 type Type struct {
@@ -90,7 +96,7 @@ func Parse_Program(code []Token, imported []string) (Program, error) {
 				if struct_tokens[j+1].Type!="type" {
 					return program, errors.New("Invalid token for type")
 				}
-				out_Type_struct,err:=Type_Token_To_Struct(struct_tokens[j+1], program)
+				out_Type_struct,err:=Type_Token_To_Struct(struct_tokens[j+1], &program)
 				if err!=nil {
 					return program, err
 				}
@@ -145,6 +151,38 @@ func Parse_Program(code []Token, imported []string) (Program, error) {
 				}
 			}
 			i+=2+len(import_tokens)
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="var" && len(code)-1>=4 {
+			variable_tokens:=make([]Token, 0)
+			normal_exit:=false
+			for j:=i+1; j<len(code); j++ {
+				if code[j].Type=="semicolon" {
+					normal_exit=true
+					break
+				}
+				variable_tokens = append(variable_tokens, code[j])
+			}
+			if !normal_exit || len(variable_tokens)<2 || variable_tokens[len(variable_tokens)-1].Type!="type" {
+				return program, errors.New("Unexpected EOF while parsing import statement")
+			}
+			variable_Type,err:=Type_Token_To_Struct(variable_tokens[len(variable_tokens)-1], &program)
+			if err!=nil {
+				return program, err
+			}
+			for _,variable_token:=range variable_tokens[:len(variable_tokens)-1] {
+				if variable_token.Type!="variable" || !Is_Valid_Variable_Name(variable_token.Value) {
+					return program, errors.New("Invalid variable name")
+				}
+				for _,Obj:=range program.Rendered_Scope.Objects {
+					if Obj.Name==variable_token.Value {
+						return program, errors.New("Variable \""+Obj.Name+"\" has already been initialised")
+					}
+				}
+				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(variable_token.Value, variable_Type, &program))
+				program.State_Variables = append(program.State_Variables, len(program.Rendered_Scope.Objects)-1)
+			}
+			i+=len(variable_tokens)+1
 			continue
 		}
 		fmt.Println("Unexpected Token", code[i])

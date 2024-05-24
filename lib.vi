@@ -1,7 +1,3 @@
-import (
-    "test.vi" as test
-)
-
 struct B {
     a->string
 }
