@@ -1,7 +1,6 @@
 struct A {
     a -> string
 }
-
-function a() {
-    
+struct B {
+    a -> [{string->[A]}]
 }

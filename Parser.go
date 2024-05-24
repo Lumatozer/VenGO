@@ -53,7 +53,11 @@ type Execution struct {
 	Programs               []Program
 }
 
-func Parse_Program(code []Token) error {
+func Parse_Program(code []Token) (Program, error) {
+	program:=Program{
+		Structs: make(map[string]map[string]Type),
+		Rendered_Scope: Scope{},
+	}
 	for i := 0; i < len(code); i++ {
 		if code[i].Type == "sys" && code[i].Value == "struct" && len(code)-i >= 6 && code[i+1].Type=="variable" {
 			struct_tokens:=make([]Token, 0)
@@ -73,20 +77,30 @@ func Parse_Program(code []Token) error {
 				}
 			}
 			if !normal_exit || len(struct_tokens)<2 || len(struct_tokens)%2!=0 {
-				return errors.New("Unexpected EOF while parsing struct")
+				return program, errors.New("Unexpected EOF while parsing struct")
 			}
 			struct_tokens=struct_tokens[1:len(struct_tokens)-1]
 			this_struct:=make(map[string]Type)
 			for j:=0; j<len(struct_tokens); j+=2 {
 				if struct_tokens[j].Type!="variable" || !Is_Valid_Variable_Name(struct_tokens[j].Value) {
-					return errors.New("Invalid field name\""+struct_tokens[j].Value+"\"")
+					return program, errors.New("Invalid field name\""+struct_tokens[j].Value+"\"")
 				}
 				if struct_tokens[j+1].Type!="type" {
-					return errors.New("Invalid token for type")
+					return program, errors.New("Invalid token for type")
 				}
-				fmt.Println(this_struct, Type_Token_To_Struct(struct_tokens[j+1]))
+				out_Type_struct,err:=Type_Token_To_Struct(struct_tokens[j+1], program)
+				if err!=nil {
+					return program, err
+				}
+				this_struct[struct_tokens[j].Value]=out_Type_struct
 			}
+			program.Structs[code[i+1].Value]=this_struct
+			i+=len(struct_tokens)+2+1
+			continue
 		}
+		fmt.Println("Unexpected Token", code[i])
+		return program, errors.New("Unexpected Token")
 	}
-	return nil
+	fmt.Println(program)
+	return program, nil
 }
