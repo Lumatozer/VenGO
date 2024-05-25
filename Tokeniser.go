@@ -136,7 +136,7 @@ func Tokenizer(code string) ([]Token, error) {
 			i--
 			continue
 		}
-		if char==" " {
+		if char==" " || char=="\t" {
 			if len(cache)!=0 {
 				tokens = append(tokens, Token{Type: "sys", Value: cache})
 				cache=""

@@ -1,12 +1,4 @@
-import (
-    "lib1.vi" as lib
-)
-
-var b->int;
-
-function _start()->int {
+function _start()->void {
+    var b->int;
     set b 34;
-    set _start.return 1;
-    call lib.hi;
-    call lib.hello;
 }
