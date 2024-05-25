@@ -15,7 +15,6 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("Tokenizer")
 	tokens,err:=Tokenizer(string(data))
 	if err!=nil {
 		fmt.Println(err)
@@ -23,9 +22,20 @@ func main() {
 	}
 	fmt.Println(tokens)
 	program,err:=Parse_Program(tokens, []string{}, os.Args[1])
+	entry_function:=-1
 	if err!=nil {
 		fmt.Println(err)
 		return
 	}
-	Interpreter(program.Functions[2])
+	for i,function:=range program.Functions {
+		if function.Name=="_start" {
+			entry_function=i
+			break
+		}
+	}
+	if entry_function==-1 {
+		fmt.Println("Entry file has no _start function")
+		return
+	}
+	Interpreter(program.Functions[entry_function])
 }

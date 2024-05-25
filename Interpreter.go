@@ -17,7 +17,6 @@ func Copy_Scope(scope *Scope) Scope {
 }
 
 func Interpreter(entry *Function) Object {
-	fmt.Println("hi")
 	return_Object:=Object{}
 	function_scope := Copy_Scope(entry.Base_Scope)
 	for _, index := range entry.Stack_Spec {
