@@ -1,4 +1,8 @@
 function _start()->void {
     var b->int;
     set b 34;
+    call hi;
+}
+function hi(b->int)->void {
+    var a->int;
 }

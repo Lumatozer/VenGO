@@ -35,6 +35,7 @@ type Function struct {
 	Float64_Constants      []float64
 	Return_Location        int
 	Base_Program           *Program
+	Local_Variables        map[string]*int
 }
 
 type Scope struct {
@@ -236,6 +237,7 @@ func Parse_Program(code []Token, importing []string, filename string) (Program, 
 				return program, errors.New("Invalid function declaration")
 			}
 			argument_variables:=make(map[string]Type)
+			variable_mapping:=make(map[string]*int)
 			for j:=0; j<len(argument_tokens); j+=2 {
 				if argument_tokens[j].Type!="variable" || !Is_Valid_Variable_Name(argument_tokens[j].Value) {
 					return program, errors.New("Invalid argument name")
@@ -252,20 +254,10 @@ func Parse_Program(code []Token, importing []string, filename string) (Program, 
 						return program, errors.New("Cannot initialize multiple variables with the same name")
 					}
 				}
-				to_initialise:=true
-				for _,Obj:=range program.Rendered_Scope.Objects {
-					if Obj.Name==argument_tokens[j].Value {
-						if Compare_Type(variable_Type, Obj.Type) {
-							to_initialise=false
-							break
-						}
-						return program, errors.New("Variable \""+Obj.Name+"\" has already been initialised with another Type")
-					}
-				}
 				argument_variables[argument_tokens[j].Value]=variable_Type
-				if to_initialise {
-					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(argument_tokens[j].Value, variable_Type, &program))
-				}
+				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(argument_tokens[j].Value, variable_Type, &program))
+				args_index:=len(program.Rendered_Scope.Objects)-1
+				variable_mapping[argument_tokens[j].Value]=&args_index
 			}
 			if i+len(argument_tokens)+6>=len(code) {
 				return program, errors.New("Unexpected EOF")
@@ -305,6 +297,7 @@ func Parse_Program(code []Token, importing []string, filename string) (Program, 
 				Out_Type: function_Type,
 				Base_Scope: &program.Rendered_Scope,
 				Base_Program: &program,
+				Local_Variables: variable_mapping,
 			}
 			if len(function_tokens)>1 {
 				functions_to_Parse = append(functions_to_Parse, &this_Function)
@@ -360,19 +353,13 @@ func Parse_Instructions_For_Function(code []Token, function *Function) error {
 				}
 				to_initialise:=true
 				new_index:=0
-				for index,Obj:=range program.Rendered_Scope.Objects {
-					if Obj.Name==variable.Value {
-						if Compare_Type(object_Type, Obj.Type) {
-							to_initialise=false
-							new_index=index
-							break
-						}
-						return errors.New("Variable \""+Obj.Name+"\" has already been initialised")
-					}
+				if function.Local_Variables[variable.Value]!=nil {
+					return errors.New("Variable \""+variable.Value+"\" has already been initialised")
 				}
 				if to_initialise {
 					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(variable.Value, object_Type, program))
 					new_index=len(program.Rendered_Scope.Objects)-1
+					function.Local_Variables[variable.Value]=&new_index
 				}
 				function.Stack_Spec = append(function.Stack_Spec, new_index)
 			}
