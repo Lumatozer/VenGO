@@ -402,7 +402,6 @@ func Parse_Instructions_For_Function(code []Token, function *Function) error {
 						to_use_index=index
 						break
 					} else {
-						fmt.Println(index)
 						return errors.New("Variable not in scope")
 					}
 				}
