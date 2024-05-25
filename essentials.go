@@ -14,6 +14,16 @@ func str_index_in_str_arr(a string, b []string) int {
 	return -1
 }
 
+func int_index_in_int_arr(a int, b []int) int {
+	for i := 0; i < len(b); i++ {
+		if b[i] == a {
+			return i
+		}
+	}
+	return -1
+}
+
+
 func Can_access(index int, arr_len int) bool {
 	if index < 0 {
 		return false
@@ -57,23 +67,23 @@ func Get_Object_New_Location(Object_Type Type, program *Program) int {
 	if !Object_Type.Is_Array && !Object_Type.Is_Dict {
 		if Object_Type.Raw_Type=="string" {
 			program.Rendered_Scope.String_Objects = append(program.Rendered_Scope.String_Objects, "")
-			return len(program.Rendered_Scope.String_Objects)
+			return len(program.Rendered_Scope.String_Objects)-1
 		}
 		if Object_Type.Raw_Type=="int" {
 			program.Rendered_Scope.Int_Objects = append(program.Rendered_Scope.Int_Objects, 0)
-			return len(program.Rendered_Scope.String_Objects)
+			return len(program.Rendered_Scope.Int_Objects)-1
 		}
 		if Object_Type.Raw_Type=="int64" {
 			program.Rendered_Scope.Int64_Objects = append(program.Rendered_Scope.Int64_Objects, 0)
-			return len(program.Rendered_Scope.String_Objects)
+			return len(program.Rendered_Scope.Int64_Objects)-1
 		}
 		if Object_Type.Raw_Type=="float" {
 			program.Rendered_Scope.Float_Objects = append(program.Rendered_Scope.Float_Objects, 0)
-			return len(program.Rendered_Scope.String_Objects)
+			return len(program.Rendered_Scope.Float_Objects)-1
 		}
 		if Object_Type.Raw_Type=="float64" {
 			program.Rendered_Scope.Float64_Objects = append(program.Rendered_Scope.Float64_Objects, 0)
-			return len(program.Rendered_Scope.String_Objects)
+			return len(program.Rendered_Scope.Float64_Objects)-1
 		}
 	}
 	return -1
@@ -107,6 +117,9 @@ func Initialise_Object(Object_Name string, Object_Type Type, program *Program) *
 
 func Compare_Type(a Type, b Type) bool {
 	if a.Is_Array==a.Is_Dict && a.Is_Dict==b.Is_Dict && b.Raw_Type==a.Raw_Type {
+		if a.Child==b.Child && a.Child==nil {
+			return true
+		}
 		return Compare_Type(*a.Child, *b.Child)
 	}
 	return false

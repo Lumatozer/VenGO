@@ -2,18 +2,20 @@ package main
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 )
 
 type Token struct {
-	Type  		  string
-	Value 		  string
-	Str_Children  []string
-	Tok_Children  []Token
+	Type  		      string
+	Value 		      string
+	Str_Children      []string
+	Tok_Children      []Token
+	Float64_Constant  float64
 }
 
 var Keywords []string=[]string{
-	"var", "function", "set", "return","import", "as", "struct",
+	"var", "function", "set", "return", "import", "as", "struct",
 }
 
 var Primitive_Types []string=[]string{
@@ -99,7 +101,11 @@ func Tokenizer(code string) ([]Token, error) {
 				if in_number {
 					if strings.Contains(cache, ".") {
 						if len(cache)!=0 {
-							tokens = append(tokens, Token{Type: "number", Value: cache})
+							num,err:=strconv.ParseFloat(cache, 64)
+							if err!=nil {
+								return make([]Token, 0), err
+							}
+							tokens = append(tokens, Token{Type: "number", Value: cache, Float64_Constant: num})
 							cache=""
 						}
 						tokens = append(tokens, Token{Type: "sys", Value: char})
@@ -119,7 +125,11 @@ func Tokenizer(code string) ([]Token, error) {
 			}
 		} else if in_number {
 			if len(cache)!=0 {
-				tokens = append(tokens, Token{Type: "number", Value: cache})
+				num,err:=strconv.ParseFloat(cache, 64)
+				if err!=nil {
+					return make([]Token, 0), err
+				}
+				tokens = append(tokens, Token{Type: "number", Value: cache, Float64_Constant: num})
 				cache=""
 			}
 			in_number=false

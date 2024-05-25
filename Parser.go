@@ -28,6 +28,11 @@ type Function struct {
 	Arguments              map[string]Type
 	Out_Type               Type
 	Base_Scope             *Scope // for initializing a new Function scope under the program this function belongs to. Will always be the Program's Rendered Scope as only the arguments change
+	Int_Constants          []int
+	Int64_Constants        []int64
+	String_Constants       []string
+	Float_Constants        []float32
+	Float64_Constants      []float64
 }
 
 type Scope struct {
@@ -59,10 +64,6 @@ type Execution struct {
 	Entry_Program          *Program
 	Entry_Function         *Function
 	Programs               []Program
-}
-
-func Parse_Instructions_For_Function(code []Token, function *Function, program *Program) error {
-	return nil
 }
 
 func Parse_Program(code []Token, importing []string) (Program, error) {
@@ -183,13 +184,23 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 				if variable_token.Type!="variable" || !Is_Valid_Variable_Name(variable_token.Value) {
 					return program, errors.New("Invalid variable name")
 				}
-				for _,Obj:=range program.Rendered_Scope.Objects {
+				to_initialise:=true
+				new_index:=0
+				for index,Obj:=range program.Rendered_Scope.Objects {
 					if Obj.Name==variable_token.Value {
+						if Compare_Type(variable_Type, Obj.Type) {
+							to_initialise=false
+							new_index=index
+							break
+						}
 						return program, errors.New("Variable \""+Obj.Name+"\" has already been initialised")
 					}
 				}
-				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(variable_token.Value, variable_Type, &program))
-				program.State_Variables = append(program.State_Variables, len(program.Rendered_Scope.Objects)-1)
+				if to_initialise {
+					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(variable_token.Value, variable_Type, &program))
+					new_index=len(program.Rendered_Scope.Objects)-1
+				}
+				program.State_Variables = append(program.State_Variables, new_index)
 			}
 			i+=len(variable_tokens)+1
 			continue
@@ -236,10 +247,19 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 						return program, errors.New("Cannot initialize multiple variables with the same name")
 					}
 				}
+				to_initialise:=true
 				for _,Obj:=range program.Rendered_Scope.Objects {
-					if Obj.Name==argument_tokens[j].Value && !Compare_Type(Obj.Type, variable_Type) {
+					if Obj.Name==argument_tokens[j].Value {
+						if Compare_Type(variable_Type, Obj.Type) {
+							to_initialise=false
+							break
+						}
 						return program, errors.New("Variable \""+Obj.Name+"\" has already been initialised with another Type")
 					}
+				}
+				argument_variables[argument_tokens[j].Value]=variable_Type
+				if to_initialise {
+					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(argument_tokens[j].Value, variable_Type, &program))
 				}
 			}
 			if i+len(argument_tokens)+6>=len(code) {
@@ -280,7 +300,13 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 				Out_Type: function_Type,
 				Base_Scope: &program.Rendered_Scope,
 			}
-			Parse_Instructions_For_Function(function_tokens, &this_Function, &program)
+			if len(function_tokens)>1 {
+				err=Parse_Instructions_For_Function(function_tokens[1:len(function_tokens)-1], &this_Function, &program)
+				if err!=nil {
+					return program, err
+				}
+			}
+			program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(this_Function.Name+"."+"return", this_Function.Out_Type, &program))
 			program.Functions = append(program.Functions, &this_Function)
 			i+=len(argument_tokens)+len(function_tokens)+5
 			continue
@@ -290,4 +316,81 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 	}
 	fmt.Println(program)
 	return program, nil
+}
+
+func Parse_Instructions_For_Function(code []Token, function *Function, program *Program) error {
+	function.Stack_Spec = append(function.Stack_Spec, len(program.Rendered_Scope.Objects)-1)
+	lines:=make([][]Token, 0)
+	this_line:=make([]Token, 0)
+	for i:=0; i<len(code); i++ {
+		if code[i].Type=="semicolon" {
+			if len(this_line)>0 {
+				lines = append(lines, this_line)
+			}
+			this_line=make([]Token, 0)
+			continue
+		}
+		this_line = append(this_line, code[i])
+	}
+	if len(this_line)>0 {
+		lines = append(lines, this_line)
+	}
+	for _,line:=range lines {
+		if len(line)>=3 && line[0].Type=="sys" && line[0].Value=="var" {
+			object_Type,err:=Type_Token_To_Struct(line[len(line)-1], program)
+			if err!=nil {
+				return err
+			}
+			for _,variable:=range line[1:len(line)-1] {
+				if variable.Type!="variable" {
+					return errors.New("Invalid variable initialisation syntax")
+				}
+				to_initialise:=true
+				new_index:=0
+				for index,Obj:=range program.Rendered_Scope.Objects {
+					if Obj.Name==variable.Value {
+						if Compare_Type(object_Type, Obj.Type) {
+							to_initialise=false
+							new_index=index
+							break
+						}
+						return errors.New("Variable \""+Obj.Name+"\" has already been initialised")
+					}
+				}
+				if to_initialise {
+					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(variable.Value, object_Type, program))
+					new_index=len(program.Rendered_Scope.Objects)-1
+				}
+				function.Stack_Spec = append(function.Stack_Spec, new_index)
+			}
+			continue
+		}
+		
+		if len(line)==3 && line[0].Type=="sys" && line[0].Value=="set" {
+			if line[1].Type!="variable" {
+				return errors.New("Invalid instruction")
+			}
+			if line[2].Type!="number" {
+				return errors.New("Invalid instruction")
+			}
+			to_use_index:=-1
+			for index,Object:=range program.Rendered_Scope.Objects {
+				if Object.Name==line[1].Value {
+					
+					if int_index_in_int_arr(index, program.State_Variables)!=-1 || int_index_in_int_arr(index, function.Stack_Spec)!=-1 {
+						to_use_index=index
+					} else {
+						return errors.New("Variable not in scope")
+					}
+				}
+			}
+			if to_use_index==-1 {
+				return errors.New("Variable not found")
+			}
+			function.Int_Constants = append(function.Int_Constants, int(line[2].Float64_Constant))
+			function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, to_use_index, len(function.Int_Constants)-1})
+			continue
+		}
+	}
+	return nil
 }

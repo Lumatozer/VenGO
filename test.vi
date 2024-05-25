@@ -1,5 +1,11 @@
-var b->void;
+var b->int;
 
-function a(a->string)->void {
+function _start()->void {
+    var c->int;
+    set c 55;
+    set b 34;
+}
 
+function hello()->int {
+    var c->int;
 }
