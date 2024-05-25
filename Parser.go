@@ -10,14 +10,18 @@ import (
 type Object struct {
 	Name                   string
 	Type                   Type
-	Location               int
-	Int_Mapping            map[int]*Object
-	Int64_Mapping          map[int64]*Object
-	String_Mapping         map[string]*Object
-	Float_Mapping          map[float32]*Object
-	Float64_Mapping        map[float64]*Object
-	Field_Children         map[int]*Object
-	Children               []*Object
+	Int_Mapping            *map[int]*Object
+	Int64_Mapping          *map[int64]*Object
+	String_Mapping         *map[string]*Object
+	Float_Mapping          *map[float32]*Object
+	Float64_Mapping        *map[float64]*Object
+	Field_Children         *map[int]*Object
+	Int_Value              *int
+	Int64_Value            *int64
+	String_Value           *string
+	Float_Value            *float32
+	Float64_Value          *float64
+	Children               *[]*Object
 }
 
 type Function struct {
@@ -36,17 +40,13 @@ type Function struct {
 	Return_Location        int
 	Base_Program           *Program
 	Local_Variables        map[string]*int
+	Argument_Objects       []int
 }
 
 type Scope struct {
 	Filename               string
 	Ip                     int
 	Objects                []*Object
-	Int_Objects            []int
-	Int64_Objects          []int64
-	String_Objects         []string
-	Float_Objects          []float32
-	Float64_Objects        []float64
 }
 
 type Type struct {
@@ -61,6 +61,7 @@ type Program struct {
 	Structs                map[string]map[string]Type
 	Rendered_Scope         Scope // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
 	State_Variables        []int // Indices of variables to be stored on the blockchain for this program
+	Globally_Available     []int
 }
 
 type Execution struct {
@@ -258,6 +259,12 @@ func Parse_Program(code []Token, importing []string, filename string) (Program, 
 				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(argument_tokens[j].Value, variable_Type, &program))
 				args_index:=len(program.Rendered_Scope.Objects)-1
 				variable_mapping[argument_tokens[j].Value]=&args_index
+				copied_Object:=Shallow_Copy(program.Rendered_Scope.Objects[len(program.Rendered_Scope.Objects)-1])
+				copied_Object.Name=code[i+1].Value+"."+argument_tokens[j].Value
+				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, copied_Object)
+				program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope.Objects)-1)
+				args_index_2:=len(program.Rendered_Scope.Objects)-1
+				variable_mapping[code[i+1].Value+"."+argument_tokens[j].Value]=&args_index_2
 			}
 			if i+len(argument_tokens)+6>=len(code) {
 				return program, errors.New("Unexpected EOF")
@@ -298,6 +305,9 @@ func Parse_Program(code []Token, importing []string, filename string) (Program, 
 				Base_Scope: &program.Rendered_Scope,
 				Base_Program: &program,
 				Local_Variables: variable_mapping,
+			}
+			for variable:=range variable_mapping {
+				this_Function.Stack_Spec = append(this_Function.Stack_Spec, *variable_mapping[variable])
 			}
 			if len(function_tokens)>1 {
 				functions_to_Parse = append(functions_to_Parse, &this_Function)
@@ -376,7 +386,7 @@ func Parse_Instructions_For_Function(code []Token, function *Function) error {
 			to_use_index:=-1
 			for index,Object:=range program.Rendered_Scope.Objects {
 				if Object.Name==line[1].Value {
-					if int_index_in_int_arr(index, program.State_Variables)!=-1 || int_index_in_int_arr(index, function.Stack_Spec)!=-1 || index==function.Return_Location {
+					if int_index_in_int_arr(index, program.State_Variables)!=-1 || int_index_in_int_arr(index, function.Stack_Spec)!=-1 || int_index_in_int_arr(index, function.Base_Program.Globally_Available)!=-1 || index==function.Return_Location {
 						to_use_index=index
 					} else {
 						return errors.New("Variable not in scope")
