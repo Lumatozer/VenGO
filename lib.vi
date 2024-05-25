@@ -1,7 +1,3 @@
 import (
     "lib1.vi" as libone
 )
-
-struct B {
-    a->libone.One
-}

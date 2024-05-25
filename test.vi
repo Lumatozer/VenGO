@@ -1,11 +1,12 @@
+import (
+    "lib1.vi" as lib
+)
+
 var b->int;
 
-function _start()->void {
-    var c->int;
-    set c 55;
+function _start()->int {
     set b 34;
-}
-
-function hello()->int {
-    var c->int;
+    set _start.return 1;
+    call lib.hi;
+    call lib.hello;
 }

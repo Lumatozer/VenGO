@@ -22,9 +22,10 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	program,err:=Parse_Program(tokens, []string{})
+	program,err:=Parse_Program(tokens, []string{}, os.Args[1])
 	if err!=nil {
 		fmt.Println(err)
+		return
 	}
-	Interpreter(&program, program.Functions[0])
+	Interpreter(program.Functions[2])
 }

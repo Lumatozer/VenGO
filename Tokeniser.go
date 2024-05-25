@@ -15,7 +15,7 @@ type Token struct {
 }
 
 var Keywords []string=[]string{
-	"var", "function", "set", "return", "import", "as", "struct",
+	"var", "function", "set", "return", "import", "as", "struct", "call",
 }
 
 var Primitive_Types []string=[]string{

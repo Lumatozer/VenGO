@@ -33,9 +33,12 @@ type Function struct {
 	String_Constants       []string
 	Float_Constants        []float32
 	Float64_Constants      []float64
+	Return_Location        int
+	Base_Program           *Program
 }
 
 type Scope struct {
+	Filename               string
 	Ip                     int
 	Objects                []*Object
 	Int_Objects            []int
@@ -66,12 +69,12 @@ type Execution struct {
 	Programs               []Program
 }
 
-func Parse_Program(code []Token, importing []string) (Program, error) {
+func Parse_Program(code []Token, importing []string, filename string) (Program, error) {
 	functions_to_Parse:=make([]*Function, 0)
 	function_wise_instructions_to_Parse:=make([][]Token, 0)
 	program:=Program{
 		Structs: make(map[string]map[string]Type),
-		Rendered_Scope: Scope{},
+		Rendered_Scope: Scope{Filename: filename},
 	}
 	for i := 0; i < len(code); i++ {
 		if code[i].Type == "sys" && code[i].Value == "struct" && len(code)-i >= 6 && code[i+1].Type=="variable" {
@@ -145,7 +148,7 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 				if err!=nil {
 					return program, err
 				}
-				file_program, err:=Parse_Program(file_tokens, append(importing, import_tokens[j+2].Value))
+				file_program, err:=Parse_Program(file_tokens, append(importing, import_tokens[j+2].Value), import_tokens[j].Value)
 				if err!=nil {
 					return program, err
 				}
@@ -301,12 +304,16 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 				Arguments: argument_variables,
 				Out_Type: function_Type,
 				Base_Scope: &program.Rendered_Scope,
+				Base_Program: &program,
 			}
 			if len(function_tokens)>1 {
 				functions_to_Parse = append(functions_to_Parse, &this_Function)
 				function_wise_instructions_to_Parse = append(function_wise_instructions_to_Parse, function_tokens[1:len(function_tokens)-1])
 			}
-			program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(this_Function.Name+"."+"return", this_Function.Out_Type, &program))
+			if this_Function.Out_Type.Raw_Type!="void" {
+				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(this_Function.Name+"."+"return", this_Function.Out_Type, &program))
+				this_Function.Return_Location=len(program.Rendered_Scope.Objects)-1
+			}
 			program.Functions = append(program.Functions, &this_Function)
 			i+=len(argument_tokens)+len(function_tokens)+5
 			continue
@@ -315,7 +322,7 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 		return program, errors.New("Unexpected Token")
 	}
 	for index,function:=range functions_to_Parse {
-		err:=Parse_Instructions_For_Function(function_wise_instructions_to_Parse[index], function, &program)
+		err:=Parse_Instructions_For_Function(function_wise_instructions_to_Parse[index], function)
 		if err!=nil {
 			return program, err
 		}
@@ -324,8 +331,8 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 	return program, nil
 }
 
-func Parse_Instructions_For_Function(code []Token, function *Function, program *Program) error {
-	function.Stack_Spec = append(function.Stack_Spec, len(program.Rendered_Scope.Objects)-1)
+func Parse_Instructions_For_Function(code []Token, function *Function) error {
+	program:=function.Base_Program
 	lines:=make([][]Token, 0)
 	this_line:=make([]Token, 0)
 	for i:=0; i<len(code); i++ {
@@ -382,8 +389,7 @@ func Parse_Instructions_For_Function(code []Token, function *Function, program *
 			to_use_index:=-1
 			for index,Object:=range program.Rendered_Scope.Objects {
 				if Object.Name==line[1].Value {
-					
-					if int_index_in_int_arr(index, program.State_Variables)!=-1 || int_index_in_int_arr(index, function.Stack_Spec)!=-1 {
+					if int_index_in_int_arr(index, program.State_Variables)!=-1 || int_index_in_int_arr(index, function.Stack_Spec)!=-1 || index==function.Return_Location {
 						to_use_index=index
 					} else {
 						return errors.New("Variable not in scope")
@@ -395,6 +401,27 @@ func Parse_Instructions_For_Function(code []Token, function *Function, program *
 			}
 			function.Int_Constants = append(function.Int_Constants, int(line[2].Float64_Constant))
 			function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, to_use_index, len(function.Int_Constants)-1})
+			continue
+		}
+		if len(line)==1 && line[0].Type=="sys" && line[0].Value=="return" {
+			function.Instructions = append(function.Instructions, []int{RETURN_INSTRUCTION})
+			continue
+		}
+		if len(line)==2 && line[0].Type=="sys" && line[0].Value=="call" {
+			if line[1].Type!="variable" {
+				return errors.New("Invalid instruction")
+			}
+			found:=false
+			for index,program_function:=range program.Functions {
+				if program_function.Name==line[1].Value {
+					function.Instructions = append(function.Instructions, []int{CALL_INSTRUCTION, index})
+					found=true
+					break
+				}
+			}
+			if !found {
+				return errors.New("Function not found")
+			}
 			continue
 		}
 	}
