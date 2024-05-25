@@ -71,7 +71,10 @@ type Execution struct {
 	Programs               []Program
 }
 
-func Parse_Program(code []Token, importing []string, filename string) (Program, error) {
+func Parse_Program(code []Token, importing []string, filename string, imported_Programs map[string]*Program) (Program, error) {
+	if imported_Programs==nil {
+		imported_Programs=make(map[string]*Program)
+	}
 	functions_to_Parse:=make([]*Function, 0)
 	function_wise_instructions_to_Parse:=make([][]Token, 0)
 	program:=Program{
@@ -142,29 +145,38 @@ func Parse_Program(code []Token, importing []string, filename string) (Program, 
 				}
 				import_tokens[j].Value=filepath.Clean(import_tokens[j].Value)
 				module_names = append(module_names, import_tokens[j+2].Value)
-				file_data,err:=os.ReadFile(import_tokens[j].Value)
-				if err!=nil {
-					return program, err
+				if imported_Programs[import_tokens[j].Value]!=nil {
+					files_to_read[import_tokens[j+2].Value]=imported_Programs[import_tokens[j].Value]
+				} else {
+					file_data,err:=os.ReadFile(import_tokens[j].Value)
+					if err!=nil {
+						return program, err
+					}
+					file_tokens,err:=Tokenizer(string(file_data))
+					if err!=nil {
+						return program, err
+					}
+					file_program, err:=Parse_Program(file_tokens, append(importing, import_tokens[j+2].Value), import_tokens[j].Value, imported_Programs)
+					if err!=nil {
+						return program, err
+					}
+					files_to_read[import_tokens[j+2].Value]=&file_program
+					imported_Programs[import_tokens[j].Value]=&file_program
 				}
-				file_tokens,err:=Tokenizer(string(file_data))
-				if err!=nil {
-					return program, err
-				}
-				file_program, err:=Parse_Program(file_tokens, append(importing, import_tokens[j+2].Value), import_tokens[j].Value)
-				if err!=nil {
-					return program, err
-				}
-				files_to_read[import_tokens[j+2].Value]=&file_program
 			}
 			for _,module:=range module_names {
 				for module_struct:=range files_to_read[module].Structs {
-					program.Structs[module+"."+module_struct]=files_to_read[module].Structs[module_struct]
+					program.Structs[module+"."+module_struct]=make(map[string]Type)
+					for field, field_Type:=range files_to_read[module].Structs[module_struct] {
+						program.Structs[module+"."+module_struct][field]=field_Type
+					}
 				}
 			}
 			for _,module:=range module_names {
 				for _,function:=range files_to_read[module].Functions {
-					function.Name=module+"."+function.Name
-					program.Functions = append(program.Functions, function)
+					copied_Function:=Copy_Function(function)
+					copied_Function.Name=module+"."+copied_Function.Name
+					program.Functions = append(program.Functions, copied_Function)
 				}
 			}
 			i+=2+len(import_tokens)
@@ -388,7 +400,9 @@ func Parse_Instructions_For_Function(code []Token, function *Function) error {
 				if Object.Name==line[1].Value {
 					if int_index_in_int_arr(index, program.State_Variables)!=-1 || int_index_in_int_arr(index, function.Stack_Spec)!=-1 || int_index_in_int_arr(index, function.Base_Program.Globally_Available)!=-1 || index==function.Return_Location {
 						to_use_index=index
+						break
 					} else {
+						fmt.Println(index)
 						return errors.New("Variable not in scope")
 					}
 				}

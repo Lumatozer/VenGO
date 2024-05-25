@@ -1,9 +1,9 @@
-function _start()->void {
-    set hi.b 34;
-    call hi;
-}
+import (
+    "lib1.vi" as libone
+    "lib.vi" as lib
+)
 
-function hi(b->int)->void {
-    set hi.b 5;
-    set b 10;
+function _start()->void {
+    call lib.test;
+    call libone.hello;
 }

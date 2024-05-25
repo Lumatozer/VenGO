@@ -50,7 +50,9 @@ func Interpreter(entry *Function) Object {
 			}
 		}
 		if !found {
-			fmt.Print(*object.Int_Value, " ")
+			if object.Int_Value!=nil {
+				fmt.Print(*object.Int_Value, " ")
+			}
 			covered = append(covered, object.Int_Value)
 		}
 	}

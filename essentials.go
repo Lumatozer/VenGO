@@ -222,3 +222,8 @@ func Deep_Copy(object *Object) *Object {
 	}
 	return &deep_Copied_Object
 }
+
+func Copy_Function(function *Function) *Function {
+	copied_Function:=*function
+	return &copied_Function
+}

@@ -1,3 +1,7 @@
 import (
     "lib1.vi" as libone
 )
+
+function test()->void {
+    call libone.hi;
+}
