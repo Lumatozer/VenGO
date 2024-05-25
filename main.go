@@ -22,5 +22,8 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	Parse_Program(tokens, []string{})
+	_,err=Parse_Program(tokens, []string{})
+	if err!=nil {
+		fmt.Println(err)
+	}
 }

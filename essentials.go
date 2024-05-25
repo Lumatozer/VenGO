@@ -46,7 +46,7 @@ func Type_Token_To_Struct(Type_Token Token, program *Program) (Type, error) {
 		}
 		return Type{Is_Dict: true, Raw_Type: Type_Token.Str_Children[0], Child: &new_Type}, nil
 	}
-	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64"})!=-1 || program.Structs[Type_Token.Value]!=nil {
+	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64", "void"})!=-1 || program.Structs[Type_Token.Value]!=nil {
 		return Type{Raw_Type: Type_Token.Value}, nil
 	} else {
 		return Type{}, errors.New("Invalid Type")
@@ -103,4 +103,11 @@ func Initialise_Object(Object_Name string, Object_Type Type, program *Program) *
 	new_Object:=Object{Name: Object_Name, Type: Object_Type, Location: Get_Object_New_Location(Object_Type, program)}
 	Initialise_Object_Mapping(&new_Object)
 	return &new_Object
+}
+
+func Compare_Type(a Type, b Type) bool {
+	if a.Is_Array==a.Is_Dict && a.Is_Dict==b.Is_Dict && b.Raw_Type==a.Raw_Type {
+		return Compare_Type(*a.Child, *b.Child)
+	}
+	return false
 }

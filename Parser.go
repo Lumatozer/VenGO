@@ -27,7 +27,7 @@ type Function struct {
 	Instructions           [][]int // Instruction set for this function
 	Arguments              map[string]Type
 	Out_Type               Type
-	Base_Scope             Type // for initializing a new Function scope under the program this function belongs to. Will always be the Program's Rendered Scope as only the arguments change
+	Base_Scope             *Scope // for initializing a new Function scope under the program this function belongs to. Will always be the Program's Rendered Scope as only the arguments change
 }
 
 type Scope struct {
@@ -59,6 +59,10 @@ type Execution struct {
 	Entry_Program          *Program
 	Entry_Function         *Function
 	Programs               []Program
+}
+
+func Parse_Instructions_For_Function(code []Token, function *Function, program *Program) error {
+	return nil
 }
 
 func Parse_Program(code []Token, importing []string) (Program, error) {
@@ -182,6 +186,97 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 				program.State_Variables = append(program.State_Variables, len(program.Rendered_Scope.Objects)-1)
 			}
 			i+=len(variable_tokens)+1
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="function" && len(code)-i>=7 {
+			// to add bounds check later on
+			if code[i+1].Type!="variable" || !Is_Valid_Variable_Name(code[i+1].Value) {
+				return program, errors.New("Invalid function name")
+			}
+			for j:=0; j<len(program.Functions); j++ {
+				if program.Functions[j].Name==code[i+1].Value {
+					return program, errors.New("Function has already been declared")
+				}
+			}
+			if code[i+2].Type!="bracket" || code[i+2].Value!="(" {
+				return program, errors.New("Invalid function declaration syntax")
+			}
+			argument_tokens:=make([]Token, 0)
+			normal_exit:=false
+			for j:=i+3; j<len(code); j++ {
+				if code[j].Type=="bracket" && code[j].Value==")" {
+					normal_exit=true
+					break
+				}
+				argument_tokens = append(argument_tokens, code[j])
+			}
+			if !normal_exit || len(argument_tokens)%2!=0 {
+				return program, errors.New("Invalid function declaration")
+			}
+			argument_variables:=make(map[string]Type)
+			for j:=0; j<len(argument_tokens); j+=2 {
+				if argument_tokens[j].Type!="variable" || !Is_Valid_Variable_Name(argument_tokens[j].Value) {
+					return program, errors.New("Invalid argument name")
+				}
+				if argument_tokens[j+1].Type!="type" {
+					return program, errors.New("Invalid argument name")
+				}
+				variable_Type,err:=Type_Token_To_Struct(argument_tokens[j+1], &program)
+				if err!=nil {
+					return program, err
+				}
+				for key:=range argument_variables {
+					if key==argument_tokens[j].Value {
+						return program, errors.New("Cannot initialize multiple variables with the same name")
+					}
+				}
+				for _,Obj:=range program.Rendered_Scope.Objects {
+					if Obj.Name==argument_tokens[j].Value && !Compare_Type(Obj.Type, variable_Type) {
+						return program, errors.New("Variable \""+Obj.Name+"\" has already been initialised with another Type")
+					}
+				}
+			}
+			if i+len(argument_tokens)+6>=len(code) {
+				return program, errors.New("Unexpected EOF")
+			}
+			if code[i+len(argument_tokens)+4].Type!="type" {
+				return program, errors.New("Invalid function declaration")
+			}
+			function_Type,err:=Type_Token_To_Struct(code[i+len(argument_tokens)+4], &program)
+			if err!=nil {
+				return program, err
+			}
+			function_tokens:=make([]Token, 0)
+			normal_exit=false
+			br_count:=0
+			if code[i+len(argument_tokens)+5].Type!="bracket" || code[i+len(argument_tokens)+5].Value!="{" {
+				return program, errors.New("Invalid function declaration")
+			}
+			for j:=i+len(argument_tokens)+5; j<len(code); j++ {
+				if code[j].Type=="bracket" && code[j].Value=="{" {
+					br_count+=1
+				}
+				if code[j].Type=="bracket" && code[j].Value=="}" {
+					br_count-=1
+				}
+				if br_count==0 {
+					normal_exit=true
+					break
+				}
+				function_tokens = append(function_tokens, code[j])
+			}
+			if !normal_exit {
+				return program, errors.New("Unexpected EOF")
+			}
+			this_Function:=Function{
+				Name: code[i+1].Value,
+				Arguments: argument_variables,
+				Out_Type: function_Type,
+				Base_Scope: &program.Rendered_Scope,
+			}
+			Parse_Instructions_For_Function(function_tokens, &this_Function, &program)
+			program.Functions = append(program.Functions, &this_Function)
+			i+=len(argument_tokens)+len(function_tokens)+5
 			continue
 		}
 		fmt.Println("Unexpected Token", code[i])

@@ -1,6 +1,5 @@
-import (
-    "lib.vi" as lib
-    "lib1.vi" as libone
-)
+var b->void;
 
-var a b->lib.B;
+function a(a->string)->void {
+
+}
