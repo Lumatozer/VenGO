@@ -67,6 +67,8 @@ type Execution struct {
 }
 
 func Parse_Program(code []Token, importing []string) (Program, error) {
+	functions_to_Parse:=make([]*Function, 0)
+	function_wise_instructions_to_Parse:=make([][]Token, 0)
 	program:=Program{
 		Structs: make(map[string]map[string]Type),
 		Rendered_Scope: Scope{},
@@ -301,10 +303,8 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 				Base_Scope: &program.Rendered_Scope,
 			}
 			if len(function_tokens)>1 {
-				err=Parse_Instructions_For_Function(function_tokens[1:len(function_tokens)-1], &this_Function, &program)
-				if err!=nil {
-					return program, err
-				}
+				functions_to_Parse = append(functions_to_Parse, &this_Function)
+				function_wise_instructions_to_Parse = append(function_wise_instructions_to_Parse, function_tokens[1:len(function_tokens)-1])
 			}
 			program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(this_Function.Name+"."+"return", this_Function.Out_Type, &program))
 			program.Functions = append(program.Functions, &this_Function)
@@ -313,6 +313,12 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 		}
 		fmt.Println("Unexpected Token", code[i])
 		return program, errors.New("Unexpected Token")
+	}
+	for index,function:=range functions_to_Parse {
+		err:=Parse_Instructions_For_Function(function_wise_instructions_to_Parse[index], function, &program)
+		if err!=nil {
+			return program, err
+		}
 	}
 	fmt.Println(program)
 	return program, nil
