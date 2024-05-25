@@ -153,6 +153,12 @@ func Parse_Program(code []Token, importing []string) (Program, error) {
 					program.Structs[module+"."+module_struct]=files_to_read[module].Structs[module_struct]
 				}
 			}
+			for _,module:=range module_names {
+				for _,function:=range files_to_read[module].Functions {
+					function.Name=module+"."+function.Name
+					program.Functions = append(program.Functions, function)
+				}
+			}
 			i+=2+len(import_tokens)
 			continue
 		}
