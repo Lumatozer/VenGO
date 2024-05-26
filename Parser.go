@@ -177,6 +177,16 @@ func Parse_Program(code []Token, importing []string, filename string, imported_P
 					copied_Function:=Copy_Function(function)
 					copied_Function.Name=module+"."+copied_Function.Name
 					program.Functions = append(program.Functions, copied_Function)
+					for _,Argument_Object:=range function.Argument_Objects {
+						copied_Object:=*function.Base_Program.Rendered_Scope.Objects[Argument_Object]
+						copied_Object.Name=module+"."+copied_Object.Name
+						program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, &copied_Object)
+						program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope.Objects)-1)
+					}
+					copied_Object:=*function.Base_Program.Rendered_Scope.Objects[copied_Function.Return_Location]
+					copied_Object.Name=module+"."+copied_Object.Name+".return"
+					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, &copied_Object)
+					program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope.Objects)-1)
 				}
 			}
 			i+=2+len(import_tokens)
@@ -317,6 +327,9 @@ func Parse_Program(code []Token, importing []string, filename string, imported_P
 				Base_Scope: &program.Rendered_Scope,
 				Base_Program: &program,
 				Local_Variables: variable_mapping,
+			}
+			for _,variable_index:=range variable_mapping {
+				this_Function.Argument_Objects = append(this_Function.Argument_Objects, *variable_index)
 			}
 			for variable:=range variable_mapping {
 				this_Function.Stack_Spec = append(this_Function.Stack_Spec, *variable_mapping[variable])

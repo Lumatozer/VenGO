@@ -3,5 +3,6 @@ import (
 )
 
 function test()->void {
+    set libone.hi.a 1;
     call libone.hi;
 }

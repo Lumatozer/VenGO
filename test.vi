@@ -1,9 +1,8 @@
 import (
     "lib1.vi" as libone
-    "lib.vi" as lib
 )
 
 function _start()->void {
-    call lib.test;
-    call libone.hello;
+    set libone.hi.a 1;
+    call libone.hi;
 }

@@ -34,7 +34,7 @@ func Interpreter(entry *Function) Object {
 		bytecode := entry.Instructions[i]
 		switch operator := bytecode[0]; operator {
 		case SET_INSTRUCTION:
-			function_scope.Objects[bytecode[1]].Int_Value = &entry.Int_Constants[bytecode[2]]
+			*function_scope.Objects[bytecode[1]].Int_Value = entry.Int_Constants[bytecode[2]]
 		case RETURN_INSTRUCTION:
 			i=len(entry.Instructions)
 		case CALL_INSTRUCTION:
