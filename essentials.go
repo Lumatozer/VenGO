@@ -38,6 +38,25 @@ func Is_Valid_Variable_Name(name string) bool {
 	return true
 }
 
+func String_Type_To_Int8(string_Type string) int8 {
+	if string_Type=="int" {
+		return INT_TYPE
+	}
+	if string_Type=="int64" {
+		return INT64_TYPE
+	}
+	if string_Type=="string" {
+		return STRING_TYPE
+	}
+	if string_Type=="float" {
+		return FLOAT_TYPE
+	}
+	if string_Type=="float64" {
+		return FLOAT64_TYPE
+	}
+	return 0
+}
+
 func Type_Token_To_Struct(Type_Token Token, program *Program) (Type, error) {
 	if Type_Token.Type=="type" {
 		return Type_Token_To_Struct(Type_Token.Tok_Children[0], program)
@@ -54,10 +73,10 @@ func Type_Token_To_Struct(Type_Token Token, program *Program) (Type, error) {
 		if err!=nil {
 			return Type{}, err
 		}
-		return Type{Is_Dict: true, Raw_Type: Type_Token.Str_Children[0], Child: &new_Type}, nil
+		return Type{Is_Dict: true, Raw_Type: String_Type_To_Int8(Type_Token.Str_Children[0]), Child: &new_Type}, nil
 	}
 	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64", "void"})!=-1 || program.Structs[Type_Token.Value]!=nil {
-		return Type{Raw_Type: Type_Token.Value}, nil
+		return Type{Raw_Type: String_Type_To_Int8(Type_Token.Value)}, nil
 	} else {
 		return Type{}, errors.New("Invalid Type")
 	}
@@ -65,23 +84,23 @@ func Type_Token_To_Struct(Type_Token Token, program *Program) (Type, error) {
 
 func Initialise_Object_Mapping(obj *Object) {
 	if obj.Type.Is_Dict {
-		if obj.Type.Raw_Type=="string" {
+		if obj.Type.Raw_Type==STRING_TYPE {
 			mapping:=make(map[string]*Object)
 			obj.String_Mapping=&mapping
 		}
-		if obj.Type.Raw_Type=="int" {
-			mapping:=make(map[int]*Object)
+		if obj.Type.Raw_Type==INT_TYPE {
+			mapping:=make(map[int32]*Object)
 			obj.Int_Mapping=&mapping
 		}
-		if obj.Type.Raw_Type=="int64" {
+		if obj.Type.Raw_Type==INT64_TYPE {
 			mapping:=make(map[int64]*Object)
 			obj.Int64_Mapping=&mapping
 		}
-		if obj.Type.Raw_Type=="float" {
+		if obj.Type.Raw_Type==FLOAT_TYPE {
 			mapping:=make(map[float32]*Object)
 			obj.Float_Mapping=&mapping
 		}
-		if obj.Type.Raw_Type=="float64" {
+		if obj.Type.Raw_Type==FLOAT64_TYPE {
 			mapping:=make(map[float64]*Object)
 			obj.Float64_Mapping=&mapping
 		}
@@ -90,23 +109,23 @@ func Initialise_Object_Mapping(obj *Object) {
 
 func Initialise_Object_Values(obj *Object) {
 	if !obj.Type.Is_Dict && !obj.Type.Is_Array {
-		if obj.Type.Raw_Type=="string" {
+		if obj.Type.Raw_Type==STRING_TYPE {
 			Value:=""
 			obj.String_Value=&Value
 		}
-		if obj.Type.Raw_Type=="int" {
-			Value:=int(0)
+		if obj.Type.Raw_Type==INT_TYPE {
+			Value:=int32(0)
 			obj.Int_Value=&Value
 		}
-		if obj.Type.Raw_Type=="int64" {
+		if obj.Type.Raw_Type==INT64_TYPE {
 			Value:=int64(0)
 			obj.Int64_Value=&Value
 		}
-		if obj.Type.Raw_Type=="float" {
+		if obj.Type.Raw_Type==FLOAT_TYPE{
 			Value:=float32(0)
 			obj.Float_Value=&Value
 		}
-		if obj.Type.Raw_Type=="float64" {
+		if obj.Type.Raw_Type==FLOAT64_TYPE {
 			Value:=float64(0)
 			obj.Float64_Value=&Value
 		}
@@ -118,7 +137,7 @@ func Initialise_Object_Values(obj *Object) {
 }
 
 func Initialise_Object(Object_Name string, Object_Type Type, program *Program) *Object {
-	new_Object:=Object{Name: Object_Name, Type: Object_Type}
+	new_Object:=Object{Name: &Object_Name, Type: &Object_Type}
 	Initialise_Object_Mapping(&new_Object)
 	Initialise_Object_Values(&new_Object)
 	return &new_Object
@@ -157,7 +176,7 @@ func Deep_Copy(object *Object) *Object {
 	deep_Copied_Object:=Object{Name: object.Name, Type: object.Type}
 
 	if object.Int_Mapping!=nil {
-		Int_Mapping:=make(map[int]*Object)
+		Int_Mapping:=make(map[int32]*Object)
 		for key,obj:=range *object.Int_Mapping {
 			Int_Mapping[key]=obj
 		}

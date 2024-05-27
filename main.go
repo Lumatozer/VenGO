@@ -21,21 +21,21 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)
-	entry_function:=-1
-	if err!=nil {
-		fmt.Println(err)
-		return
-	}
-	for i,function:=range program.Functions {
-		if function.Name=="_start" {
-			entry_function=i
-			break
-		}
-	}
-	if entry_function==-1 {
-		fmt.Println("Entry file has no _start function")
-		return
-	}
-	Interpreter(program.Functions[entry_function])
+	// program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)
+	// entry_function:=-1
+	// if err!=nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+	// for i,function:=range program.Functions {
+	// 	if function.Name=="_start" {
+	// 		entry_function=i
+	// 		break
+	// 	}
+	// }
+	// if entry_function==-1 {
+	// 	fmt.Println("Entry file has no _start function")
+	// 	return
+	// }
+	// Interpreter(program.Functions[entry_function])
 }
