@@ -2,15 +2,6 @@ package main
 
 // import "fmt"
 
-func Copy_Scope(scope *Scope) Scope {
-	copied_Scope := Scope{}
-	copied_Scope.Filename = scope.Filename
-	for _, obj := range scope.Objects {
-		copied_Scope.Objects = append(copied_Scope.Objects, obj)
-	}
-	return copied_Scope
-}
-
 // func Interpreter(entry *Function) Object {
 // 	return_Object:=Object{}
 // 	function_scope := Copy_Scope(entry.Base_Scope)

@@ -1,8 +1,2 @@
-import (
-    "lib1.vi" as libone
-)
-
-function _start()->void {
-    set libone.hi.a 1;
-    call libone.hi;
-}
+var a b->string;
+var c d->[string];

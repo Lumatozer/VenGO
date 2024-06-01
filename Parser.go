@@ -1,11 +1,14 @@
 package main
 
 import (
-	// "errors"
-	// "fmt"
-	// "os"
-	// "path/filepath"
+	"errors"
+	"strconv"
 )
+
+// "errors"
+// "fmt"
+// "os"
+// "path/filepath"
 
 const (
 	INT_TYPE               int8 = iota
@@ -16,21 +19,12 @@ const (
 )
 
 type Object struct {
-	Name                   *string
-	Alias                  *string
-	Type                   *Type
-	Int_Mapping            *map[int32]*Object
-	Int64_Mapping          *map[int64]*Object
-	String_Mapping         *map[string]*Object
-	Float_Mapping          *map[float32]*Object
-	Float64_Mapping        *map[float64]*Object
-	Field_Children         *map[int]*Object
-	Int_Value              *int32
-	Int64_Value            *int64
-	String_Value           *string
-	Float_Value            *float32
-	Float64_Value          *float64
-	Children               *[]*Object
+	Value                  interface{}
+}
+
+type Object_Reference struct {
+	Aliases                []string
+	Object_Type            Type
 }
 
 type Object_Abstract struct {
@@ -46,421 +40,115 @@ type Function struct {
 	Instructions           [][]int // Instruction set for this function
 	Arguments              map[string]Type
 	Out_Type               Type
-	Base_Scope             *Scope // for initializing a new Function scope under the program this function belongs to. Will always be the Program's Rendered Scope as only the arguments change
-	Return_Location        int
 	Base_Program           *Program
-	Argument_Objects       []int
-}
-
-type Scope struct {
-	Filename               string
-	Ip                     int
-	Objects                []*Object
+	Variable_Scope         map[string]int
 }
 
 type Type struct {
 	Is_Array               bool
 	Is_Dict                bool
 	Raw_Type               int8
+	Is_Struct              bool
+	Struct_Details         map[string]Type
 	Child                  *Type
 }
 
 type Program struct {
 	Functions              []*Function
 	Structs                map[string]map[string]Type
-	Rendered_Scope         Scope // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
-	State_Variables        []int // Indices of variables to be stored on the blockchain for this program
+	Rendered_Scope         []*Object // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
+	Object_References      []Object_Reference
 	Globally_Available     []int
-	Int_Constants          []int
+
 	Int64_Constants        []int64
 	String_Constants       []string
 	Float_Constants        []float32
 	Float64_Constants      []float64
 }
 
-type Execution struct {
-	Gas_Limit              int64
-	Entry_Program          *Program
-	Entry_Function         *Function
-	Programs               []Program
+type Function_Definition struct {
+	Name                   string
+	Argument_Tokens        map[string][]Token
+	Out_Token              Token
+	Instruction_Tokens     []Token
 }
 
-// func Parse_Program(code []Token, importing []string, filename string, imported_Programs map[string]*Program) (Program, error) {
-// 	if imported_Programs==nil {
-// 		imported_Programs=make(map[string]*Program)
-// 	}
-// 	functions_to_Parse:=make([]*Function, 0)
-// 	function_wise_instructions_to_Parse:=make([][]Token, 0)
-// 	program:=Program{
-// 		Structs: make(map[string]map[string]Type),
-// 		Rendered_Scope: Scope{Filename: filename},
-// 	}
-// 	for i := 0; i < len(code); i++ {
-// 		if code[i].Type == "sys" && code[i].Value == "struct" && len(code)-i >= 6 && code[i+1].Type=="variable" {
-// 			struct_tokens:=make([]Token, 0)
-// 			normal_exit:=false
-// 			br_count:=0
-// 			for j:=i+2; j<len(code); j++ {
-// 				if code[j].Type=="bracket" && code[j].Value=="{" {
-// 					br_count+=1
-// 				}
-// 				if code[j].Type=="bracket" && code[j].Value=="}" {
-// 					br_count-=1
-// 				}
-// 				struct_tokens = append(struct_tokens, code[j])
-// 				if br_count==0 {
-// 					normal_exit=true
-// 					break
-// 				}
-// 			}
-// 			if !normal_exit || len(struct_tokens)<2 || len(struct_tokens)%2!=0 {
-// 				return program, errors.New("Unexpected EOF while parsing struct")
-// 			}
-// 			struct_tokens=struct_tokens[1:len(struct_tokens)-1]
-// 			this_struct:=make(map[string]Type)
-// 			for j:=0; j<len(struct_tokens); j+=2 {
-// 				if struct_tokens[j].Type!="variable" || !Is_Valid_Variable_Name(struct_tokens[j].Value) {
-// 					return program, errors.New("Invalid field name\""+struct_tokens[j].Value+"\"")
-// 				}
-// 				if struct_tokens[j+1].Type!="type" {
-// 					return program, errors.New("Invalid token for type")
-// 				}
-// 				out_Type_struct,err:=Type_Token_To_Struct(struct_tokens[j+1], &program)
-// 				if err!=nil {
-// 					return program, err
-// 				}
-// 				this_struct[struct_tokens[j].Value]=out_Type_struct
-// 			}
-// 			program.Structs[code[i+1].Value]=this_struct
-// 			i+=len(struct_tokens)+2+1
-// 			continue
-// 		}
-// 		if code[i].Type=="sys" && code[i].Value=="import" && len(code)-i>=6 && code[i+1].Type=="bracket" && code[i+1].Value=="(" {
-// 			import_tokens:=make([]Token, 0)
-// 			normal_exit:=false
-// 			for j:=i+2; j<len(code); j++ {
-// 				if code[j].Type=="bracket" && code[j].Value==")" {
-// 					normal_exit=true
-// 					break
-// 				}
-// 				import_tokens = append(import_tokens, code[j])
-// 			}
-// 			if !normal_exit || len(import_tokens)<3 || len(import_tokens)%3!=0 {
-// 				return program, errors.New("Unexpected EOF while parsing import statement")
-// 			}
-// 			files_to_read:=make(map[string]*Program)
-// 			module_names:=make([]string, 0)
-// 			for j:=0; j<len(import_tokens); j+=3 {
-// 				if import_tokens[j].Type!="string" || import_tokens[j+1].Type!="sys" || import_tokens[j+1].Value!="as" || import_tokens[j+2].Type!="variable" || !Is_Valid_Variable_Name(import_tokens[j+2].Value) {
-// 					return program, errors.New("invalid syntax for importing")
-// 				}
-// 				if str_index_in_str_arr(filepath.Clean(import_tokens[j+2].Value), importing)!=-1 {
-// 					return program, errors.New("circular imports detected")
-// 				}
-// 				import_tokens[j].Value=filepath.Clean(import_tokens[j].Value)
-// 				module_names = append(module_names, import_tokens[j+2].Value)
-// 				if imported_Programs[import_tokens[j].Value]!=nil {
-// 					files_to_read[import_tokens[j+2].Value]=imported_Programs[import_tokens[j].Value]
-// 				} else {
-// 					file_data,err:=os.ReadFile(import_tokens[j].Value)
-// 					if err!=nil {
-// 						return program, err
-// 					}
-// 					file_tokens,err:=Tokenizer(string(file_data))
-// 					if err!=nil {
-// 						return program, err
-// 					}
-// 					file_program, err:=Parse_Program(file_tokens, append(importing, import_tokens[j+2].Value), import_tokens[j].Value, imported_Programs)
-// 					if err!=nil {
-// 						return program, err
-// 					}
-// 					files_to_read[import_tokens[j+2].Value]=&file_program
-// 					imported_Programs[import_tokens[j].Value]=&file_program
-// 				}
-// 			}
-// 			for _,module:=range module_names {
-// 				for module_struct:=range files_to_read[module].Structs {
-// 					program.Structs[module+"."+module_struct]=make(map[string]Type)
-// 					for field, field_Type:=range files_to_read[module].Structs[module_struct] {
-// 						program.Structs[module+"."+module_struct][field]=field_Type
-// 					}
-// 				}
-// 			}
-// 			for _,module:=range module_names {
-// 				for _,function:=range files_to_read[module].Functions {
-// 					copied_Function:=Copy_Function(function)
-// 					copied_Function.Name=module+"."+copied_Function.Name
-// 					program.Functions = append(program.Functions, copied_Function)
-// 					for _,Argument_Object:=range function.Argument_Objects {
-// 						copied_Object:=*function.Base_Program.Rendered_Scope.Objects[Argument_Object]
-// 						copied_Object.Name=module+"."+copied_Object.Name
-// 						program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, &copied_Object)
-// 						program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope.Objects)-1)
-// 					}
-// 					copied_Object:=*function.Base_Program.Rendered_Scope.Objects[copied_Function.Return_Location]
-// 					copied_Object.Name=module+"."+copied_Object.Name+".return"
-// 					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, &copied_Object)
-// 					program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope.Objects)-1)
-// 				}
-// 			}
-// 			i+=2+len(import_tokens)
-// 			continue
-// 		}
-// 		if code[i].Type=="sys" && code[i].Value=="var" && len(code)-1>=4 {
-// 			variable_tokens:=make([]Token, 0)
-// 			normal_exit:=false
-// 			for j:=i+1; j<len(code); j++ {
-// 				if code[j].Type=="semicolon" {
-// 					normal_exit=true
-// 					break
-// 				}
-// 				variable_tokens = append(variable_tokens, code[j])
-// 			}
-// 			if !normal_exit || len(variable_tokens)<2 || variable_tokens[len(variable_tokens)-1].Type!="type" {
-// 				return program, errors.New("Unexpected EOF while parsing import statement")
-// 			}
-// 			variable_Type,err:=Type_Token_To_Struct(variable_tokens[len(variable_tokens)-1], &program)
-// 			if err!=nil {
-// 				return program, err
-// 			}
-// 			for _,variable_token:=range variable_tokens[:len(variable_tokens)-1] {
-// 				if variable_token.Type!="variable" || !Is_Valid_Variable_Name(variable_token.Value) {
-// 					return program, errors.New("Invalid variable name")
-// 				}
-// 				to_initialise:=true
-// 				new_index:=0
-// 				for index,Obj:=range program.Rendered_Scope.Objects {
-// 					if Obj.Name==variable_token.Value {
-// 						if Compare_Type(variable_Type, Obj.Type) {
-// 							to_initialise=false
-// 							new_index=index
-// 							break
-// 						}
-// 						return program, errors.New("Variable \""+Obj.Name+"\" has already been initialised")
-// 					}
-// 				}
-// 				if to_initialise {
-// 					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(variable_token.Value, variable_Type, &program))
-// 					new_index=len(program.Rendered_Scope.Objects)-1
-// 				}
-// 				program.State_Variables = append(program.State_Variables, new_index)
-// 			}
-// 			i+=len(variable_tokens)+1
-// 			continue
-// 		}
-// 		if code[i].Type=="sys" && code[i].Value=="function" && len(code)-i>=7 {
-// 			// to add bounds check later on
-// 			if code[i+1].Type!="variable" || !Is_Valid_Variable_Name(code[i+1].Value) {
-// 				return program, errors.New("Invalid function name")
-// 			}
-// 			for j:=0; j<len(program.Functions); j++ {
-// 				if program.Functions[j].Name==code[i+1].Value {
-// 					return program, errors.New("Function has already been declared")
-// 				}
-// 			}
-// 			if code[i+2].Type!="bracket" || code[i+2].Value!="(" {
-// 				return program, errors.New("Invalid function declaration syntax")
-// 			}
-// 			argument_tokens:=make([]Token, 0)
-// 			normal_exit:=false
-// 			for j:=i+3; j<len(code); j++ {
-// 				if code[j].Type=="bracket" && code[j].Value==")" {
-// 					normal_exit=true
-// 					break
-// 				}
-// 				argument_tokens = append(argument_tokens, code[j])
-// 			}
-// 			if !normal_exit || len(argument_tokens)%2!=0 {
-// 				return program, errors.New("Invalid function declaration")
-// 			}
-// 			argument_variables:=make(map[string]Type)
-// 			variable_mapping:=make(map[string]*int)
-// 			for j:=0; j<len(argument_tokens); j+=2 {
-// 				if argument_tokens[j].Type!="variable" || !Is_Valid_Variable_Name(argument_tokens[j].Value) {
-// 					return program, errors.New("Invalid argument name")
-// 				}
-// 				if argument_tokens[j+1].Type!="type" {
-// 					return program, errors.New("Invalid argument name")
-// 				}
-// 				variable_Type,err:=Type_Token_To_Struct(argument_tokens[j+1], &program)
-// 				if err!=nil {
-// 					return program, err
-// 				}
-// 				for key:=range argument_variables {
-// 					if key==argument_tokens[j].Value {
-// 						return program, errors.New("Cannot initialize multiple variables with the same name")
-// 					}
-// 				}
-// 				argument_variables[argument_tokens[j].Value]=variable_Type
-// 				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(argument_tokens[j].Value, variable_Type, &program))
-// 				args_index:=len(program.Rendered_Scope.Objects)-1
-// 				variable_mapping[argument_tokens[j].Value]=&args_index
-// 				copied_Object:=Shallow_Copy(program.Rendered_Scope.Objects[len(program.Rendered_Scope.Objects)-1])
-// 				copied_Object.Name=code[i+1].Value+"."+argument_tokens[j].Value
-// 				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, copied_Object)
-// 				program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope.Objects)-1)
-// 				args_index_2:=len(program.Rendered_Scope.Objects)-1
-// 				variable_mapping[code[i+1].Value+"."+argument_tokens[j].Value]=&args_index_2
-// 			}
-// 			if i+len(argument_tokens)+6>=len(code) {
-// 				return program, errors.New("Unexpected EOF")
-// 			}
-// 			if code[i+len(argument_tokens)+4].Type!="type" {
-// 				return program, errors.New("Invalid function declaration")
-// 			}
-// 			function_Type,err:=Type_Token_To_Struct(code[i+len(argument_tokens)+4], &program)
-// 			if err!=nil {
-// 				return program, err
-// 			}
-// 			function_tokens:=make([]Token, 0)
-// 			normal_exit=false
-// 			br_count:=0
-// 			if code[i+len(argument_tokens)+5].Type!="bracket" || code[i+len(argument_tokens)+5].Value!="{" {
-// 				return program, errors.New("Invalid function declaration")
-// 			}
-// 			for j:=i+len(argument_tokens)+5; j<len(code); j++ {
-// 				if code[j].Type=="bracket" && code[j].Value=="{" {
-// 					br_count+=1
-// 				}
-// 				if code[j].Type=="bracket" && code[j].Value=="}" {
-// 					br_count-=1
-// 				}
-// 				if br_count==0 {
-// 					normal_exit=true
-// 					break
-// 				}
-// 				function_tokens = append(function_tokens, code[j])
-// 			}
-// 			if !normal_exit {
-// 				return program, errors.New("Unexpected EOF")
-// 			}
-// 			this_Function:=Function{
-// 				Name: code[i+1].Value,
-// 				Arguments: argument_variables,
-// 				Out_Type: function_Type,
-// 				Base_Scope: &program.Rendered_Scope,
-// 				Base_Program: &program,
-// 				Local_Variables: variable_mapping,
-// 			}
-// 			for _,variable_index:=range variable_mapping {
-// 				this_Function.Argument_Objects = append(this_Function.Argument_Objects, *variable_index)
-// 			}
-// 			for variable:=range variable_mapping {
-// 				this_Function.Stack_Spec = append(this_Function.Stack_Spec, *variable_mapping[variable])
-// 			}
-// 			if len(function_tokens)>1 {
-// 				functions_to_Parse = append(functions_to_Parse, &this_Function)
-// 				function_wise_instructions_to_Parse = append(function_wise_instructions_to_Parse, function_tokens[1:len(function_tokens)-1])
-// 			}
-// 			if this_Function.Out_Type.Raw_Type!="void" {
-// 				program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(this_Function.Name+"."+"return", this_Function.Out_Type, &program))
-// 				this_Function.Return_Location=len(program.Rendered_Scope.Objects)-1
-// 			}
-// 			program.Functions = append(program.Functions, &this_Function)
-// 			i+=len(argument_tokens)+len(function_tokens)+5
-// 			continue
-// 		}
-// 		fmt.Println("Unexpected Token", code[i])
-// 		return program, errors.New("Unexpected Token")
-// 	}
-// 	for index,function:=range functions_to_Parse {
-// 		err:=Parse_Instructions_For_Function(function_wise_instructions_to_Parse[index], function)
-// 		if err!=nil {
-// 			return program, err
-// 		}
-// 	}
-// 	fmt.Println(program)
-// 	return program, nil
-// }
+type Variable_Definition struct {
+	Names                  string
+	Type_Token             Token
+}
 
-// func Parse_Instructions_For_Function(code []Token, function *Function) error {
-// 	program:=function.Base_Program
-// 	lines:=make([][]Token, 0)
-// 	this_line:=make([]Token, 0)
-// 	for i:=0; i<len(code); i++ {
-// 		if code[i].Type=="semicolon" {
-// 			if len(this_line)>0 {
-// 				lines = append(lines, this_line)
-// 			}
-// 			this_line=make([]Token, 0)
-// 			continue
-// 		}
-// 		this_line = append(this_line, code[i])
-// 	}
-// 	if len(this_line)>0 {
-// 		lines = append(lines, this_line)
-// 	}
-// 	for _,line:=range lines {
-// 		if len(line)>=3 && line[0].Type=="sys" && line[0].Value=="var" {
-// 			object_Type,err:=Type_Token_To_Struct(line[len(line)-1], program)
-// 			if err!=nil {
-// 				return err
-// 			}
-// 			for _,variable:=range line[1:len(line)-1] {
-// 				if variable.Type!="variable" {
-// 					return errors.New("Invalid variable initialisation syntax")
-// 				}
-// 				to_initialise:=true
-// 				new_index:=0
-// 				if function.Local_Variables[variable.Value]!=nil {
-// 					return errors.New("Variable \""+variable.Value+"\" has already been initialised")
-// 				}
-// 				if to_initialise {
-// 					program.Rendered_Scope.Objects = append(program.Rendered_Scope.Objects, Initialise_Object(variable.Value, object_Type, program))
-// 					new_index=len(program.Rendered_Scope.Objects)-1
-// 					function.Local_Variables[variable.Value]=&new_index
-// 				}
-// 				function.Stack_Spec = append(function.Stack_Spec, new_index)
-// 			}
-// 			continue
-// 		}
+type Struct_Definition struct {
+	Name                   string
+	Fields_Token           map[string]Token
+}
+
+type Definitions struct {
+	Imports                [][]string
+	Structs                []Struct_Definition
+	Functions              []Function_Definition
+	Variables              []Variable_Definition
+}
+
+func Definition_Parser(code []Token) Definitions {
+	definitions:=Definitions{
 		
-// 		if len(line)==3 && line[0].Type=="sys" && line[0].Value=="set" {
-// 			if line[1].Type!="variable" {
-// 				return errors.New("Invalid instruction")
-// 			}
-// 			if line[2].Type!="number" {
-// 				return errors.New("Invalid instruction")
-// 			}
-// 			to_use_index:=-1
-// 			for index,Object:=range program.Rendered_Scope.Objects {
-// 				if Object.Name==line[1].Value {
-// 					if int_index_in_int_arr(index, program.State_Variables)!=-1 || int_index_in_int_arr(index, function.Stack_Spec)!=-1 || int_index_in_int_arr(index, function.Base_Program.Globally_Available)!=-1 || index==function.Return_Location {
-// 						to_use_index=index
-// 						break
-// 					} else {
-// 						return errors.New("Variable not in scope")
-// 					}
-// 				}
-// 			}
-// 			if to_use_index==-1 {
-// 				return errors.New("Variable not found")
-// 			}
-// 			function.Int_Constants = append(function.Int_Constants, int(line[2].Float64_Constant))
-// 			function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, to_use_index, len(function.Int_Constants)-1})
-// 			continue
-// 		}
-// 		if len(line)==1 && line[0].Type=="sys" && line[0].Value=="return" {
-// 			function.Instructions = append(function.Instructions, []int{RETURN_INSTRUCTION})
-// 			continue
-// 		}
-// 		if len(line)==2 && line[0].Type=="sys" && line[0].Value=="call" {
-// 			if line[1].Type!="variable" {
-// 				return errors.New("Invalid instruction")
-// 			}
-// 			found:=false
-// 			for index,program_function:=range program.Functions {
-// 				if program_function.Name==line[1].Value {
-// 					function.Instructions = append(function.Instructions, []int{CALL_INSTRUCTION, index})
-// 					found=true
-// 					break
-// 				}
-// 			}
-// 			if !found {
-// 				return errors.New("Function not found")
-// 			}
-// 			continue
-// 		}
-// 	}
-// 	return nil
-// }
+	}
+	return definitions
+} 
+
+func Parser(code []Token) (Program, error) {
+	line:=0
+	program:=Program{
+		Structs: make(map[string]map[string]Type),
+	}
+	global_Variable_names:=make([]string, 0)
+	for i:=0; i<len(code); i++ {
+		if code[i].Type=="sys" && code[i].Value=="var" {
+			if !(len(code)-i>=4) {
+				return program, errors.New("incomplete variable declaration at line "+strconv.FormatInt(int64(line), 10))
+			}
+			variable_declaration_tokens:=make([]Token, 0)
+			j:=i
+			for {
+				j++
+				if j>=len(code) {
+					return program, errors.New("unexpected EOF during variable declaration at line "+strconv.FormatInt(int64(line), 10))
+				}
+				if code[j].Type=="semicolon" {
+					break
+				}
+				variable_declaration_tokens = append(variable_declaration_tokens, code[j])
+			}
+			if !(len(variable_declaration_tokens)>=2) {
+				return program, errors.New("incomplete variable declaration at line "+strconv.FormatInt(int64(line), 10))
+			}
+			if variable_declaration_tokens[len(variable_declaration_tokens)-1].Type!="type" {
+				return program, errors.New("expected a type token got "+variable_declaration_tokens[len(variable_declaration_tokens)-1].Type+" at line "+strconv.FormatInt(int64(line), 10))
+			}
+			variable_Type,err:=Type_Token_To_Struct(variable_declaration_tokens[len(variable_declaration_tokens)-1], &program)
+			if err!=nil {
+				return program, errors.New(err.Error()+" at line "+strconv.FormatInt(int64(line), 10))
+			}
+			for _,token:=range variable_declaration_tokens[:len(variable_declaration_tokens)-1] {
+				if token.Type!="variable" {
+					return program, errors.New("expected token of type variable got '"+token.Type+"' at line "+strconv.FormatInt(int64(line), 10))
+				}
+				if !Is_Valid_Variable_Name(token.Value) {
+					return program, errors.New("invalid variable name '"+token.Value+"' at line "+strconv.FormatInt(int64(line), 10))
+				}
+				if str_index_in_str_arr(token.Value, global_Variable_names)!=-1 {
+					return program, errors.New("variable '"+token.Value+"' has already been defined at line "+strconv.FormatInt(int64(line), 10))
+				}
+				global_Variable_names = append(global_Variable_names, token.Value)
+				program.Rendered_Scope = append(program.Rendered_Scope, nil)
+				program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope)-1)
+				program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{token.Value}, Object_Type: variable_Type})
+			}
+			i+=len(variable_declaration_tokens)+1
+			continue
+		}
+		return program, errors.New("unexpected token of type '"+code[i].Type+"' at line "+strconv.FormatInt(int64(line), 10))
+	}
+	return program, nil
+}
