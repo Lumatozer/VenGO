@@ -1,6 +1,3 @@
-var a->*[string];
-
-struct Test {
-    a->string
-    b->Test
+function hello(a->string, b->[string])->void {
+    
 }

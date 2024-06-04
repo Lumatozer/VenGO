@@ -70,7 +70,7 @@ type Program struct {
 
 type Function_Definition struct {
 	Name                   string
-	Argument_Tokens        map[string][]Token
+	Arguments_Variables    map[string]Token
 	Out_Token              Token
 	Instruction_Tokens     []Token
 }
@@ -98,8 +98,12 @@ func Definition_Parser(code []Token) (Definitions, error) {
 	}
 	Structs:=make([]string, 0)
 	global_Variables:=make([]string, 0)
+	Functions:=make([]string, 0)
 	for i:=0; i<len(code); i++ {
-		if code[i].Type=="sys" && code[i].Value=="var" && len(code)-i>=4 {
+		if code[i].Type=="sys" && code[i].Value=="var" {
+			if !(len(code)-i>=4) {
+				return definitions, errors.New("invalid variable declaration statement")
+			}
 			variable_Definition:=Variable_Definition{}
 			j:=i
 			for {
@@ -130,7 +134,10 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			i=j+1
 			continue
 		}
-		if code[i].Type=="sys" && code[i].Value=="struct" && len(code)-i>=5 {
+		if code[i].Type=="sys" && code[i].Value=="struct" {
+			if !(len(code)-i>=5) {
+				return definitions, errors.New("invalid struct declaration statement")
+			}
 			struct_Definition:=Struct_Definition{
 				Fields_Token: make(map[string]Token),
 			}
@@ -189,6 +196,108 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			}
 			i=j
 			definitions.Structs = append(definitions.Structs, struct_Definition)
+			continue
+		}
+		if code[i].Type=="sys" && (code[i].Value=="function" || code[i].Value=="fn") {
+			function_Definition:=Function_Definition{
+				Arguments_Variables: make(map[string]Token),
+			}
+			if !(len(code)-i>=6) {
+				return definitions, errors.New("invalid function declaration statement")
+			}
+			if code[i+1].Type!="variable" {
+				return definitions, errors.New("expected token of type 'variable' during function declaration got type '"+code[i+1].Type+"'")
+			}
+			if !Is_Valid_Variable_Name(code[i+1].Value) {
+				return definitions, errors.New("invalid function name '"+code[i+1].Value+"'")
+			}
+			if str_index_in_str_arr(code[i+1].Value, Functions)!=-1 {
+				return definitions, errors.New("function '"+code[i+1].Value+"' has already been declared")
+			}
+			Functions = append(Functions, code[i+1].Value)
+			function_Definition.Name=code[i+1].Value
+			if code[i+2].Type!="bracket" || code[i+2].Value!="(" {
+				return definitions, errors.New("invalid function declaration statement")
+			}
+			j:=i+1
+			brackets:=0
+			argument_Names:=make([]string, 0)
+			last_comma:=false
+			for {
+				j++
+				if j>=len(code) {
+					return definitions, errors.New("Unexpected EOF while parsing function declaration")
+				}
+				if code[j].Type=="bracket" {
+					if code[j].Value=="(" {
+						brackets+=1
+					}
+					if code[j].Value==")" {
+						brackets-=1
+						if brackets==0 {
+							break
+						}
+					}
+					last_comma=false
+					continue
+				}
+				if code[j].Type=="variable" {
+					if !Is_Valid_Variable_Name(code[j].Value) {
+						return definitions, errors.New("invalid field name '"+code[j].Value+"'")
+					}
+					if str_index_in_str_arr(code[j].Value, argument_Names)!=-1 {
+						return definitions, errors.New("field '"+code[j].Value+"' has already been declared")
+					}
+					argument_Names = append(argument_Names, code[j].Value)
+					j+=1
+					if j>=len(code) {
+						return definitions, errors.New("unexpected EOF while parsing struct declaration statement")
+					}
+					if code[j].Type!="type" {
+						return definitions, errors.New("expected token of type 'type' during struct's field defintion got '"+code[j].Type+"'")
+					}
+					function_Definition.Arguments_Variables[argument_Names[len(argument_Names)-1]]=code[j]
+					last_comma=false
+					continue
+				}
+				if code[j].Type=="comma" {
+					if last_comma {
+						return definitions, errors.New("invalid function declaration statement")
+					}
+					last_comma=true
+					continue
+				}
+			}
+			if code[j+1].Type!="type" {
+				return definitions, errors.New("invalid function declaration statement")
+			}
+			function_Definition.Out_Token=code[j+1]
+			if code[j+2].Type!="bracket" || code[j+2].Value!="{" {
+				return definitions, errors.New("invalid function declaration statement")
+			}
+			j+=1
+			brackets=0
+			for {
+				j++
+				if j>=len(code) {
+					return definitions, errors.New("Unexpected EOF while parsing function declaration")
+				}
+				if code[j].Type=="bracket" {
+					if code[j].Value=="{" {
+						brackets+=1
+					}
+					if code[j].Value=="}" {
+						brackets-=1
+					}
+					if brackets==0 {
+						break
+					}
+					continue
+				}
+				function_Definition.Instruction_Tokens = append(function_Definition.Instruction_Tokens, code[j])
+			}
+			i=j
+			definitions.Functions = append(definitions.Functions, function_Definition)
 			continue
 		}
 		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
