@@ -21,10 +21,10 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	// _,err=Parser(tokens)
-	// if err!=nil {
-	// 	fmt.Println(err)
-	// }
+	_,err=Parser(tokens)
+	if err!=nil {
+		fmt.Println(err)
+	}
 	// program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)
 	// entry_function:=-1
 	// if err!=nil {

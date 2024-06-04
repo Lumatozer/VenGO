@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"strconv"
+	"fmt"
 )
 
 // "errors"
@@ -74,7 +74,7 @@ type Function_Definition struct {
 }
 
 type Variable_Definition struct {
-	Names                  string
+	Names                  []string
 	Type_Token             Token
 }
 
@@ -94,61 +94,52 @@ func Definition_Parser(code []Token) (Definitions, error) {
 	definitions:=Definitions{
 		
 	}
-	return definitions, nil
-} 
-
-func Parser(code []Token) (Program, error) {
-	line:=0
-	program:=Program{
-		Structs: make(map[string]map[string]Type),
-	}
-	global_Variable_names:=make([]string, 0)
+	global_Variables:=make([]string, 0)
 	for i:=0; i<len(code); i++ {
-		if code[i].Type=="sys" && code[i].Value=="var" {
-			if !(len(code)-i>=4) {
-				return program, errors.New("incomplete variable declaration at line "+strconv.FormatInt(int64(line), 10))
-			}
-			variable_declaration_tokens:=make([]Token, 0)
+		if code[i].Type=="sys" && code[i].Value=="var" && len(code)-i>=4 {
+			variable_Definition:=Variable_Definition{}
 			j:=i
 			for {
 				j++
 				if j>=len(code) {
-					return program, errors.New("unexpected EOF during variable declaration at line "+strconv.FormatInt(int64(line), 10))
+					return definitions, errors.New("unexpected EOF while parsing variable declaration statement")
 				}
-				if code[j].Type=="semicolon" {
+				if code[j].Type=="type" {
+					variable_Definition.Type_Token=code[j]
 					break
 				}
-				variable_declaration_tokens = append(variable_declaration_tokens, code[j])
-			}
-			if !(len(variable_declaration_tokens)>=2) {
-				return program, errors.New("incomplete variable declaration at line "+strconv.FormatInt(int64(line), 10))
-			}
-			if variable_declaration_tokens[len(variable_declaration_tokens)-1].Type!="type" {
-				return program, errors.New("expected a type token got "+variable_declaration_tokens[len(variable_declaration_tokens)-1].Type+" at line "+strconv.FormatInt(int64(line), 10))
-			}
-			variable_Type,err:=Type_Token_To_Struct(variable_declaration_tokens[len(variable_declaration_tokens)-1], &program)
-			if err!=nil {
-				return program, errors.New(err.Error()+" at line "+strconv.FormatInt(int64(line), 10))
-			}
-			for _,token:=range variable_declaration_tokens[:len(variable_declaration_tokens)-1] {
-				if token.Type!="variable" {
-					return program, errors.New("expected token of type variable got '"+token.Type+"' at line "+strconv.FormatInt(int64(line), 10))
+				if code[j].Type!="variable" {
+					return definitions, errors.New("expected token of type 'variable' got '"+code[j].Type+"'")
 				}
-				if !Is_Valid_Variable_Name(token.Value) {
-					return program, errors.New("invalid variable name '"+token.Value+"' at line "+strconv.FormatInt(int64(line), 10))
+				if !Is_Valid_Variable_Name(code[j].Value) {
+					return definitions, errors.New("invalid variable name")
 				}
-				if str_index_in_str_arr(token.Value, global_Variable_names)!=-1 {
-					return program, errors.New("variable '"+token.Value+"' has already been defined at line "+strconv.FormatInt(int64(line), 10))
+				if str_index_in_str_arr(code[j].Value, global_Variables)!=-1 {
+					return definitions, errors.New("Variable '"+code[j].Value+"' has already been initialized")
 				}
-				global_Variable_names = append(global_Variable_names, token.Value)
-				program.Rendered_Scope = append(program.Rendered_Scope, nil)
-				program.Globally_Available = append(program.Globally_Available, len(program.Rendered_Scope)-1)
-				program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{token.Value}, Object_Type: variable_Type})
+				variable_Definition.Names = append(variable_Definition.Names, code[j].Value)
+				global_Variables = append(global_Variables, code[j].Value)
 			}
-			i+=len(variable_declaration_tokens)+1
+			if len(variable_Definition.Names)==0 {
+				return definitions, errors.New("invalid variable definition structure")
+			}
+			definitions.Variables = append(definitions.Variables, variable_Definition)
+			i=j+1
 			continue
 		}
-		return program, errors.New("unexpected token of type '"+code[i].Type+"' at line "+strconv.FormatInt(int64(line), 10))
+		return definitions, errors.New("Unexpected token of type '"+code[i].Type+"'")
 	}
+	return definitions, nil
+} 
+
+func Parser(code []Token) (Program, error) {
+	program:=Program{
+		Structs: make(map[string]map[string]Type),
+	}
+	definitions,err:=Definition_Parser(code)
+	if err!=nil {
+		return program, err
+	}
+	fmt.Println(definitions)
 	return program, nil
 }
