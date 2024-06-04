@@ -23,10 +23,10 @@ var Primitive_Types []string=[]string{
 }
 
 func Is_Parsed_Type_Valid(parsed_type []string, depth int) bool {
-	if len(parsed_type)%2!=1 {
-		return false
-	}
-	if len(parsed_type)==1 && !strings.Contains("()[]{}", parsed_type[0]) {
+	if len(parsed_type)==1 {
+		if strings.Contains("()[]{}", parsed_type[0]) {
+			return false
+		}
 		if depth!=0 && parsed_type[0]=="void" {
 			return false
 		}
@@ -38,20 +38,38 @@ func Is_Parsed_Type_Valid(parsed_type []string, depth int) bool {
 	if parsed_type[0]=="[" && parsed_type[len(parsed_type)-1]=="]" && len(parsed_type)>=3 {
 		return Is_Parsed_Type_Valid(parsed_type[1:len(parsed_type)-1], 1)
 	}
+	if parsed_type[0]=="*" && Is_Parsed_Type_Valid(parsed_type[1:], depth+1) {
+		return true
+	}
 	return false
 }
 
-func Type_Parser(parsed_type []string) []Token {
+func Type_Parser(parsed_type []string) ([]Token, error) {
 	if len(parsed_type)==1 {
-		return []Token{Token{Type: "raw", Value: parsed_type[0]}}
+		return []Token{Token{Type: "raw", Value: parsed_type[0]}}, nil
+	}
+	if len(parsed_type)>1 && parsed_type[0]=="*" {
+		children_Token,err:=Type_Parser(parsed_type[1:])
+		if err!=nil {
+			return []Token{}, err
+		}
+		return []Token{Token{Type: "pointer", Tok_Children: children_Token}}, nil
 	}
 	if parsed_type[0]=="[" {
-		return []Token{Token{Type: "array", Tok_Children: Type_Parser(parsed_type[1:len(parsed_type)-1])}}
+		children_Token,err:=Type_Parser(parsed_type[1:len(parsed_type)-1])
+		if err!=nil {
+			return []Token{}, err
+		}
+		return []Token{Token{Type: "array", Tok_Children: children_Token}}, nil
 	}
 	if parsed_type[0]=="{" {
-		return []Token{Token{Type: "dict", Tok_Children: Type_Parser(parsed_type[3:len(parsed_type)-1]), Str_Children: []string{parsed_type[1]}}}
+		children_Token,err:=Type_Parser(parsed_type[3:len(parsed_type)-1])
+		if err!=nil {
+			return []Token{}, err
+		}
+		return []Token{Token{Type: "dict", Tok_Children: children_Token, Str_Children: []string{parsed_type[1]}}}, nil
 	}
-	return []Token{Token{}}
+	return []Token{}, errors.New("invalid Type structure")
 }
 
 func Tokenizer(code string) ([]Token, error) {
@@ -174,6 +192,10 @@ func Tokenizer(code string) ([]Token, error) {
 				filtered_tokens = append(filtered_tokens, Token{Type: "type", Value: tokens[i].Value})
 				continue
 			}
+			if tokens[i].Value=="*" {
+				filtered_tokens = append(filtered_tokens, Token{Type: "pointer", Value: tokens[i].Value})
+				continue
+			}
 			if tokens[i].Value=="," {
 				filtered_tokens = append(filtered_tokens, Token{Type: "comma", Value: tokens[i].Value})
 				continue
@@ -227,10 +249,10 @@ func Tokenizer(code string) ([]Token, error) {
 					if filtered_tokens[j].Value=="]" {
 						arr_count-=1
 					}
-					type_strings = append(type_strings, filtered_tokens[j].Value)
 				}
-				if filtered_tokens[j].Type!="bracket" {
-					type_strings = append(type_strings, filtered_tokens[j].Value)
+				type_strings = append(type_strings, filtered_tokens[j].Value)
+				if filtered_tokens[j].Type=="pointer" {
+					continue
 				}
 				if arr_count==0 && dict_count==0 {
 					break
@@ -239,7 +261,11 @@ func Tokenizer(code string) ([]Token, error) {
 			if !Is_Parsed_Type_Valid(type_strings, 0) {
 				return make([]Token, 0), errors.New("Invalid Type specification")
 			}
-			filtered_tokens_2 = append(filtered_tokens_2, Token{Type: "type", Tok_Children: Type_Parser(type_strings)})
+			parsed_Type,err:=Type_Parser(type_strings)
+			if err!=nil {
+				return make([]Token, 0), err
+			}
+			filtered_tokens_2 = append(filtered_tokens_2, Token{Type: "type", Tok_Children: parsed_Type})
 			i+=j-i
 			continue
 		}

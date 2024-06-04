@@ -90,11 +90,11 @@ type Definitions struct {
 	Variables              []Variable_Definition
 }
 
-func Definition_Parser(code []Token) Definitions {
+func Definition_Parser(code []Token) (Definitions, error) {
 	definitions:=Definitions{
 		
 	}
-	return definitions
+	return definitions, nil
 } 
 
 func Parser(code []Token) (Program, error) {

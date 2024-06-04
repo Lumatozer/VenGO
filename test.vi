@@ -1,2 +1,1 @@
-var a b->string;
-var c d->[string];
+var a->*[string];
