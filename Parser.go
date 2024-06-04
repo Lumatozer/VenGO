@@ -16,6 +16,7 @@ const (
 	STRING_TYPE            int8 = iota
 	FLOAT_TYPE             int8 = iota
 	FLOAT64_TYPE           int8 = iota
+	POINTER_TYPE           int8 = iota
 )
 
 type Object struct {
@@ -49,13 +50,14 @@ type Type struct {
 	Is_Dict                bool
 	Raw_Type               int8
 	Is_Struct              bool
-	Struct_Details         map[string]Type
+	Is_Pointer             bool
+	Struct_Details         map[string]*Type
 	Child                  *Type
 }
 
 type Program struct {
 	Functions              []*Function
-	Structs                map[string]map[string]Type
+	Structs                map[string]map[string]*Type
 	Rendered_Scope         []*Object // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
 	Object_References      []Object_Reference
 	Globally_Available     []int
@@ -94,6 +96,7 @@ func Definition_Parser(code []Token) (Definitions, error) {
 	definitions:=Definitions{
 		
 	}
+	Structs:=make([]string, 0)
 	global_Variables:=make([]string, 0)
 	for i:=0; i<len(code); i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" && len(code)-i>=4 {
@@ -109,10 +112,10 @@ func Definition_Parser(code []Token) (Definitions, error) {
 					break
 				}
 				if code[j].Type!="variable" {
-					return definitions, errors.New("expected token of type 'variable' got '"+code[j].Type+"'")
+					return definitions, errors.New("expected token of type 'variable' during variable definition got '"+code[j].Type+"'")
 				}
 				if !Is_Valid_Variable_Name(code[j].Value) {
-					return definitions, errors.New("invalid variable name")
+					return definitions, errors.New("invalid variable name '"+code[j].Value+"'")
 				}
 				if str_index_in_str_arr(code[j].Value, global_Variables)!=-1 {
 					return definitions, errors.New("Variable '"+code[j].Value+"' has already been initialized")
@@ -127,14 +130,75 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			i=j+1
 			continue
 		}
-		return definitions, errors.New("Unexpected token of type '"+code[i].Type+"'")
+		if code[i].Type=="sys" && code[i].Value=="struct" && len(code)-i>=5 {
+			struct_Definition:=Struct_Definition{
+				Fields_Token: make(map[string]Token),
+			}
+			if code[i+1].Type!="variable" {
+				return definitions, errors.New("expected token of type 'variable' during struct definition got '"+code[i+1].Type+"'")
+			}
+			if !Is_Valid_Variable_Name(code[i+1].Value) {
+				return definitions, errors.New("invalid struct name '"+code[i+1].Value+"'")
+			}
+			if str_index_in_str_arr(code[i+1].Value, Structs)!=-1 {
+				return definitions, errors.New("struct '"+code[i+1].Value+"' has already been declared")
+			}
+			struct_Definition.Name=code[i+1].Value
+			Structs = append(Structs, code[i+1].Value)
+			j:=i+1
+			brackets:=0
+			field_Names:=make([]string, 0)
+			for {
+				j+=1
+				if j>=len(code) {
+					return definitions, errors.New("unexpected EOF while parsing struct declaration statement")
+				}
+				if code[j].Type=="bracket" {
+					if code[j].Value=="{" {
+						brackets+=1
+						continue
+					}
+					if code[j].Value=="}" {
+						brackets-=1
+						if brackets==0 {
+							break
+						}
+						continue
+					}
+				}
+				if code[j].Type=="variable" {
+					if !Is_Valid_Variable_Name(code[j].Value) {
+						return definitions, errors.New("invalid field name '"+code[j].Value+"'")
+					}
+					if str_index_in_str_arr(code[j].Value, field_Names)!=-1 {
+						return definitions, errors.New("field '"+code[j].Value+"' has already been declared")
+					}
+					field_Names = append(field_Names, code[j].Value)
+					j+=1
+					if j>=len(code) {
+						return definitions, errors.New("unexpected EOF while parsing struct declaration statement")
+					}
+					if code[j].Type!="type" {
+						return definitions, errors.New("expected token of type 'type' during struct's field defintion got '"+code[j].Type+"'")
+					}
+					struct_Definition.Fields_Token[field_Names[len(field_Names)-1]]=code[j]
+				}
+				if brackets==0 {
+					break
+				}
+			}
+			i=j
+			definitions.Structs = append(definitions.Structs, struct_Definition)
+			continue
+		}
+		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
 	}
 	return definitions, nil
 } 
 
 func Parser(code []Token) (Program, error) {
 	program:=Program{
-		Structs: make(map[string]map[string]Type),
+		Structs: make(map[string]map[string]*Type),
 	}
 	definitions,err:=Definition_Parser(code)
 	if err!=nil {

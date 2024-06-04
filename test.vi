@@ -1,1 +1,6 @@
 var a->*[string];
+
+struct Test {
+    a->string
+    b->Test
+}

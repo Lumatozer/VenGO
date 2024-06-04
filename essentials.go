@@ -78,7 +78,7 @@ func Type_Token_To_Struct(Type_Token Token, program *Program) (Type, error) {
 	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64", "void"})!=-1 {
 		return Type{Raw_Type: String_Type_To_Int8(Type_Token.Value)}, nil
 	} else if program.Structs[Type_Token.Value]!=nil {
-		return Type{Struct_Details: program.Structs[Type_Token.Value]}, nil
+		return Type{Struct_Details: program.Structs[Type_Token.Value], Is_Struct: true}, nil
 	} else {
 		return Type{}, errors.New("invalid type '"+Type_Token.Value+"'")
 	}
