@@ -305,11 +305,70 @@ func Definition_Parser(code []Token) (Definitions, error) {
 	return definitions, nil
 } 
 
+func Get_Token_Struct_Dependence(token Token) (Token, error) {
+	if token.Type=="type" {
+		return Get_Token_Struct_Dependence(token.Tok_Children[0])
+	}
+	if token.Type=="pointer" {
+		return token, nil
+	}
+	if token.Type=="array" {
+		return Get_Token_Struct_Dependence(token.Tok_Children[0])
+	}
+	if token.Type=="dict" {
+		return Get_Token_Struct_Dependence(token.Tok_Children[0])
+	}
+	if token.Type=="raw" {
+		return token, nil
+	}
+	return Token{}, errors.New("Unable to resolve token dependence")
+}
+
+func Get_Struct_Definition_Refers(struct_Definition Struct_Definition) ([]string, error) {
+	out_Dependencies:=make([]string, 0)
+	for field:=range struct_Definition.Fields_Token {
+		dependence_Token,err:=Get_Token_Struct_Dependence(struct_Definition.Fields_Token[field])
+		if err!=nil {
+			return out_Dependencies, err
+		}
+		if dependence_Token.Type!="pointer" && str_index_in_str_arr(dependence_Token.Value, out_Dependencies)==-1 && str_index_in_str_arr(dependence_Token.Value, Primitive_Types)==-1 {
+			out_Dependencies = append(out_Dependencies, dependence_Token.Value)
+		}
+	}
+	return out_Dependencies, nil
+}
+
+func Is_Struct_Declaration_Recursive(struct_name string, nested_Inside []string, struct_Dependencies map[string][]string) bool {
+	for _,Struct:=range struct_Dependencies[struct_name] {
+		if str_index_in_str_arr(Struct, nested_Inside)!=-1 {
+			return true
+		} else {
+			return Is_Struct_Declaration_Recursive(Struct, append(nested_Inside, Struct), struct_Dependencies)
+		}
+	}
+	return false
+}
+
 func Parser(code []Token) (Program, error) {
 	program:=Program{
 		Structs: make(map[string]map[string]*Type),
 	}
 	definitions,err:=Definition_Parser(code)
+	struct_Keys:=make([]string, 0)
+	struct_Dependencies:=make(map[string][]string)
+	for _,Struct:=range definitions.Structs {
+		dependence,err:=Get_Struct_Definition_Refers(Struct)
+		if err!=nil {
+			return program, err
+		}
+		struct_Dependencies[Struct.Name]=dependence
+		struct_Keys = append(struct_Keys, Struct.Name)
+	}
+	for _,Struct:=range struct_Keys {
+		if Is_Struct_Declaration_Recursive(Struct, []string{Struct}, struct_Dependencies) {
+			return program, errors.New("struct '"+Struct+"' is recursive")
+		}
+	}
 	if err!=nil {
 		return program, err
 	}
