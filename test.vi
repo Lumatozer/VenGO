@@ -1,12 +1,4 @@
 struct A {
     a->int
-    b->B
-}
-
-struct B {
-    a->C
-}
-
-struct C {
-    a->B
+    b->*A
 }

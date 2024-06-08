@@ -57,7 +57,7 @@ type Type struct {
 
 type Program struct {
 	Functions              []*Function
-	Structs                map[string]map[string]*Type
+	Structs                map[string]*Type
 	Rendered_Scope         []*Object // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
 	Object_References      []Object_Reference
 	Globally_Available     []int
@@ -351,7 +351,7 @@ func Is_Struct_Declaration_Recursive(struct_name string, nested_Inside []string,
 
 func Parser(code []Token) (Program, error) {
 	program:=Program{
-		Structs: make(map[string]map[string]*Type),
+		Structs: make(map[string]*Type),
 	}
 	definitions,err:=Definition_Parser(code)
 	struct_Keys:=make([]string, 0)
@@ -366,8 +366,20 @@ func Parser(code []Token) (Program, error) {
 	}
 	for _,Struct:=range struct_Keys {
 		if Is_Struct_Declaration_Recursive(Struct, []string{Struct}, struct_Dependencies) {
-			return program, errors.New("struct '"+Struct+"' is recursive")
+			return program, errors.New("definition for struct '"+Struct+"' is recursive")
 		}
+		program.Structs[Struct]=&Type{Struct_Details: make(map[string]*Type)}
+	}
+	for _,Struct:=range definitions.Structs {
+		struct_Type:=Type{Is_Struct: true, Struct_Details: make(map[string]*Type)}
+		for field:=range Struct.Fields_Token {
+			rendered_Type,err:=Type_Token_To_Struct(Struct.Fields_Token[field], &program)
+			if err!=nil {
+				return program, err
+			}
+			struct_Type.Struct_Details[field]=rendered_Type
+		}
+		*program.Structs[Struct.Name]=struct_Type
 	}
 	if err!=nil {
 		return program, err

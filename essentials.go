@@ -57,30 +57,37 @@ func String_Type_To_Int8(string_Type string) int8 {
 	return 0
 }
 
-func Type_Token_To_Struct(Type_Token Token, program *Program) (Type, error) {
+func Type_Token_To_Struct(Type_Token Token, program *Program) (*Type, error) {
 	if Type_Token.Type=="type" {
 		return Type_Token_To_Struct(Type_Token.Tok_Children[0], program)
 	}
 	if Type_Token.Type=="array" {
 		new_Type,err:=Type_Token_To_Struct(Type_Token.Tok_Children[0], program)
 		if err!=nil {
-			return Type{}, err
+			return &Type{}, err
 		}
-		return Type{Is_Array: true, Child: &new_Type}, nil
+		return& Type{Is_Array: true, Child: new_Type}, nil
 	}
 	if Type_Token.Type=="dict" {
 		new_Type,err:=Type_Token_To_Struct(Type_Token.Tok_Children[0], program)
 		if err!=nil {
-			return Type{}, err
+			return &Type{}, err
 		}
-		return Type{Is_Dict: true, Raw_Type: String_Type_To_Int8(Type_Token.Str_Children[0]), Child: &new_Type}, nil
+		return &Type{Is_Dict: true, Raw_Type: String_Type_To_Int8(Type_Token.Str_Children[0]), Child: new_Type}, nil
+	}
+	if Type_Token.Type=="pointer" {
+		rendered_Type,err:=Type_Token_To_Struct(Type_Token.Tok_Children[0], program)
+		if err!=nil {
+			return &Type{}, err
+		}
+		return &Type{Is_Pointer: true, Child: rendered_Type}, nil
 	}
 	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64", "void"})!=-1 {
-		return Type{Raw_Type: String_Type_To_Int8(Type_Token.Value)}, nil
+		return &Type{Raw_Type: String_Type_To_Int8(Type_Token.Value)}, nil
 	} else if program.Structs[Type_Token.Value]!=nil {
-		return Type{Struct_Details: program.Structs[Type_Token.Value], Is_Struct: true}, nil
+		return program.Structs[Type_Token.Value], nil
 	} else {
-		return Type{}, errors.New("invalid type '"+Type_Token.Value+"'")
+		return &Type{}, errors.New("invalid type '"+Type_Token.Value+"'")
 	}
 }
 
