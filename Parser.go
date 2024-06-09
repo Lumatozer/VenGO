@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"os"
 )
 
 // "errors"
@@ -56,7 +58,7 @@ type Type struct {
 }
 
 type Program struct {
-	Functions              []*Function
+	Functions              []Function
 	Structs                map[string]*Type
 	Rendered_Scope         []*Object // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
 	Object_References      []Object_Reference
@@ -99,6 +101,8 @@ func Definition_Parser(code []Token) (Definitions, error) {
 	Structs:=make([]string, 0)
 	global_Variables:=make([]string, 0)
 	Functions:=make([]string, 0)
+	imported_Aliases:=make([]string, 0)
+	imported_Files:=make([]string, 0)
 	for i:=0; i<len(code); i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" {
 			if !(len(code)-i>=4) {
@@ -132,6 +136,83 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			}
 			definitions.Variables = append(definitions.Variables, variable_Definition)
 			i=j+1
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="import" {
+			if !(len(code)-i>=6) {
+				return definitions, errors.New("invalid variable declaration statement")
+			}
+			brackets:=0
+			j:=i
+			last_Token:=Token{}
+			file_Path:=""
+			for {
+				j++
+				if j>=len(code) {
+					return definitions, errors.New("unexpected EOF while parsing variable declaration statement")
+				}
+				if code[j].Type=="bracket" {
+					if code[j].Value=="(" {
+						if j!=i+1 {
+							return definitions, errors.New("invalid import declaration statement")
+						}
+						brackets+=1
+						last_Token=code[j]
+						continue
+					}
+					if code[j].Value==")" {
+						if last_Token.Type!="variable" {
+							return definitions, errors.New("invalid import declaration statement")
+						}
+						brackets-=1
+						if brackets==0 {
+							break
+						}
+						last_Token=code[j]
+						continue
+					}
+					return definitions, errors.New("invalid import declaration statement")
+				}
+				if code[j].Type=="string" {
+					if j!=i+2 && last_Token.Type!="variable" {
+						return definitions, errors.New("invalid import declaration statement")
+					}
+					relative_Path,err:=filepath.Abs(code[j].Value)
+					if err!=nil {
+						return definitions, err
+					}
+					if str_index_in_str_arr(relative_Path, imported_Files)!=-1 {
+						return definitions, errors.New("same file '"+relative_Path+"' being imported multiple times")
+					}
+					imported_Files = append(imported_Files, relative_Path)
+					file_Path=relative_Path
+					last_Token=code[j]
+					continue
+				}
+				if code[j].Type=="sys" {
+					if last_Token.Type!="string" {
+						return definitions, errors.New("invalid import declaration statementx")
+					}
+					if code[j].Value!="as" {
+						return definitions, errors.New("invalid import declaration statement")
+					}
+					last_Token=code[j]
+					continue
+				}
+				if code[j].Type=="variable" {
+					if last_Token.Type!="sys" {
+						return definitions, errors.New("invalid import declaration statement")
+					}
+					if str_index_in_str_arr(code[j].Value, imported_Aliases)!=-1 {
+						return definitions, errors.New("same module alias '"+code[j].Value+"' used twice")
+					}
+					imported_Aliases = append(imported_Aliases, code[j].Value)
+					definitions.Imports = append(definitions.Imports, []string{file_Path, code[j].Value})
+					last_Token=code[j]
+					continue
+				}
+			}
+			i=j
 			continue
 		}
 		if code[i].Type=="sys" && code[i].Value=="struct" {
@@ -354,6 +435,34 @@ func Parser(code []Token) (Program, error) {
 		Structs: make(map[string]*Type),
 	}
 	definitions,err:=Definition_Parser(code)
+	if err!=nil {
+		return program, err
+	}
+	for _,Import_Declaration:=range definitions.Imports {
+		file_Path:=Import_Declaration[0]
+		Alias:=Import_Declaration[1]
+		data,err:=os.ReadFile(file_Path)
+		if err!=nil {
+			return program, err
+		}
+		Imported_File,err:=Tokenizer(string(data))
+		if err!=nil {
+			return program, err
+		}
+		Imported_Program,err:=Parser(Imported_File)
+		if err!=nil {
+			return program, err
+		}
+		for Imported_Struct:=range Imported_Program.Structs {
+			program.Structs[Alias+"."+Imported_Struct]=Imported_Program.Structs[Imported_Struct]
+		}
+		for _,Imported_Function:=range Imported_Program.Functions {
+			copied_Imported_Function:=Imported_Function
+			copied_Imported_Function.Name=Alias+"."+copied_Imported_Function.Name
+			program.Functions = append(program.Functions, copied_Imported_Function)
+		}
+	}
+	base_Function_Variable_Scope:=make(map[string]int)
 	struct_Keys:=make([]string, 0)
 	struct_Dependencies:=make(map[string][]string)
 	for _,Struct:=range definitions.Structs {
@@ -381,9 +490,36 @@ func Parser(code []Token) (Program, error) {
 		}
 		*program.Structs[Struct.Name]=struct_Type
 	}
-	if err!=nil {
-		return program, err
+	for _,variable_Definition:=range definitions.Variables {
+		for _,variable_Name:=range variable_Definition.Names {
+			variable_Type,err:=Type_Token_To_Struct(variable_Definition.Type_Token, &program)
+			if err!=nil {
+				return program, err
+			}
+			program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{variable_Name}, Object_Type: *variable_Type})
+			program.Globally_Available = append(program.Globally_Available, len(program.Object_References)-1)
+			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+			base_Function_Variable_Scope[variable_Name]=len(program.Object_References)-1
+		}
+	}
+	for _,Function_Definition:=range definitions.Functions {
+		copy_base_Function_Variable_Scope:=base_Function_Variable_Scope
+		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope}
+		for argument_Name, argument_Type_Token:=range Function_Definition.Arguments_Variables {
+			argument_Type,err:=Type_Token_To_Struct(argument_Type_Token, &program)
+			if err!=nil {
+				return program, err
+			}
+			function_Declaration.Arguments[argument_Name]=*argument_Type
+			argument_Reference:=Object_Reference{Aliases: []string{argument_Name, function_Declaration.Name+"."+argument_Name}, Object_Type: *argument_Type}
+			program.Object_References = append(program.Object_References, argument_Reference)
+			function_Declaration.Stack_Spec[len(program.Object_References)-1]=Type_Struct_To_Object_Abstract(*argument_Type)
+			function_Declaration.Variable_Scope[argument_Name]=len(program.Object_References)-1
+			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+		}
+		program.Functions = append(program.Functions, function_Declaration)
 	}
 	fmt.Println(definitions)
+	fmt.Println(program.Structs)
 	return program, nil
 }

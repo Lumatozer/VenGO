@@ -1,8 +1,3 @@
-import (
-    "lib1.vi" as libone
-)
-
-function test()->void {
-    set libone.hi.a 1;
-    call libone.hi;
+struct Lib {
+    a->string
 }

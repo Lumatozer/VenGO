@@ -80,7 +80,7 @@ func Type_Token_To_Struct(Type_Token Token, program *Program) (*Type, error) {
 		if err!=nil {
 			return &Type{}, err
 		}
-		return &Type{Is_Pointer: true, Child: rendered_Type}, nil
+		return &Type{Is_Pointer: true, Child: rendered_Type, Raw_Type: POINTER_TYPE}, nil
 	}
 	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64", "void"})!=-1 {
 		return &Type{Raw_Type: String_Type_To_Int8(Type_Token.Value)}, nil
@@ -133,4 +133,17 @@ func Default_Object_By_Type(variable_Type Type) interface{} {
 		}
 	}
 	return int(0)
+}
+
+func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
+	if Type_Object.Is_Array {
+		return Object_Abstract{Is_Array: true}
+	}
+	if Type_Object.Is_Dict {
+		return Object_Abstract{Is_Mapping: true}
+	}
+	if Type_Object.Is_Pointer {
+		return Object_Abstract{Is_Raw: true, Raw_Type: POINTER_TYPE}
+	}
+	return Object_Abstract{Is_Array: true, Raw_Type: Type_Object.Raw_Type}
 }
