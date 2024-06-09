@@ -1,7 +1,3 @@
-import (
-    "lib.vi" as lib
-)
+function main()->void {
 
-function hello(a->*[string])->lib.Lib {
-    
 }

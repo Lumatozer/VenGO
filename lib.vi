@@ -1,7 +1,0 @@
-struct Lib {
-    a->string
-}
-
-function test()->int {
-
-}
