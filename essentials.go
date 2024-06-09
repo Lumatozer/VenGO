@@ -83,7 +83,7 @@ func Type_Token_To_Struct(Type_Token Token, program *Program) (*Type, error) {
 		return &Type{Is_Pointer: true, Child: rendered_Type, Raw_Type: POINTER_TYPE}, nil
 	}
 	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64", "void"})!=-1 {
-		return &Type{Raw_Type: String_Type_To_Int8(Type_Token.Value)}, nil
+		return &Type{Raw_Type: String_Type_To_Int8(Type_Token.Value), Is_Raw: true}, nil
 	} else if program.Structs[Type_Token.Value]!=nil {
 		return program.Structs[Type_Token.Value], nil
 	} else {

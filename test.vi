@@ -2,8 +2,6 @@ import (
     "lib.vi" as lib
 )
 
-var a->lib.Lib;
-
-function a(b->string)->lib.Lib {
-
+function hello(a->*[string])->lib.Lib {
+    
 }

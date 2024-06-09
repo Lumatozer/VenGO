@@ -50,6 +50,7 @@ type Function struct {
 type Type struct {
 	Is_Array               bool
 	Is_Dict                bool
+	Is_Raw                 bool
 	Raw_Type               int8
 	Is_Struct              bool
 	Is_Pointer             bool
@@ -460,6 +461,14 @@ func Parser(code []Token) (Program, error) {
 			copied_Imported_Function:=Imported_Function
 			copied_Imported_Function.Name=Alias+"."+copied_Imported_Function.Name
 			program.Functions = append(program.Functions, copied_Imported_Function)
+			for argument_Name, argument_type:=range copied_Imported_Function.Arguments {
+				program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{Alias+"."+Imported_Function.Name+"."+argument_Name}, Object_Type: argument_type})
+				program.Globally_Available = append(program.Globally_Available, len(program.Object_References)-1)
+				program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+			}
+			program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{Alias+"."+Imported_Function.Name+"."+"return"}, Object_Type: Imported_Function.Out_Type})
+			program.Globally_Available = append(program.Globally_Available, len(program.Object_References)-1)
+			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
 		}
 	}
 	base_Function_Variable_Scope:=make(map[string]int)
@@ -504,7 +513,11 @@ func Parser(code []Token) (Program, error) {
 	}
 	for _,Function_Definition:=range definitions.Functions {
 		copy_base_Function_Variable_Scope:=base_Function_Variable_Scope
-		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope}
+		function_Out_Type,err:=Type_Token_To_Struct(Function_Definition.Out_Token, &program)
+		if err!=nil {
+			return program, err
+		}
+		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type}
 		for argument_Name, argument_Type_Token:=range Function_Definition.Arguments_Variables {
 			argument_Type,err:=Type_Token_To_Struct(argument_Type_Token, &program)
 			if err!=nil {
@@ -517,9 +530,12 @@ func Parser(code []Token) (Program, error) {
 			function_Declaration.Variable_Scope[argument_Name]=len(program.Object_References)-1
 			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
 		}
+		program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{function_Declaration.Name+"."+"result"}, Object_Type: function_Declaration.Out_Type})
+		program.Globally_Available = append(program.Globally_Available, len(program.Object_References)-1)
+		program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
 		program.Functions = append(program.Functions, function_Declaration)
 	}
 	fmt.Println(definitions)
-	fmt.Println(program.Structs)
+	fmt.Println(program)
 	return program, nil
 }
