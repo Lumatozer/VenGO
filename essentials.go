@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -146,4 +147,44 @@ func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
 		return Object_Abstract{Is_Raw: true, Raw_Type: POINTER_TYPE}
 	}
 	return Object_Abstract{Is_Array: true, Raw_Type: Type_Object.Raw_Type}
+}
+
+func Equal_Type(a *Type, b *Type) bool {
+	if a.Is_Array!=b.Is_Array {
+		fmt.Println(1)
+		return false
+	}
+	if a.Is_Dict!=b.Is_Dict {
+		fmt.Println(2)
+		return false
+	}
+	if a.Is_Pointer!=b.Is_Pointer {
+		fmt.Println(3)
+		return false
+	}
+	if a.Is_Raw!=b.Is_Raw {
+		fmt.Println(4)
+		return false
+	}
+	if a.Is_Struct!=b.Is_Struct {
+		fmt.Println(5)
+		return false
+	}
+	if a.Raw_Type!=b.Raw_Type {
+		fmt.Println(6, a.Raw_Type, b.Raw_Type)
+		return false
+	}
+	if a.Child!=nil && b.Child!=nil {
+		return Equal_Type(a.Child, b.Child)
+	}
+	if a.Is_Struct && b.Is_Struct {
+		for field, field1_Type:=range a.Struct_Details {
+			field2_Type, found:=b.Struct_Details[field]
+			if !found {
+				return false
+			}
+			return Equal_Type(field1_Type, field2_Type)
+		}
+	}
+	return true
 }

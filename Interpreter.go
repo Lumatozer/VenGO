@@ -1,52 +1,46 @@
 package main
 
-// import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-// func Interpreter(entry *Function) Object {
-// 	return_Object:=Object{}
-// 	function_scope := Copy_Scope(entry.Base_Scope)
-// 	for _, index := range entry.Stack_Spec {
-// 		new_Object := Object{Name: function_scope.Objects[index].Name, Type: function_scope.Objects[index].Type}
-// 		to_copy:=false
-// 		for _,local_var:=range entry.Local_Variables {
-// 			if *local_var==index {
-// 				to_copy=true
-// 			}
-// 		}
-// 		if to_copy {
-// 			new_Object=*Deep_Copy(function_scope.Objects[index])
-// 		} else {
-// 			Initialise_Object_Mapping(&new_Object)
-// 			Initialise_Object_Values(&new_Object)
-// 		}
-// 		function_scope.Objects[index] = &new_Object
-// 	}
-// 	for i := 0; i < len(entry.Instructions); i++ {
-// 		bytecode := entry.Instructions[i]
-// 		switch operator := bytecode[0]; operator {
-// 		case SET_INSTRUCTION:
-// 			*function_scope.Objects[bytecode[1]].Int_Value = entry.Int_Constants[bytecode[2]]
-// 		case RETURN_INSTRUCTION:
-// 			i=len(entry.Instructions)
-// 		case CALL_INSTRUCTION:
-// 			Interpreter(entry.Base_Program.Functions[bytecode[1]])
-// 		}
-// 	}
-// 	covered:=make([]*int, 0)
-// 	for _,object:=range function_scope.Objects {
-// 		found:=false
-// 		for _,covered_Object:=range covered {
-// 			if covered_Object==object.Int_Value {
-// 				found=true
-// 			}
-// 		}
-// 		if !found {
-// 			if object.Int_Value!=nil {
-// 				fmt.Print(*object.Int_Value, " ")
-// 			}
-// 			covered = append(covered, object.Int_Value)
-// 		}
-// 	}
-// 	fmt.Println()
-// 	return return_Object
-// }
+type Execution_Result struct {
+	Gas_Used        int
+	Return_Value    interface{}
+	Error           error
+}
+
+func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
+	out := Execution_Result{}
+	scope := function.Base_Program.Rendered_Scope
+	for stack_index, object := range stack {
+		scope[stack_index] = object
+	}
+	for i := 0; i < len(function.Instructions); i++ {
+		instructions := function.Instructions[i]
+		opcode := instructions[0]
+		if opcode == SET_INSTRUCTION {
+			scope[instructions[1]].Value = instructions[2]
+		}
+		if opcode == ADD_INSTRUCTION {
+			var1,is_int:=scope[instructions[1]].Value.(int)
+			if !is_int {
+				out.Error=errors.New("variable is not of type integer")
+				return out
+			}
+			var2,is_int:=scope[instructions[2]].Value.(int)
+			if !is_int {
+				out.Error=errors.New("variable is not of type integer")
+				return out
+			}
+			scope[instructions[3]].Value = var1+var2
+		}
+	}
+	for i := range scope {
+		if scope[i].Value != nil {
+			fmt.Println(scope[i].Value)
+		}
+	}
+	return out
+}

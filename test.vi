@@ -1,3 +1,6 @@
-function main()->void {
+var a->int;
 
+function main()->void {
+    set a 5;
+    add a a a;
 }

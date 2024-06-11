@@ -64,7 +64,6 @@ type Program struct {
 	Rendered_Scope         []*Object // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
 	Object_References      []Object_Reference
 	Globally_Available     []int
-
 	Int64_Constants        []int64
 	String_Constants       []string
 	Float_Constants        []float32
@@ -522,8 +521,136 @@ func Parser(code []Token) (Program, error) {
 			function_Declaration.Variable_Scope[argument_Name]=len(program.Object_References)-1
 			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
 		}
+		err=Function_Parser(&Function_Definition, &function_Declaration, &program)
+		if err!=nil {
+			return program, err
+		}
+		program.Functions = append(program.Functions, function_Declaration)
 	}
-	fmt.Println(definitions)
 	fmt.Println(program)
 	return program, nil
+}
+
+func Function_Parser(function_Definition *Function_Definition, function *Function, program *Program) error {
+	code:=function_Definition.Instruction_Tokens
+	global_Variables:=make([]string, 0)
+	for i:=range program.Globally_Available {
+		global_Variables = append(global_Variables, program.Object_References[i].Aliases[0])
+	}
+	local_Variables:=make([]string, 0)
+	for local_Variable:=range function.Variable_Scope {
+		local_Variables = append(local_Variables, local_Variable)
+	}
+	for i:=0; i<len(code); i++ {
+		if code[i].Type=="sys" && code[i].Value=="var" {
+			starting_length:=len(global_Variables)+len(local_Variables)
+			if !(len(code)-i>=4) {
+				return errors.New("invalid variable declaration statement")
+			}
+			variable_Type:=&Type{}
+			j:=i
+			variables_Added:=make([]string, 0)
+			for {
+				j++
+				if j>=len(code) {
+					return errors.New("unexpected EOF while parsing variable declaration statement")
+				}
+				if code[j].Type=="type" {
+					err:=errors.New("")
+					variable_Type,err=Type_Token_To_Struct(code[j], program)
+					if err!=nil {
+						return err
+					}
+					break
+				}
+				if code[j].Type!="variable" {
+					return errors.New("expected token of type 'variable' during variable definition got '"+code[j].Type+"'")
+				}
+				if !Is_Valid_Variable_Name(code[j].Value) {
+					return errors.New("invalid variable name '"+code[j].Value+"'")
+				}
+				if str_index_in_str_arr(code[j].Value, local_Variables)!=-1 && str_index_in_str_arr(code[j].Value, global_Variables)==-1 {
+					return errors.New("Variable '"+code[j].Value+"' has already been initialized")
+				}
+				local_Variables = append(local_Variables, code[j].Value)
+				variables_Added = append(variables_Added, code[j].Value)
+			}
+			if len(global_Variables)+len(local_Variables)-starting_length==0 {
+				return errors.New("invalid variable definition structure")
+			}
+			for _,variable:=range variables_Added {
+				program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{variable}, Object_Type: *variable_Type})
+				program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+				function.Stack_Spec[len(program.Rendered_Scope)-1]=Type_Struct_To_Object_Abstract(*variable_Type)
+				function.Variable_Scope[variable]=len(program.Rendered_Scope)-1
+				function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, len(program.Rendered_Scope)-1, 0})
+			}
+			i=j+1
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="set" {
+			if len(code)-i<4 {
+				return errors.New("invalid set instruction definition structure")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid set instruction definition structure")
+			}
+			variable_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+				return errors.New("expected type a variable integer while parsing set instruction")
+			}
+			if code[i+2].Type!="number" || code[i+3].Type!="semicolon" {
+				return errors.New("invalid set instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, variable_Index, int(code[i+2].Float64_Constant)})
+			i+=3
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="add" {
+			if len(code)-i<5 {
+				return errors.New("invalid set instruction definition structure")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid set instruction definition structure")
+			}
+			variable1_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable1_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+				return errors.New("expected type a variable integer while parsing add instruction")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid set instruction definition structure")
+			}
+			variable2_Index, found:=function.Variable_Scope[code[i+2].Value]
+			if !found {
+				return errors.New("variable '"+code[i+2].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable2_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+				return errors.New("expected type a variable integer while parsing add instruction")
+			}
+			if code[i+3].Type!="variable" {
+				return errors.New("invalid set instruction definition structure")
+			}
+			variable3_Index, found:=function.Variable_Scope[code[i+3].Value]
+			if !found {
+				return errors.New("variable '"+code[i+3].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable3_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+				return errors.New("expected type a variable integer while parsing add instruction")
+			}
+			if code[i+4].Type!="semicolon" {
+				return errors.New("invalid set instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{ADD_INSTRUCTION, variable1_Index, variable2_Index, variable3_Index})
+			i+=4
+			continue
+		}
+		return errors.New("unrecognised instruction token of type '"+code[i].Type+"'")
+	}
+	return nil
 }

@@ -21,10 +21,13 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	_,err=Parser(tokens)
+	program,err:=Parser(tokens)
 	if err!=nil {
 		fmt.Println(err)
+		return
 	}
+	fmt.Println(program.Functions)
+	Interpreter(&program.Functions[0], make(map[int]*Object))
 	// program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)
 	// entry_function:=-1
 	// if err!=nil {
