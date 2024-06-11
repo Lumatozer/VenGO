@@ -45,6 +45,7 @@ type Function struct {
 	Out_Type               Type
 	Base_Program           *Program
 	Variable_Scope         map[string]int
+	Argument_Names         []string
 }
 
 type Type struct {
@@ -324,7 +325,7 @@ func Definition_Parser(code []Token) (Definitions, error) {
 				}
 				if code[j].Type=="variable" {
 					if !Is_Valid_Variable_Name(code[j].Value) {
-						return definitions, errors.New("invalid field name '"+code[j].Value+"'")
+						return definitions, errors.New("invalid variable name '"+code[j].Value+"'")
 					}
 					if str_index_in_str_arr(code[j].Value, argument_Names)!=-1 {
 						return definitions, errors.New("field '"+code[j].Value+"' has already been declared")
@@ -332,10 +333,10 @@ func Definition_Parser(code []Token) (Definitions, error) {
 					argument_Names = append(argument_Names, code[j].Value)
 					j+=1
 					if j>=len(code) {
-						return definitions, errors.New("unexpected EOF while parsing struct declaration statement")
+						return definitions, errors.New("unexpected EOF while parsing function declaration statement")
 					}
 					if code[j].Type!="type" {
-						return definitions, errors.New("expected token of type 'type' during struct's field defintion got '"+code[j].Type+"'")
+						return definitions, errors.New("expected token of type 'type' during function defintion got '"+code[j].Type+"'")
 					}
 					function_Definition.Arguments_Variables[argument_Names[len(argument_Names)-1]]=code[j]
 					last_comma=false
@@ -372,6 +373,9 @@ func Definition_Parser(code []Token) (Definitions, error) {
 					}
 					if brackets==0 {
 						break
+					}
+					if code[j].Value!="{" && code[j].Value!="}" {
+						function_Definition.Instruction_Tokens = append(function_Definition.Instruction_Tokens, code[j])
 					}
 					continue
 				}
@@ -502,8 +506,12 @@ func Parser(code []Token) (Program, error) {
 			base_Function_Variable_Scope[variable_Name]=len(program.Object_References)-1
 		}
 	}
+	function_Count_Before_Processing:=len(program.Functions)
 	for _,Function_Definition:=range definitions.Functions {
-		copy_base_Function_Variable_Scope:=base_Function_Variable_Scope
+		copy_base_Function_Variable_Scope:=make(map[string]int)
+		for variable_Name,index:=range base_Function_Variable_Scope {
+			copy_base_Function_Variable_Scope[variable_Name]=index
+		}
 		function_Out_Type,err:=Type_Token_To_Struct(Function_Definition.Out_Token, &program)
 		if err!=nil {
 			return program, err
@@ -515,17 +523,22 @@ func Parser(code []Token) (Program, error) {
 				return program, err
 			}
 			function_Declaration.Arguments[argument_Name]=*argument_Type
+			function_Declaration.Argument_Names = append(function_Declaration.Argument_Names, argument_Name)
 			argument_Reference:=Object_Reference{Aliases: []string{argument_Name}, Object_Type: *argument_Type}
 			program.Object_References = append(program.Object_References, argument_Reference)
 			function_Declaration.Stack_Spec[len(program.Object_References)-1]=Type_Struct_To_Object_Abstract(*argument_Type)
 			function_Declaration.Variable_Scope[argument_Name]=len(program.Object_References)-1
 			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
 		}
+		program.Functions = append(program.Functions, function_Declaration)
+	}
+	for i,Function_Definition:=range definitions.Functions {
+		function_Declaration:=program.Functions[i+function_Count_Before_Processing]
 		err=Function_Parser(&Function_Definition, &function_Declaration, &program)
+		program.Functions[i+function_Count_Before_Processing]=function_Declaration
 		if err!=nil {
 			return program, err
 		}
-		program.Functions = append(program.Functions, function_Declaration)
 	}
 	fmt.Println(program)
 	return program, nil
@@ -570,7 +583,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 					return errors.New("invalid variable name '"+code[j].Value+"'")
 				}
 				if str_index_in_str_arr(code[j].Value, local_Variables)!=-1 && str_index_in_str_arr(code[j].Value, global_Variables)==-1 {
-					return errors.New("Variable '"+code[j].Value+"' has already been initialized")
+					return errors.New("Variable '"+code[j].Value+"' has already been initialized 1"+function.Name)
 				}
 				local_Variables = append(local_Variables, code[j].Value)
 				variables_Added = append(variables_Added, code[j].Value)
@@ -590,10 +603,10 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 		}
 		if code[i].Type=="sys" && code[i].Value=="set" {
 			if len(code)-i<4 {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid set instruction definition structure 1")
 			}
 			if code[i+1].Type!="variable" {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid set instruction definition structure 2")
 			}
 			variable_Index, found:=function.Variable_Scope[code[i+1].Value]
 			if !found {
@@ -603,7 +616,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("expected type a variable integer while parsing set instruction")
 			}
 			if code[i+2].Type!="number" || code[i+3].Type!="semicolon" {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid set instruction definition structure 3")
 			}
 			function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, variable_Index, int(code[i+2].Float64_Constant)})
 			i+=3
@@ -611,10 +624,10 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 		}
 		if code[i].Type=="sys" && code[i].Value=="add" {
 			if len(code)-i<5 {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid add instruction definition structure")
 			}
 			if code[i+1].Type!="variable" {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid add instruction definition structure")
 			}
 			variable1_Index, found:=function.Variable_Scope[code[i+1].Value]
 			if !found {
@@ -624,7 +637,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("expected type a variable integer while parsing add instruction")
 			}
 			if code[i+2].Type!="variable" {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid add instruction definition structure")
 			}
 			variable2_Index, found:=function.Variable_Scope[code[i+2].Value]
 			if !found {
@@ -634,7 +647,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("expected type a variable integer while parsing add instruction")
 			}
 			if code[i+3].Type!="variable" {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid add instruction definition structure")
 			}
 			variable3_Index, found:=function.Variable_Scope[code[i+3].Value]
 			if !found {
@@ -644,10 +657,105 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("expected type a variable integer while parsing add instruction")
 			}
 			if code[i+4].Type!="semicolon" {
-				return errors.New("invalid set instruction definition structure")
+				return errors.New("invalid add instruction definition structure")
 			}
 			function.Instructions = append(function.Instructions, []int{ADD_INSTRUCTION, variable1_Index, variable2_Index, variable3_Index})
 			i+=4
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="return" {
+			if len(code)-i<3 {
+				return errors.New("")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid return instruction definition structure")
+			}
+			variable_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable_Index].Object_Type, &function.Out_Type) {
+				return errors.New("return type of function does not match the type being returned")
+			}
+			if code[i+2].Type!="semicolon" {
+				return errors.New("invalid return instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{RETURN_INSTRUCTION, variable_Index})
+			i+=2
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="call" {
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid call instruction definition")
+			}
+			function_Index:=-1
+			for index,function:=range program.Functions {
+				if function.Name==code[i+1].Value {
+					function_Index=index
+				}
+			}
+			if function_Index==-1 {
+				return errors.New("function '"+code[i+1].Value+"' was not found")
+			}
+			if code[i+2].Type!="bracket" || code[i+2].Value!="(" {
+				fmt.Println(code[i+1])
+				return errors.New("invalid call instruction definition")
+			}
+			j:=i+2
+			variable_Indexes:=make([]int, 0)
+			last_Comma:=true
+			for {
+				j++
+				if j>=len(code) {
+					return errors.New("unexpected EOF during parsing of call instruction")
+				}
+				if code[j].Type=="bracket" && code[j].Value==")" {
+					break
+				}
+				if code[j].Type=="comma" {
+					if last_Comma {
+						return errors.New("invalid call instruction definition")
+					}
+					last_Comma=true
+					continue
+				}
+				if code[j].Type=="variable" {
+					variable_Index,found:=function.Variable_Scope[code[j].Value]
+					if !found {
+						return errors.New("variable '"+code[j].Value+"' was not found")
+					}
+					variable_Indexes = append(variable_Indexes, variable_Index)
+					last_Comma=false
+				} else {
+					return errors.New("invalid call instruction definition")
+				}
+			}
+			if len(variable_Indexes)!=len(program.Functions[function_Index].Arguments) {
+				return errors.New("function call arguments number do not match")
+			}
+			for index,argument_Name:=range function.Argument_Names {
+				argument_Type:=function.Arguments[argument_Name]
+				if !Equal_Type(&program.Object_References[variable_Indexes[index]].Object_Type, &argument_Type) {
+					return errors.New("function argument types do not match")
+				}
+			}
+			if j+2>=len(code) {
+				return errors.New("unexpected EOF during parsing of call instruction")
+			}
+			if code[j+1].Type!="variable" || code[j+2].Type!="semicolon" {
+				return errors.New("invalid call instruction definition")
+			}
+			variable_Index,found:=function.Variable_Scope[code[j+1].Value]
+			if !found {
+				return errors.New("variable '"+code[j+1].Value+"' was not found")
+			}
+			if !Equal_Type(&program.Functions[function_Index].Out_Type, &program.Object_References[variable_Index].Object_Type) {
+				return errors.New("function call return variable's type does not match the return type of the function being called")
+			}
+			instructions:=[]int{CALL_INSTRUCTION, function_Index, variable_Index}
+			instructions = append(instructions, variable_Indexes...)
+			function.Instructions = append(function.Instructions, instructions)
+			i=j+3
 			continue
 		}
 		return errors.New("unrecognised instruction token of type '"+code[i].Type+"'")

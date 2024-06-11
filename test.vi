@@ -2,5 +2,11 @@ var a->int;
 
 function main()->void {
     set a 5;
-    add a a a;
+    var b->int;
+    set b 10;
+    call hello(a, b) b;
+}
+
+function hello(b->int, c->int)->int {
+    return b;
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -151,27 +150,21 @@ func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
 
 func Equal_Type(a *Type, b *Type) bool {
 	if a.Is_Array!=b.Is_Array {
-		fmt.Println(1)
 		return false
 	}
 	if a.Is_Dict!=b.Is_Dict {
-		fmt.Println(2)
 		return false
 	}
 	if a.Is_Pointer!=b.Is_Pointer {
-		fmt.Println(3)
 		return false
 	}
 	if a.Is_Raw!=b.Is_Raw {
-		fmt.Println(4)
 		return false
 	}
 	if a.Is_Struct!=b.Is_Struct {
-		fmt.Println(5)
 		return false
 	}
 	if a.Raw_Type!=b.Raw_Type {
-		fmt.Println(6, a.Raw_Type, b.Raw_Type)
 		return false
 	}
 	if a.Child!=nil && b.Child!=nil {
@@ -187,4 +180,89 @@ func Equal_Type(a *Type, b *Type) bool {
 		}
 	}
 	return true
+}
+
+func Default_Object_By_Object_Abstract(object_Abstract Object_Abstract) Object {
+	if object_Abstract.Is_Array {
+		return Object{Value: make([]Object, 0)}
+	}
+	if object_Abstract.Is_Mapping {
+		if object_Abstract.Raw_Type==INT_TYPE {
+			return Object{Value: make(map[int]Object)}
+		}
+		if object_Abstract.Raw_Type==INT64_TYPE {
+			return Object{Value: make(map[int64]Object)}
+		}
+		if object_Abstract.Raw_Type==STRING_TYPE {
+			return Object{Value: make(map[string]Object)}
+		}
+		if object_Abstract.Raw_Type==FLOAT_TYPE {
+			return Object{Value: make(map[float32]Object)}
+		}
+		if object_Abstract.Raw_Type==FLOAT64_TYPE {
+			return Object{Value: make(map[float64]Object)}
+		}
+	}
+	if object_Abstract.Is_Raw {
+		if object_Abstract.Raw_Type==INT_TYPE {
+			return Object{Value: int(0)}
+		}
+		if object_Abstract.Raw_Type==INT64_TYPE {
+			return Object{Value: int64(0)}
+		}
+		if object_Abstract.Raw_Type==STRING_TYPE {
+			return Object{Value: ""}
+		}
+		if object_Abstract.Raw_Type==FLOAT_TYPE {
+			return Object{Value: float32(0)}
+		}
+		if object_Abstract.Raw_Type==FLOAT64_TYPE {
+			return Object{Value: float64(0)}
+		}
+	}
+	return Object{}
+}
+
+func Copy_Interface(a interface{}) interface{} {
+	_,ok:=a.(int)
+	if ok {
+		return 0
+	}
+	_,ok=a.(int64)
+	if ok {
+		return int64(0)
+	}
+	_,ok=a.(string)
+	if ok {
+		return ""
+	}
+	_,ok=a.(float32)
+	if ok {
+		return float32(0)
+	}
+	_,ok=a.(float64)
+	if ok {
+		return float64(0)
+	}
+	_,ok=a.(map[int]Object)
+	if ok {
+		return make(map[int]Object)
+	}
+	_,ok=a.(map[int64]Object)
+	if ok {
+		return make(map[int64]Object)
+	}
+	_,ok=a.(map[string]Object)
+	if ok {
+		return make(map[string]Object)
+	}
+	_,ok=a.(map[float32]Object)
+	if ok {
+		return make(map[float32]Object)
+	}
+	_,ok=a.(map[float64]Object)
+	if ok {
+		return make(map[float64]Object)
+	}
+	return nil
 }
