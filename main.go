@@ -26,8 +26,18 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(program.Functions)
-	Interpreter(&program.Functions[0], make(map[int]*Object))
+	fmt.Println()
+	index:=-1
+	for i:=0; i<len(program.Functions); i++ {
+		if program.Functions[i].Name=="main" {
+			index=i
+		}
+	}
+	exec_Result:=Interpreter(&program.Functions[index], make(map[int]*Object))
+	if exec_Result.Error!=nil {
+		fmt.Println(exec_Result.Error)
+		return
+	}
 	// program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)
 	// entry_function:=-1
 	// if err!=nil {

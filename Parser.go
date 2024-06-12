@@ -503,7 +503,7 @@ func Parser(code []Token) (Program, error) {
 			}
 			program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{variable_Name}, Object_Type: *variable_Type})
 			program.Globally_Available = append(program.Globally_Available, len(program.Object_References)-1)
-			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+			program.Rendered_Scope = append(program.Rendered_Scope, &Object{Value: Default_Object_By_Type(*variable_Type)})
 			base_Function_Variable_Scope[variable_Name]=len(program.Object_References)-1
 		}
 	}
@@ -526,7 +526,7 @@ func Parser(code []Token) (Program, error) {
 			function_Declaration.Arguments[argument_Name]=*argument_Type
 			function_Declaration.Argument_Names = append(function_Declaration.Argument_Names, argument_Name)
 			argument_Reference:=Object_Reference{Aliases: []string{argument_Name}, Object_Type: *argument_Type}
-			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+			program.Rendered_Scope = append(program.Rendered_Scope, &Object{Value: Default_Object_By_Type(*argument_Type)})
 			program.Object_References = append(program.Object_References, argument_Reference)
 			function_Declaration.Stack_Spec[len(program.Object_References)-1]=Type_Struct_To_Object_Abstract(*argument_Type)
 			function_Declaration.Variable_Scope[argument_Name]=len(program.Object_References)-1
@@ -595,7 +595,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			}
 			for _,variable:=range variables_Added {
 				program.Object_References = append(program.Object_References, Object_Reference{Aliases: []string{variable}, Object_Type: *variable_Type})
-				program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+				program.Rendered_Scope = append(program.Rendered_Scope, &Object{Value: Default_Object_By_Type(*variable_Type)})
 				function.Stack_Spec[len(program.Rendered_Scope)-1]=Type_Struct_To_Object_Abstract(*variable_Type)
 				function.Variable_Scope[variable]=len(program.Rendered_Scope)-1
 				function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, len(program.Rendered_Scope)-1, 0})

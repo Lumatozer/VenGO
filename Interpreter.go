@@ -19,8 +19,12 @@ func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
 		if ok {
 			scope[i]=stack[i]
 		} else {
-			object_Value:=function.Base_Program.Rendered_Scope[i].Value
-			scope[i]=&Object{Value: Copy_Interface(object_Value)}
+			if int_index_in_int_arr(i, function.Base_Program.Globally_Available)!=-1 && function.Base_Program.Rendered_Scope[i].Value!=nil {
+				scope[i]=function.Base_Program.Rendered_Scope[i]
+			} else {
+				object_Value:=function.Base_Program.Rendered_Scope[i].Value
+				scope[i]=&Object{Value: Copy_Interface(object_Value)}
+			}
 		}
 	}
 	for i := 0; i < len(function.Instructions); i++ {
@@ -51,9 +55,6 @@ func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
 			function_to_be_Called:=function.Base_Program.Functions[instructions[1]]
 			for i:=0; i<len(function_to_be_Called.Argument_Names); i++ {
 				call_Stack[function_to_be_Called.Argument_Indexes[i]]=function.Base_Program.Rendered_Scope[instructions[3+i]]
-			}
-			for i:=0; i<len(function.Base_Program.Globally_Available); i++ {
-				call_Stack[function.Base_Program.Globally_Available[i]]=scope[i]
 			}
 			execution_Result:=Interpreter(&function_to_be_Called, call_Stack)
 			if execution_Result.Error!=nil {

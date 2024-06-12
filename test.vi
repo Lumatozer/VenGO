@@ -1,14 +1,11 @@
+import (
+    "lib.vi" as lib
+)
+
 var a->int;
 
 function main()->void {
     set a 5;
-    call hello(a) a;
-    call hello(a) a;
-}
-
-function hello(n->int)->int {
-    var one->int;
-    set one 1;
-    add one n n;
-    return n;
+    call lib.hello(a) a;
+    call lib.hello(a) a;
 }
