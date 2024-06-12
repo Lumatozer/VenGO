@@ -12,17 +12,12 @@ type Execution_Result struct {
 }
 
 func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
-	fmt.Println(function.Base_Program.Rendered_Scope)
 	out := Execution_Result{}
 	scope := function.Base_Program.Rendered_Scope
-	stack_Indices:=make([]int, 0)
-	for stack_index := range stack {
-		stack_Indices = append(stack_Indices, stack_index)
-	}
 	for i:=0; i<len(scope); i++ {
-		stack_Index:=int_index_in_int_arr(i, stack_Indices)
-		if stack_Index!=-1 {
-			scope[i]=stack[stack_Index]
+		_,ok:=stack[i]
+		if ok {
+			scope[i]=stack[i]
 		} else {
 			object_Value:=function.Base_Program.Rendered_Scope[i].Value
 			scope[i]=&Object{Value: Copy_Interface(object_Value)}
@@ -55,8 +50,10 @@ func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
 			call_Stack:=make(map[int]*Object)
 			function_to_be_Called:=function.Base_Program.Functions[instructions[1]]
 			for i:=0; i<len(function_to_be_Called.Argument_Names); i++ {
-				object_Value:=function.Base_Program.Rendered_Scope[instructions[3+i]].Value
-				fmt.Println("putting", object_Value)
+				call_Stack[function_to_be_Called.Argument_Indexes[i]]=function.Base_Program.Rendered_Scope[instructions[3+i]]
+			}
+			for i:=0; i<len(function.Base_Program.Globally_Available); i++ {
+				call_Stack[function.Base_Program.Globally_Available[i]]=scope[i]
 			}
 			execution_Result:=Interpreter(&function_to_be_Called, call_Stack)
 			if execution_Result.Error!=nil {
@@ -69,11 +66,11 @@ func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
 	}
 	for i := range scope {
 		if scope[i]!=nil && scope[i].Value != nil {
-			fmt.Println(scope[i].Value)
+			fmt.Print(scope[i].Value, " ")
 		}
 	}
 	fmt.Println()
 	return out
 }
 
-// to add struct capabilities to object_abstract
+// to add struct and pointer capabilities to objects

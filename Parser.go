@@ -46,6 +46,7 @@ type Function struct {
 	Base_Program           *Program
 	Variable_Scope         map[string]int
 	Argument_Names         []string
+	Argument_Indexes       []int
 }
 
 type Type struct {
@@ -516,7 +517,7 @@ func Parser(code []Token) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program}
+		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0)}
 		for argument_Name, argument_Type_Token:=range Function_Definition.Arguments_Variables {
 			argument_Type,err:=Type_Token_To_Struct(argument_Type_Token, &program)
 			if err!=nil {
@@ -525,10 +526,11 @@ func Parser(code []Token) (Program, error) {
 			function_Declaration.Arguments[argument_Name]=*argument_Type
 			function_Declaration.Argument_Names = append(function_Declaration.Argument_Names, argument_Name)
 			argument_Reference:=Object_Reference{Aliases: []string{argument_Name}, Object_Type: *argument_Type}
+			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
 			program.Object_References = append(program.Object_References, argument_Reference)
 			function_Declaration.Stack_Spec[len(program.Object_References)-1]=Type_Struct_To_Object_Abstract(*argument_Type)
 			function_Declaration.Variable_Scope[argument_Name]=len(program.Object_References)-1
-			program.Rendered_Scope = append(program.Rendered_Scope, &Object{})
+			function_Declaration.Argument_Indexes = append(function_Declaration.Argument_Indexes, len(program.Rendered_Scope)-1)
 		}
 		program.Functions = append(program.Functions, function_Declaration)
 	}
@@ -755,7 +757,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			instructions:=[]int{CALL_INSTRUCTION, function_Index, variable_Index}
 			instructions = append(instructions, variable_Indexes...)
 			function.Instructions = append(function.Instructions, instructions)
-			i=j+3
+			i=j+2
 			continue
 		}
 		return errors.New("unrecognised instruction token of type '"+code[i].Type+"'")

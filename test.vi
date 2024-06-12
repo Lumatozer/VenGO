@@ -2,11 +2,13 @@ var a->int;
 
 function main()->void {
     set a 5;
-    var b->int;
-    set b 10;
-    call hello(a, b) b;
+    call hello(a) a;
+    call hello(a) a;
 }
 
-function hello(b->int, c->int)->int {
-    return b;
+function hello(n->int)->int {
+    var one->int;
+    set one 1;
+    add one n n;
+    return n;
 }
