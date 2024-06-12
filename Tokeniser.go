@@ -112,6 +112,10 @@ func Tokenizer(code string) ([]Token, error) {
 		}
 		if strings.Contains("1234567890.", char) {
 			if char!="." {
+				if cache!="" {
+					cache+=char
+					continue
+				}
 				cache+=char
 				in_number=true
 				continue

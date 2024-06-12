@@ -21,7 +21,7 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	program,err:=Parser(tokens)
+	program,err:=Parser(tokens, false)
 	if err!=nil {
 		fmt.Println(err)
 		return
@@ -33,7 +33,10 @@ func main() {
 			index=i
 		}
 	}
-	exec_Result:=Interpreter(&program.Functions[index], make(map[int]*Object))
+	program.Functions[0].External_Function=func(o []*Object) Execution_Result {
+		return Execution_Result{Return_Value: 10*2}
+	}
+	exec_Result:=Interpreter(&program.Functions[index], Stack{})
 	if exec_Result.Error!=nil {
 		fmt.Println(exec_Result.Error)
 		return

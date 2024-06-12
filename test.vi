@@ -1,11 +1,10 @@
 import (
-    "lib.vi" as lib
+    "test.vh" as test
 )
 
-var a->int;
+var _->int;
 
 function main()->void {
-    set a 5;
-    call lib.hello(a) a;
-    call lib.hello(a) a;
+    set _ 10;
+    call test.mult_2(_) _;
 }

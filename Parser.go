@@ -3,8 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // "errors"
@@ -19,6 +20,7 @@ const (
 	FLOAT_TYPE             int8 = iota
 	FLOAT64_TYPE           int8 = iota
 	POINTER_TYPE           int8 = iota
+	VOID_TYPE              int8 = iota
 )
 
 type Object struct {
@@ -47,6 +49,8 @@ type Function struct {
 	Variable_Scope         map[string]int
 	Argument_Names         []string
 	Argument_Indexes       []int
+	Is_External            bool
+	External_Function      func([]*Object)Execution_Result
 }
 
 type Type struct {
@@ -435,7 +439,7 @@ func Is_Struct_Declaration_Recursive(struct_name string, nested_Inside []string,
 	return false
 }
 
-func Parser(code []Token) (Program, error) {
+func Parser(code []Token, is_Header bool) (Program, error) {
 	program:=Program{
 		Structs: make(map[string]*Type),
 	}
@@ -454,7 +458,7 @@ func Parser(code []Token) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		Imported_Program,err:=Parser(Imported_File)
+		Imported_Program,err:=Parser(Imported_File, is_Header || strings.HasSuffix(file_Path, "vh"))
 		if err!=nil {
 			return program, err
 		}
@@ -517,7 +521,7 @@ func Parser(code []Token) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0)}
+		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0), Is_External: is_Header}
 		for argument_Name, argument_Type_Token:=range Function_Definition.Arguments_Variables {
 			argument_Type,err:=Type_Token_To_Struct(argument_Type_Token, &program)
 			if err!=nil {
@@ -533,6 +537,9 @@ func Parser(code []Token) (Program, error) {
 			function_Declaration.Argument_Indexes = append(function_Declaration.Argument_Indexes, len(program.Rendered_Scope)-1)
 		}
 		program.Functions = append(program.Functions, function_Declaration)
+	}
+	if is_Header {
+		return program, nil
 	}
 	for i,Function_Definition:=range definitions.Functions {
 		function_Declaration:=program.Functions[i+function_Count_Before_Processing]

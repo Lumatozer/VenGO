@@ -54,6 +54,9 @@ func String_Type_To_Int8(string_Type string) int8 {
 	if string_Type=="float64" {
 		return FLOAT64_TYPE
 	}
+	if string_Type=="void" {
+		return VOID_TYPE
+	}
 	return 0
 }
 

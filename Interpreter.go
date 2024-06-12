@@ -11,13 +11,18 @@ type Execution_Result struct {
 	Error           error
 }
 
-func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
+type Stack struct {
+	Locations       []int
+	Objects         []*Object
+}
+
+func Interpreter(function *Function, stack Stack) Execution_Result {
 	out := Execution_Result{}
 	scope := function.Base_Program.Rendered_Scope
 	for i:=0; i<len(scope); i++ {
-		_,ok:=stack[i]
-		if ok {
-			scope[i]=stack[i]
+		stack_Index:=int_index_in_int_arr(i, stack.Locations)
+		if stack_Index!=-1 {
+			scope[i]=stack.Objects[stack_Index]
 		} else {
 			if int_index_in_int_arr(i, function.Base_Program.Globally_Available)!=-1 && function.Base_Program.Rendered_Scope[i].Value!=nil {
 				scope[i]=function.Base_Program.Rendered_Scope[i]
@@ -26,6 +31,13 @@ func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
 				scope[i]=&Object{Value: Copy_Interface(object_Value)}
 			}
 		}
+	}
+	if function.Is_External {
+		if function.External_Function==nil {
+			// add minimum gas required to call a function
+			return Execution_Result{}
+		}
+		return function.External_Function(stack.Objects)
 	}
 	for i := 0; i < len(function.Instructions); i++ {
 		instructions := function.Instructions[i]
@@ -51,12 +63,14 @@ func Interpreter(function *Function, stack map[int]*Object) Execution_Result {
 			break
 		}
 		if opcode == CALL_INSTRUCTION {
-			call_Stack:=make(map[int]*Object)
+			call_Stack:=Stack{}
 			function_to_be_Called:=function.Base_Program.Functions[instructions[1]]
 			for i:=0; i<len(function_to_be_Called.Argument_Names); i++ {
-				call_Stack[function_to_be_Called.Argument_Indexes[i]]=function.Base_Program.Rendered_Scope[instructions[3+i]]
+				call_Stack.Locations = append(call_Stack.Locations, function_to_be_Called.Argument_Indexes[i])
+				call_Stack.Objects = append(call_Stack.Objects, function.Base_Program.Rendered_Scope[instructions[3+i]])
 			}
-			execution_Result:=Interpreter(&function_to_be_Called, call_Stack)
+			execution_Result:=Execution_Result{}
+			execution_Result=Interpreter(&function_to_be_Called, call_Stack)
 			if execution_Result.Error!=nil {
 				out.Error=execution_Result.Error
 				return out
