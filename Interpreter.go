@@ -32,7 +32,7 @@ func Interpreter(function *Function, stack Stack) Execution_Result {
 			}
 		}
 	}
-	if function.Is_External {
+	if function.Base_Program.Is_External {
 		if function.External_Function==nil {
 			// add minimum gas required to call a function
 			return Execution_Result{}

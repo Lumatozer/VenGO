@@ -49,7 +49,6 @@ type Function struct {
 	Variable_Scope         map[string]int
 	Argument_Names         []string
 	Argument_Indexes       []int
-	Is_External            bool
 	External_Function      func([]*Object)Execution_Result
 }
 
@@ -65,6 +64,7 @@ type Type struct {
 }
 
 type Program struct {
+	Package_Name           string
 	Functions              []Function
 	Structs                map[string]*Type
 	Rendered_Scope         []*Object // This Scope will be used for initalizing functions of this file + will retain all the final global states of the variables
@@ -74,6 +74,7 @@ type Program struct {
 	String_Constants       []string
 	Float_Constants        []float32
 	Float64_Constants      []float64
+	Is_External            bool
 }
 
 type Function_Definition struct {
@@ -442,6 +443,9 @@ func Is_Struct_Declaration_Recursive(struct_name string, nested_Inside []string,
 func Parser(code []Token, is_Header bool) (Program, error) {
 	program:=Program{
 		Structs: make(map[string]*Type),
+		Is_External: is_Header,
+		Functions: make([]Function, 0),
+		Rendered_Scope: make([]*Object, 0),
 	}
 	definitions,err:=Definition_Parser(code)
 	if err!=nil {
@@ -459,6 +463,7 @@ func Parser(code []Token, is_Header bool) (Program, error) {
 			return program, err
 		}
 		Imported_Program,err:=Parser(Imported_File, is_Header || strings.HasSuffix(file_Path, "vh"))
+		Imported_Program.Package_Name=file_Path
 		if err!=nil {
 			return program, err
 		}
@@ -521,7 +526,7 @@ func Parser(code []Token, is_Header bool) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0), Is_External: is_Header}
+		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0)}
 		for argument_Name, argument_Type_Token:=range Function_Definition.Arguments_Variables {
 			argument_Type,err:=Type_Token_To_Struct(argument_Type_Token, &program)
 			if err!=nil {
