@@ -33,12 +33,13 @@ func main() {
 			index=i
 		}
 	}
-	program.Functions[0].External_Function=func(o []*Object) Execution_Result {
-		return Execution_Result{Return_Value: 10*2}
+	program.Functions[0].External_Function=func(o []*Object) (int, interface{}) {
+		fmt.Println(o[0].Value)
+		return 0, 55
 	}
-	exec_Result:=Interpreter(&program.Functions[index], Stack{})
-	if exec_Result.Error!=nil {
-		fmt.Println(exec_Result.Error)
+	_,exec_Result:=Interpreter(&program.Functions[index], Stack{})
+	if exec_Result!=nil {
+		fmt.Println(exec_Result)
 		return
 	}
 	// program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)

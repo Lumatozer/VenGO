@@ -16,8 +16,8 @@ type Stack struct {
 	Objects         []*Object
 }
 
-func Interpreter(function *Function, stack Stack) Execution_Result {
-	out := Execution_Result{}
+func Interpreter(function *Function, stack Stack) (int, interface{}) {
+	gas:=0
 	scope := function.Base_Program.Rendered_Scope
 	for i:=0; i<len(scope); i++ {
 		stack_Index:=int_index_in_int_arr(i, stack.Locations)
@@ -35,7 +35,7 @@ func Interpreter(function *Function, stack Stack) Execution_Result {
 	if function.Base_Program.Is_External {
 		if function.External_Function==nil {
 			// add minimum gas required to call a function
-			return Execution_Result{}
+			return 0, nil
 		}
 		return function.External_Function(stack.Objects)
 	}
@@ -48,19 +48,18 @@ func Interpreter(function *Function, stack Stack) Execution_Result {
 		if opcode == ADD_INSTRUCTION {
 			var1,is_int:=scope[instructions[1]].Value.(int)
 			if !is_int {
-				out.Error=errors.New("variable is not of type integer")
-				return out
+				fmt.Println(errors.New("variable is not of type integer"))
+				return -1, nil
 			}
 			var2,is_int:=scope[instructions[2]].Value.(int)
 			if !is_int {
-				out.Error=errors.New("variable is not of type integer")
-				return out
+				fmt.Println(errors.New("variable is not of type integer"))
+				return -1, nil
 			}
 			scope[instructions[3]].Value = var1+var2
 		}
 		if opcode == RETURN_INSTRUCTION {
-			out.Return_Value=scope[instructions[1]].Value
-			break
+			return gas, scope[instructions[1]].Value
 		}
 		if opcode == CALL_INSTRUCTION {
 			call_Stack:=Stack{}
@@ -69,14 +68,12 @@ func Interpreter(function *Function, stack Stack) Execution_Result {
 				call_Stack.Locations = append(call_Stack.Locations, function_to_be_Called.Argument_Indexes[i])
 				call_Stack.Objects = append(call_Stack.Objects, function.Base_Program.Rendered_Scope[instructions[3+i]])
 			}
-			execution_Result:=Execution_Result{}
-			execution_Result=Interpreter(&function_to_be_Called, call_Stack)
-			if execution_Result.Error!=nil {
-				out.Error=execution_Result.Error
-				return out
+			gas_Used,return_Value:=Interpreter(&function_to_be_Called, call_Stack)
+			if gas==-1 {
+				return -1, nil
 			}
-			out.Gas_Used+=execution_Result.Gas_Used
-			scope[instructions[2]].Value=execution_Result.Return_Value
+			gas+=gas_Used
+			scope[instructions[2]].Value=return_Value
 		}
 	}
 	for i := range scope {
@@ -85,7 +82,7 @@ func Interpreter(function *Function, stack Stack) Execution_Result {
 		}
 	}
 	fmt.Println()
-	return out
+	return gas, nil
 }
 
 // to add struct and pointer capabilities to objects

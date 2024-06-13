@@ -49,7 +49,7 @@ type Function struct {
 	Variable_Scope         map[string]int
 	Argument_Names         []string
 	Argument_Indexes       []int
-	External_Function      func([]*Object)Execution_Result
+	External_Function      func([]*Object)(int, interface{})
 }
 
 type Type struct {
