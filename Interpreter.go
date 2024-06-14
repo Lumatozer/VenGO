@@ -3,21 +3,16 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/lumatozer/VenGO/structs"
 )
-
-type Execution_Result struct {
-	Gas_Used        int
-	Return_Value    interface{}
-	Error           error
-}
 
 type Stack struct {
 	Locations       []int
 	Objects         []*Object
 }
 
-func Interpreter(function *Function, stack Stack) (int, interface{}) {
-	gas:=0
+func Interpreter(function *Function, stack Stack) structs.Execution_Result {
+	execution_Result:=structs.Execution_Result{}
 	scope := function.Base_Program.Rendered_Scope
 	for i:=0; i<len(scope); i++ {
 		stack_Index:=int_index_in_int_arr(i, stack.Locations)
@@ -32,10 +27,10 @@ func Interpreter(function *Function, stack Stack) (int, interface{}) {
 			}
 		}
 	}
-	if function.Base_Program.Is_External {
+	if function.Base_Program.Is_Dynamic {
 		if function.External_Function==nil {
 			// add minimum gas required to call a function
-			return 0, nil
+			return execution_Result
 		}
 		return function.External_Function(stack.Objects)
 	}
@@ -48,18 +43,19 @@ func Interpreter(function *Function, stack Stack) (int, interface{}) {
 		if opcode == ADD_INSTRUCTION {
 			var1,is_int:=scope[instructions[1]].Value.(int)
 			if !is_int {
-				fmt.Println(errors.New("variable is not of type integer"))
-				return -1, nil
+				execution_Result.Error=errors.New("variable is not of type integer")
+				return execution_Result
 			}
 			var2,is_int:=scope[instructions[2]].Value.(int)
 			if !is_int {
-				fmt.Println(errors.New("variable is not of type integer"))
-				return -1, nil
+				execution_Result.Error=errors.New("variable is not of type integer")
+				return execution_Result
 			}
 			scope[instructions[3]].Value = var1+var2
 		}
 		if opcode == RETURN_INSTRUCTION {
-			return gas, scope[instructions[1]].Value
+			execution_Result.Return_Value=scope[instructions[1]].Value
+			return execution_Result
 		}
 		if opcode == CALL_INSTRUCTION {
 			call_Stack:=Stack{}
@@ -68,12 +64,13 @@ func Interpreter(function *Function, stack Stack) (int, interface{}) {
 				call_Stack.Locations = append(call_Stack.Locations, function_to_be_Called.Argument_Indexes[i])
 				call_Stack.Objects = append(call_Stack.Objects, function.Base_Program.Rendered_Scope[instructions[3+i]])
 			}
-			gas_Used,return_Value:=Interpreter(&function_to_be_Called, call_Stack)
-			if gas==-1 {
-				return -1, nil
+			perfomed_Execution:=Interpreter(&function_to_be_Called, call_Stack)
+			execution_Result.Gas_Used+=perfomed_Execution.Gas_Used
+			if perfomed_Execution.Error!=nil {
+				execution_Result.Error=perfomed_Execution.Error
+				return execution_Result
 			}
-			gas+=gas_Used
-			scope[instructions[2]].Value=return_Value
+			scope[instructions[2]].Value=perfomed_Execution.Return_Value
 		}
 	}
 	for i := range scope {
@@ -82,7 +79,7 @@ func Interpreter(function *Function, stack Stack) (int, interface{}) {
 		}
 	}
 	fmt.Println()
-	return gas, nil
+	return execution_Result
 }
 
 // to add struct and pointer capabilities to objects

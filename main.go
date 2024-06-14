@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -21,7 +22,12 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	program,err:=Parser(tokens, false)
+	Absolute_Path,err:=filepath.Abs(os.Args[1])
+	if err!=nil {
+		fmt.Println(err)
+		return
+	}
+	program,err:=Parser(tokens, Absolute_Path)
 	if err!=nil {
 		fmt.Println(err)
 		return
@@ -33,13 +39,9 @@ func main() {
 			index=i
 		}
 	}
-	program.Functions[0].External_Function=func(o []*Object) (int, interface{}) {
-		fmt.Println(o[0].Value)
-		return 0, 55
-	}
-	_,exec_Result:=Interpreter(&program.Functions[index], Stack{})
-	if exec_Result!=nil {
-		fmt.Println(exec_Result)
+	exec_Result:=Interpreter(&program.Functions[index], Stack{})
+	if exec_Result.Error!=nil {
+		fmt.Println(exec_Result.Return_Value)
 		return
 	}
 	// program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)

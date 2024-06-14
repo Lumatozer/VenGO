@@ -1,5 +1,7 @@
-import (
-    "test.vh" as test
+package main
+
+mport (
+    "test.h" as test
 )
 
 var _->int;

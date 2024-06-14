@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"github.com/lumatozer/VenGO/structs"
 )
 
 // "errors"
@@ -49,7 +50,7 @@ type Function struct {
 	Variable_Scope         map[string]int
 	Argument_Names         []string
 	Argument_Indexes       []int
-	External_Function      func([]*Object)(int, interface{})
+	External_Function      func([]*Object)structs.Execution_Result
 }
 
 type Type struct {
@@ -64,6 +65,7 @@ type Type struct {
 }
 
 type Program struct {
+	Is_Dynamic             bool
 	Package_Name           string
 	Functions              []Function
 	Structs                map[string]*Type
@@ -74,7 +76,6 @@ type Program struct {
 	String_Constants       []string
 	Float_Constants        []float32
 	Float64_Constants      []float64
-	Is_External            bool
 }
 
 type Function_Definition struct {
@@ -101,7 +102,7 @@ type Definitions struct {
 	Variables              []Variable_Definition
 }
 
-func Definition_Parser(code []Token) (Definitions, error) {
+func Definition_Parser(code []Token, codePath string) (Definitions, error) {
 	definitions:=Definitions{
 		
 	}
@@ -110,6 +111,9 @@ func Definition_Parser(code []Token) (Definitions, error) {
 	Functions:=make([]string, 0)
 	imported_Aliases:=make([]string, 0)
 	imported_Files:=make([]string, 0)
+	if len(code)<2 {
+		return definitions, errors.New("Missing package declaration in file")
+	}
 	for i:=0; i<len(code); i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" {
 			if !(len(code)-i>=4) {
@@ -184,7 +188,7 @@ func Definition_Parser(code []Token) (Definitions, error) {
 					if j!=i+2 && last_Token.Type!="variable" {
 						return definitions, errors.New("invalid import declaration statement")
 					}
-					relative_Path,err:=filepath.Abs(code[j].Value)
+					relative_Path,err:=filepath.Abs(filepath.Dir(codePath)+"/"+code[j].Value)
 					if err!=nil {
 						return definitions, err
 					}
@@ -440,14 +444,14 @@ func Is_Struct_Declaration_Recursive(struct_name string, nested_Inside []string,
 	return false
 }
 
-func Parser(code []Token, is_Header bool) (Program, error) {
+func Parser(code []Token, filePath string) (Program, error) {
+	is_Header:=strings.HasSuffix(filePath, ".h")
 	program:=Program{
 		Structs: make(map[string]*Type),
-		Is_External: is_Header,
 		Functions: make([]Function, 0),
 		Rendered_Scope: make([]*Object, 0),
 	}
-	definitions,err:=Definition_Parser(code)
+	definitions,err:=Definition_Parser(code, filePath)
 	if err!=nil {
 		return program, err
 	}
@@ -462,7 +466,7 @@ func Parser(code []Token, is_Header bool) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		Imported_Program,err:=Parser(Imported_File, is_Header || strings.HasSuffix(file_Path, "vh"))
+		Imported_Program,err:=Parser(Imported_File, file_Path)
 		Imported_Program.Package_Name=file_Path
 		if err!=nil {
 			return program, err
