@@ -50,7 +50,7 @@ type Function struct {
 	Variable_Scope         map[string]int
 	Argument_Names         []string
 	Argument_Indexes       []int
-	External_Function      func([]*Object)structs.Execution_Result
+	External_Function      *func([]*interface{})structs.Execution_Result
 }
 
 type Type struct {
@@ -96,6 +96,7 @@ type Struct_Definition struct {
 }
 
 type Definitions struct {
+	PackageName            string
 	Imports                [][]string
 	Structs                []Struct_Definition
 	Functions              []Function_Definition
@@ -112,9 +113,13 @@ func Definition_Parser(code []Token, codePath string) (Definitions, error) {
 	imported_Aliases:=make([]string, 0)
 	imported_Files:=make([]string, 0)
 	if len(code)<2 {
-		return definitions, errors.New("Missing package declaration in file")
+		return definitions, errors.New("missing package declaration during file parsing")
 	}
-	for i:=0; i<len(code); i++ {
+	if code[0].Type!="sys" || code[0].Value!="package" || code[1].Type!="variable" || !Is_Valid_Variable_Name(code[1].Value) {
+		return definitions, errors.New("invalid package declaration during file parsing")
+	}
+	definitions.PackageName=code[1].Value
+	for i:=2; i<len(code); i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" {
 			if !(len(code)-i>=4) {
 				return definitions, errors.New("invalid variable declaration statement")
@@ -445,16 +450,18 @@ func Is_Struct_Declaration_Recursive(struct_name string, nested_Inside []string,
 }
 
 func Parser(code []Token, filePath string) (Program, error) {
-	is_Header:=strings.HasSuffix(filePath, ".h")
+	is_Header:=strings.HasSuffix(filePath, ".vh")
 	program:=Program{
 		Structs: make(map[string]*Type),
 		Functions: make([]Function, 0),
 		Rendered_Scope: make([]*Object, 0),
+		Is_Dynamic: is_Header,
 	}
 	definitions,err:=Definition_Parser(code, filePath)
 	if err!=nil {
 		return program, err
 	}
+	program.Package_Name=definitions.PackageName
 	for _,Import_Declaration:=range definitions.Imports {
 		file_Path:=Import_Declaration[0]
 		Alias:=Import_Declaration[1]
@@ -530,7 +537,10 @@ func Parser(code []Token, filePath string) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0)}
+		sample_Package_Function_Definition:=func(objects []*interface{})structs.Execution_Result{
+			return structs.Execution_Result{}
+		}
+		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0), External_Function: &sample_Package_Function_Definition}
 		for argument_Name, argument_Type_Token:=range Function_Definition.Arguments_Variables {
 			argument_Type,err:=Type_Token_To_Struct(argument_Type_Token, &program)
 			if err!=nil {

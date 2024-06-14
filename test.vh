@@ -1,1 +1,3 @@
-function mult_2(a->int)->int {}
+package print
+
+function print(a->int)->void {}

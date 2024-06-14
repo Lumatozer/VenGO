@@ -6,6 +6,26 @@ import (
 	"path/filepath"
 )
 
+func Load_Packages(program *Program, packages []Package) {
+	if program.Is_Dynamic {
+		for _,Package:=range packages {
+			if Package.Name==program.Package_Name {
+				for i,function:=range program.Functions {
+					function_Index:=str_index_in_str_arr(function.Name, Package.Function_Names)
+					if function_Index!=-1 {
+						*program.Functions[i].External_Function=Package.Functions[function_Index]
+					}
+				}
+			}
+		}
+	}
+	for _,Function:=range program.Functions {
+		if Function.Base_Program!=program {
+			Load_Packages(Function.Base_Program, packages)
+		}
+	}
+}
+
 func main() {
 	if len(os.Args)<2 {
 		fmt.Println("Run this binary with the format:\nvengine target.file --flags=value")
@@ -39,6 +59,7 @@ func main() {
 			index=i
 		}
 	}
+	Load_Packages(&program, Get_Packages())
 	exec_Result:=Interpreter(&program.Functions[index], Stack{})
 	if exec_Result.Error!=nil {
 		fmt.Println(exec_Result.Return_Value)

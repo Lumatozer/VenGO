@@ -17,7 +17,7 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 	for i:=0; i<len(scope); i++ {
 		stack_Index:=int_index_in_int_arr(i, stack.Locations)
 		if stack_Index!=-1 {
-			scope[i]=stack.Objects[stack_Index]
+			scope[i]=&Object{Value: stack.Objects[stack_Index]}
 		} else {
 			if int_index_in_int_arr(i, function.Base_Program.Globally_Available)!=-1 && function.Base_Program.Rendered_Scope[i].Value!=nil {
 				scope[i]=function.Base_Program.Rendered_Scope[i]
@@ -28,11 +28,11 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 		}
 	}
 	if function.Base_Program.Is_Dynamic {
-		if function.External_Function==nil {
-			// add minimum gas required to call a function
-			return execution_Result
+		stack_Interfaces:=make([]*interface{}, 0)
+		for _,stack_Object:=range stack.Objects {
+			stack_Interfaces = append(stack_Interfaces, &stack_Object.Value)
 		}
-		return function.External_Function(stack.Objects)
+		return (*function.External_Function)(stack_Interfaces)
 	}
 	for i := 0; i < len(function.Instructions); i++ {
 		instructions := function.Instructions[i]
