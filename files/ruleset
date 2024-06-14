@@ -1,0 +1,68 @@
+00 set                                # Setting value to a constant number
+01 refset                             # Setting value to a referenced variable number
+02 jump                               # Jumping to line number a with condition b
+03 equals                             # Verifying if numbers are equal
+04 greater                            # Verifying if a > b
+05 add                                # Adding a + b and store value in c
+06 sub                                # Subtracting a - b and storing the value in c
+07 mult                               # Multiplying a * b and storing the value in c
+08 div                                # Dividing a / b and storing the value in c
+09 power                              # Powering a ** b and storing the value in c
+10 floor                              # Flooring a // b and storing the value in c
+11 mod                                # Modding a % b and storing the value in c
+12 str.set                            # Set a variable as a string value
+14 str.add                            # Add 2 strings a + b and store value in string c
+15 str.mult                           # Multiplying string a b times and storing the value in c
+16 str.refset                         # Setting value to a referenced string variable
+17 define.jump                        # Defines the line to be a jumpable reference
+18 jump.def                           # Jump to a definition 
+19 endx                               # Stop the program
+20 and                                # And operation of two boolean value a and b and store the value in c
+21 or                                 # Or operation of two boolean values a or b and storing the value in c
+22 not                                # Not operation of two boolean values a not b and storing value in c
+23 xor                                # Xoring a ^ b and storing the value in c
+24 round                              # Round a to b number of decimals and store value in c
+25 arr.init                           # Initialises an array a of type x string split by ","
+26 arr.push                           # Insert an item x into an array y of similar type
+27 arr.pull                           # Lookups the value of variable a as index of array b and stores the value in c
+28 arr.remove                         # Removes the index of variable a from array b
+29 arr.index.set                      # Sets value of array a at index b to value of c with similar type
+30 arr.length                         # Gets the length of array and stores the value in variable b
+31 arr.refset                         # Set value of array a as value of array b with same children
+32 arr.includes                       # Recursive check of whether an object a is inside an array b and storing the value in c
+33 obj.equals                         # Recursive check of whether an array a is equal to an array b and storing the value in c
+34 str.equals                         # Checks whether string a is equal to string b and stores the value in c
+35 dict.init                          # Initialises a dictionary of type b from string constants as variable a
+36 dict.key.set                       # Set key y to value z where z is of the same type as dict x
+37 dict.pull                          # Get value of key y in dict x and store value in variable z
+38 dict.delete                        # Delete key y from dictionary x
+39 dict.keys                          # Gives list of all keys of dictionary x and stores result in array y
+40 dict.refset                        # Set dict x to be equal to dict y
+41 dict.key.includes                  # Check whether dictionary a includes a key b and store value in c
+42 str.includes                       # Check whether str a includes str b as a sub string and store result in c
+43 str.replace                        # Replace all occurance of str b in str a with str c and stores result in str d
+44 str.index                          # Find index of str a in str b and stores index in c
+45 str.split                          # Split str a at all occurances of str b and stores the array in c
+46 str.pull                           # Get string byte in str a at index b and store the byte in str c
+47 str.slice_n                        # Slice the str a in two parts at position n and store array in str array c
+48 scope.new                          # Add a new local scope to memory (all variables of last scope are copied over to new scope)
+49 scope.exit                         # Exit out of current scope and go back to last scope (variables in last scope (the one exited to) will be rewritten with values of them in inner scope and local variables in current scope are not copied over)
+50 pointer.init                       # Returns the memory position of variable b in symbol_table and stores the value in variable a
+51 pointer.dereference                # Deferences the pointer x to the pointer address y and attempts to cast the variable at position x in stack to the type of variable y. Code execution will stop on memory access faults or type cast fails
+52 num_to_str                         # Converts num a to str b
+53 str_to_num                         # Converts str a to num b and stores error in c
+54 str.length                         # Gets the length of str a and stores the length in b
+55 debug.print                        # Prints string a to console when debug is enabled
+56 register_struct                    # Register a custom struct by passing in a number as the index of a data constant formatted as x->some_type;y->some_other_type. Each field to be separated by ;
+57 struct.init                        # Create the struct variable a of struct index b
+58 struct.set                         # Set struct a's field b (data constant index) to c
+59 struct.pull                        # Get struct a's field b (data constant index) into c
+60 jump.def.always                    # Jump to definition with no condition
+61 jump_n_lines                       # Jump a lines with condition b
+62 padding                            # Padding instruction
+64 smaller                            # Verifying if a < b
+65 obj_copy                           # Copy b into a as long as type(a)==type(b)
+66 obj_copy_update_scope              # Copy b into a and update scope
+67 jump.always.var                    # Jump to a variable line number a without a condition
+68 current_line_number                # Put current position of instruction pointer into a
+69 shallow_copy                       # Shallow copies b into a such that each time you refset the value of b and a both are modified
