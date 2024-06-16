@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
 	"github.com/lumatozer/VenGO/structs"
+	"github.com/lumatozer/VenGO/venc"
 )
 
 func Load_Packages(program *Program, packages []structs.Package) {
@@ -35,6 +38,21 @@ func main() {
 	data,err:=os.ReadFile(os.Args[1])
 	if err!=nil {
 		fmt.Println(err)
+		return
+	}
+	if strings.HasSuffix(os.Args[1] ,".vi") {
+		tokens:=venc.Tokensier(string(data), false)
+		tokens,err:=venc.Tokens_Parser(tokens, false)
+		if err!=nil {
+			fmt.Println(err)
+			return
+		}
+		tokens,err=venc.Token_Grouper(tokens, false)
+		if err!=nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(tokens)
 		return
 	}
 	tokens,err:=Tokenizer(string(data))

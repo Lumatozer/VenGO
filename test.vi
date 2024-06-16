@@ -1,13 +1,5 @@
 package main
 
-import (
-    "test.vh" as test
-)
+function main(a->string)->[int64] {
 
-var _->void;
-
-function main()->void {
-    var a->int;
-    set a 10;
-    call test.print(a) _;
 }
