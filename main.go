@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"github.com/lumatozer/VenGO/structs"
 )
 
-func Load_Packages(program *Program, packages []Package) {
+func Load_Packages(program *Program, packages []structs.Package) {
 	if program.Is_Dynamic {
 		for _,Package:=range packages {
 			if Package.Name==program.Package_Name {
 				for i,function:=range program.Functions {
-					function_Index:=str_index_in_str_arr(function.Name, Package.Function_Names)
-					if function_Index!=-1 {
-						*program.Functions[i].External_Function=Package.Functions[function_Index]
+					external_Function,ok:=Package.Functions[function.Name]
+					if ok {
+						*program.Functions[i].External_Function=external_Function
 					}
 				}
 			}

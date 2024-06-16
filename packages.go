@@ -5,14 +5,9 @@ import (
 	"github.com/lumatozer/VenGO/structs"
 )
 
-type Package struct {
-	Name      string
-	Function_Names    []string
-	Functions         []func([]*interface{})structs.Execution_Result
-}
-
-func Get_Packages() []Package {
-	packages:=make([]Package, 0)
-	packages = append(packages, Package{Name: "print", Function_Names: []string{"print"}, Functions: []func([]*interface{})structs.Execution_Result{print.Print}})
+func Get_Packages() []structs.Package {
+	packages:=make([]structs.Package, 0)
+	print_Package:=structs.Package{Name: "print", Functions: print.Get_Package().Functions}
+	packages = append(packages, print_Package)
 	return packages
 }

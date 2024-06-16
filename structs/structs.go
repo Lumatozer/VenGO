@@ -5,3 +5,8 @@ type Execution_Result struct {
 	Return_Value    interface{}
 	Error           error
 }
+
+type Package struct {
+	Name      string
+	Functions         map[string]func([]*interface{})Execution_Result
+}
