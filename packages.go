@@ -7,7 +7,6 @@ import (
 
 func Get_Packages() []structs.Package {
 	packages:=make([]structs.Package, 0)
-	print_Package:=structs.Package{Name: "print", Functions: print.Get_Package().Functions}
-	packages = append(packages, print_Package)
+	packages = append(packages, structs.Package{Name: "print", Functions: print.Get_Package().Functions})
 	return packages
 }
