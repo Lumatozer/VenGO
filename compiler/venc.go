@@ -88,6 +88,27 @@ func unpack_token_struct(orig Serializable_Token) Token {
 	return Token{Type: orig.Type, string_value: orig.String_value, num_value: orig.Num_value, children: new_children}
 }
 
+func str_index_in_arr(a string, arr []string) int {
+	for i:=0; i<len(arr); i++ {
+		if a==arr[i] {
+			return i
+		}
+	}
+	return -1
+}
+
+func string_arr_compare(a []string, b []string) bool {
+	if len(a)!=len(b) {
+		return false
+	}
+	for i:=0; i<len(a); i++ {
+		if a[i]!=b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func remove_token_at_index(i int, tokens []Token) []Token {
 	return append(tokens[:i], tokens[i+1:]...)
 }
@@ -164,7 +185,7 @@ func tokensier(code string, debug bool) []Token {
 				if char != string_init {
 					cache += char
 				} else {
-					tokens = append(tokens, Token{Type: "string", string_value: str_parser(cache)})
+					tokens = append(tokens, Token{Type: "string", string_value: cache})
 					cache = ""
 					break
 				}
