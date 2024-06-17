@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+const (
+	INT_TYPE               int8 = iota
+	INT64_TYPE             int8 = iota
+	STRING_TYPE            int8 = iota
+	FLOAT_TYPE             int8 = iota
+	FLOAT64_TYPE           int8 = iota
+	POINTER_TYPE           int8 = iota
+	VOID_TYPE              int8 = iota
+)
+
 type Token struct {
 	Type                 string
 	Num_Value            float64
@@ -15,8 +25,35 @@ type Token struct {
 	Children             []Token
 }
 
+type Type struct {
+	Is_Array             bool
+	Is_Dict              bool
+	Is_Raw               bool
+	Raw_Type             int8
+	Is_Struct            bool
+	Is_Pointer           bool
+	Struct_Details       map[string]*Type
+	Child                *Type
+}
+
+type Function struct {
+	Name                 string
+	Out_Type             Type
+	Arguments            map[string]Type
+	Scope                map[string]Type
+	Instructions         [][]string
+}
+
+type Program struct {
+	Path                 string
+	Structs              map[string]*Type
+	Functions            []Function
+	Global_Variables     map[string]Type
+	Imported_Libraries   map[string]*Program
+}
+
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "package"}
-var types = []string{"int", "int64", "string", "float", "float64"}
+var types = []string{"int", "int64", "string", "float", "float64", "void"}
 var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "%", ":="}
 var end_of_statements = []string{";"}
 var brackets = []string{"(", ")", "[", "]", "{", "}"}
@@ -259,6 +296,9 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 				}
 				i++
 			}
+			if str_index_in_arr("void", type_tokens)!=-1 && len(type_tokens)!=1 {
+				return make([]Token, 0), errors.New("void type can only be used as is")
+			}
 			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", String_Children: type_tokens}
 			continue
 		}
@@ -352,3 +392,7 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 	}
 	return grouped_tokens, nil
 }
+
+func Definition_Parser() {}
+
+func Compile() {}

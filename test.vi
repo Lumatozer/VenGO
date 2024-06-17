@@ -1,5 +1,5 @@
 package main
 
-function main(a->string)->[int64] {
+function main(a->string)->void {
 
 }
