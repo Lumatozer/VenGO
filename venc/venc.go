@@ -20,7 +20,7 @@ const (
 type Token struct {
 	Type                 string
 	Num_Value            float64
-	String_Value         string
+	Value         string
 	String_Children      []string
 	Children             []Token
 }
@@ -132,11 +132,11 @@ func Tokensier(code string, debug bool) []Token {
 			} else {
 				open_type = "close"
 			}
-			tokens = append(tokens, Token{Type: "bracket_" + open_type, String_Value: char})
+			tokens = append(tokens, Token{Type: "bracket_" + open_type, Value: char})
 			continue
 		}
 		if str_index_in_arr(char, operators) != -1 {
-			tokens = append(tokens, Token{Type: "operator", String_Value: char})
+			tokens = append(tokens, Token{Type: "operator", Value: char})
 			continue
 		}
 		if str_index_in_arr(char, end_of_statements) != -1 {
@@ -157,7 +157,7 @@ func Tokensier(code string, debug bool) []Token {
 				if char != string_init {
 					cache += char
 				} else {
-					tokens = append(tokens, Token{Type: "string", String_Value: cache})
+					tokens = append(tokens, Token{Type: "string", Value: cache})
 					cache = ""
 					break
 				}
@@ -183,9 +183,9 @@ func Tokensier(code string, debug bool) []Token {
 					cache += char
 				} else {
 					if str_index_in_arr(cache, reserved_tokens) != -1 {
-						tokens = append(tokens, Token{Type: "sys", String_Value: cache})
+						tokens = append(tokens, Token{Type: "sys", Value: cache})
 					} else {
-						tokens = append(tokens, Token{Type: "variable", String_Value: cache})
+						tokens = append(tokens, Token{Type: "variable", Value: cache})
 					}
 					cache = ""
 					i--
@@ -193,7 +193,7 @@ func Tokensier(code string, debug bool) []Token {
 				}
 				i++
 				if i == len(code) {
-					tokens = append(tokens, Token{Type: "variable", String_Value: cache})
+					tokens = append(tokens, Token{Type: "variable", Value: cache})
 					cache = ""
 					i--
 					break
@@ -220,7 +220,7 @@ func Tokensier(code string, debug bool) []Token {
 	return tokens
 }
 
-func valid_var_name(var_name string) bool {
+func Is_Valid_Var_Name(var_name string) bool {
 	if var_name == "" {
 		return false
 	}
@@ -253,15 +253,15 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 							break
 						}
 					}
-					nested_variables = append(nested_variables, code[i].String_Value)
+					nested_variables = append(nested_variables, code[i].Value)
 					if code[i+1].Type == "dot" {
 						i++
 					}
 					i++
 					first = false
 				} else {
-					if !first && current_token.Type == "variable" && valid_var_name(code[i].String_Value) && code[i-1].Type == "dot" {
-						nested_variables = append(nested_variables, code[i].String_Value)
+					if !first && current_token.Type == "variable" && Is_Valid_Var_Name(code[i].Value) && code[i-1].Type == "dot" {
+						nested_variables = append(nested_variables, code[i].Value)
 						i++
 					}
 					break
@@ -272,39 +272,39 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 			continue
 		}
 		if len(code) > i+1 && current_token.Type == "operator" && code[i+1].Type == "operator" {
-			combined_operator := current_token.String_Value + code[i+1].String_Value
+			combined_operator := current_token.Value + code[i+1].Value
 			accepted_combined_operator_array := []string{"+=", "-=", "/=", "*=", "%=", "//", "!=", "==", "->", ":=", "||", "&&"}
 			if str_index_in_arr(combined_operator, accepted_combined_operator_array) != -1 {
-				parsed_tokens = append(parsed_tokens, Token{Type: "operator", String_Value: combined_operator})
+				parsed_tokens = append(parsed_tokens, Token{Type: "operator", Value: combined_operator})
 				i++
 				continue
 			}
 		}
 		if len(code) > i+1 && current_token.Type == "colon" && code[i+1].Type == "operator" {
-			combined_operator := ":" + code[i+1].String_Value
+			combined_operator := ":" + code[i+1].Value
 			if combined_operator == ":=" {
-				parsed_tokens = append(parsed_tokens, Token{Type: "operator", String_Value: combined_operator})
+				parsed_tokens = append(parsed_tokens, Token{Type: "operator", Value: combined_operator})
 				i++
 				continue
 			}
 		}
-		if len(parsed_tokens) > 0 && parsed_tokens[len(parsed_tokens)-1].Type == "operator" && parsed_tokens[len(parsed_tokens)-1].String_Value == "->" && ( str_index_in_arr(current_token.String_Value, types)!=-1 || (len(code) > i+1 && len(parsed_tokens) != 0 && current_token.Type == "bracket_open" && (current_token.String_Value == "[" || current_token.String_Value == "{"))) {
+		if len(parsed_tokens) > 0 && parsed_tokens[len(parsed_tokens)-1].Type == "operator" && parsed_tokens[len(parsed_tokens)-1].Value == "->" && ( str_index_in_arr(current_token.Value, types)!=-1 || (len(code) > i+1 && len(parsed_tokens) != 0 && current_token.Type == "bracket_open" && (current_token.Value == "[" || current_token.Value == "{"))) {
 			type_tokens := make([]string, 0)
 			brackets := 0
 			for {
 				if len(code) < i+1 {
 					return make([]Token, 0), errors.New("Unexpected EOF")
 				}
-				if code[i].Type == "bracket_open" && code[i].String_Value == current_token.String_Value {
+				if code[i].Type == "bracket_open" && code[i].Value == current_token.Value {
 					brackets += 1
 				}
-				if code[i].Type == "bracket_close" && ((code[i].String_Value == "]" && current_token.String_Value == "[") || (code[i].String_Value == "}" && current_token.String_Value == "{")) {
+				if code[i].Type == "bracket_close" && ((code[i].Value == "]" && current_token.Value == "[") || (code[i].Value == "}" && current_token.Value == "{")) {
 					brackets -= 1
 				}
 				if str_index_in_arr(code[i].Type, []string{"bracket_open", "bracket_close", "variable"}) == -1 {
 					return make([]Token, 0), errors.New("Illegal type definition")
 				}
-				type_tokens = append(type_tokens, code[i].String_Value)
+				type_tokens = append(type_tokens, code[i].Value)
 				if brackets == 0 {
 					break
 				}
@@ -316,7 +316,7 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", String_Children: type_tokens}
 			continue
 		}
-		if code[i].Type == "bracket_open" && code[i].String_Value == "[" {
+		if code[i].Type == "bracket_open" && code[i].Value == "[" {
 			bracket_count := 1
 			childrentokens := make([]Token, 0)
 			for {
@@ -324,10 +324,10 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 				if len(code) < i+1 {
 					return make([]Token, 0), errors.New("Unexpected EOF")
 				}
-				if code[i].Type == "bracket_open" && code[i].String_Value == "[" {
+				if code[i].Type == "bracket_open" && code[i].Value == "[" {
 					bracket_count += 1
 				}
-				if code[i].Type == "bracket_close" && code[i].String_Value == "]" {
+				if code[i].Type == "bracket_close" && code[i].Value == "]" {
 					bracket_count -= 1
 				}
 				if bracket_count == 0 {
@@ -342,7 +342,7 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 			parsed_tokens = append(parsed_tokens, Token{Type: "expression_wrapper_[]", Children: tokens})
 			continue
 		}
-		if code[i].Type == "bracket_open" && code[i].String_Value == "(" {
+		if code[i].Type == "bracket_open" && code[i].Value == "(" {
 			bracket_count := 1
 			children_Tokens := make([]Token, 0)
 			for {
@@ -350,10 +350,10 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 				if len(code) < i+1 {
 					return make([]Token, 0), errors.New("Unexpected EOF")
 				}
-				if code[i].Type == "bracket_open" && code[i].String_Value == "(" {
+				if code[i].Type == "bracket_open" && code[i].Value == "(" {
 					bracket_count += 1
 				}
-				if code[i].Type == "bracket_close" && code[i].String_Value == ")" {
+				if code[i].Type == "bracket_close" && code[i].Value == ")" {
 					bracket_count -= 1
 				}
 				if bracket_count == 0 {
@@ -407,9 +407,60 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 	return grouped_tokens, nil
 }
 
-func Definition_Parser(code []Token) Definitions {
+func Definition_Parser(code []Token) (Definitions, error) {
 	definitions:=Definitions{Imports: make(map[string]string), Variables: make(map[string]Token), Functions: make([]Function_Definition, 0), Structs: make(map[string]map[string]Token)}
-	return definitions
+	for i:=0; i<len(code); i++ {
+		if code[i].Type=="sys" && code[i].Value=="struct" {
+			if !(len(code)-1>4) {
+				return definitions, errors.New("struct definition is incomplete")
+			}
+			if code[i+1].Type!="variable" || code[i+2].Type!="bracket_open" || code[i+2].Value!="{" {
+				return definitions, errors.New("invalid struct declaration during file parsing")
+			}
+			if !Is_Valid_Var_Name(code[i+1].Value) {
+				return definitions, errors.New("invalid struct name '"+code[i+1].Value+"'")
+			}
+			for Struct_Name:=range definitions.Structs {
+				if Struct_Name==code[i+1].Value {
+					return definitions, errors.New("struct '"+code[i+1].Value+"' has already been defined")
+				}
+			}
+			definitions.Structs[code[i+1].Value]=make(map[string]Token)
+			j:=i+2
+			for {
+				j++
+				if j>=len(code) {
+					return definitions, errors.New("unexpected EOF during struct parsing 1")
+				}
+				if code[j].Type=="bracket_close" && code[j].Value=="}" {
+					break
+				}
+				if code[j].Type!="variable" {
+					return definitions, errors.New("invalid struct declaration during file parsing")
+				}
+				if !Is_Valid_Var_Name(code[j].Value) {
+					return definitions, errors.New("invalid struct field name '"+code[i+1].Value+"'")
+				}
+				field_Name:=code[j].Value
+				_,ok:=definitions.Structs[code[i+1].Value][field_Name]
+				if ok {
+					fmt.Println("field '"+field_Name+"' has already been defined")
+				}
+				j++
+				if j+1>=len(code) {
+					return definitions, errors.New("unexpected EOF during struct parsing")
+				}
+				if code[j].Type!="type" {
+					return definitions, errors.New("invalid struct declaration during file parsing")
+				}
+				definitions.Structs[code[i+1].Value][field_Name]=code[j]
+			}
+			i=j
+			continue
+		}
+		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
+	}
+	return definitions, nil
 }
 
 func Compile() {}

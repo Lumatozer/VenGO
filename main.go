@@ -53,6 +53,12 @@ func main() {
 			return
 		}
 		fmt.Println(tokens)
+		definitions,err:=venc.Definition_Parser(tokens)
+		if err!=nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(definitions)
 		return
 	}
 	tokens,err:=Tokenizer(string(data))
