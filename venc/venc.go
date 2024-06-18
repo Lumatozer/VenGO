@@ -52,6 +52,20 @@ type Program struct {
 	Imported_Libraries   map[string]*Program
 }
 
+type Function_Definition struct {
+	Name                 string
+	Arguments            map[string]Token
+	Out_Type             Token
+	Internal_Tokens      []Token
+}
+
+type Definitions struct {
+	Imports              map[string]string
+	Variables            map[string]Token
+	Functions            []Function_Definition
+	Structs              map[string]map[string]Token
+}
+
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "package"}
 var types = []string{"int", "int64", "string", "float", "float64", "void"}
 var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "%", ":="}
@@ -393,6 +407,9 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 	return grouped_tokens, nil
 }
 
-func Definition_Parser() {}
+func Definition_Parser(code []Token) Definitions {
+	definitions:=Definitions{Imports: make(map[string]string), Variables: make(map[string]Token), Functions: make([]Function_Definition, 0), Structs: make(map[string]map[string]Token)}
+	return definitions
+}
 
 func Compile() {}
