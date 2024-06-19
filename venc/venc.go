@@ -239,6 +239,43 @@ func Is_Valid_Var_Name(var_name string) bool {
 	return var_name == ""
 }
 
+func Type_Tokens_Parser(tokens []Token, depth int) (Token, error) {
+	if len(tokens)==0 {
+		return Token{}, errors.New("unexpected EOF during type declaration")
+	}
+	if len(tokens)==1 {
+		if tokens[0].Type!="variable" {
+			return Token{}, errors.New("type declaration is invalid"+tokens[0].Type)
+		}
+		if tokens[0].Value=="void" && depth!=0 {
+			return Token{}, errors.New("void type can only be used as is")
+		}
+		return Token{Type: "raw", Value: tokens[0].Value}, nil
+	}
+	if tokens[0].Type=="bracket_open" && tokens[0].Value=="[" && tokens[len(tokens)-1].Type=="bracket_close" && tokens[len(tokens)-1].Value=="]" {
+		arr_Token,err:=Type_Tokens_Parser(tokens[1:len(tokens)-1], depth+1)
+		if err!=nil {
+			return Token{}, err
+		}
+		return Token{Type: "array", Children: []Token{arr_Token}}, nil
+	}
+	if tokens[0].Type=="operator" && tokens[0].Value=="*" {
+		pointer_Token,err:=Type_Tokens_Parser(tokens[1:], depth+1)
+		if err!=nil {
+			return Token{}, err
+		}
+		return Token{Type: "pointer", Children: []Token{pointer_Token}}, nil
+	}
+	if len(tokens)>=6 && tokens[0].Type=="bracket_open" && tokens[0].Value=="{" && tokens[1].Type=="variable" && str_index_in_arr(tokens[1].Value, types)!=-1 && tokens[1].Value!="void" && tokens[2].Type=="operator" && tokens[2].Value=="-" && tokens[3].Type=="operator" && tokens[3].Value==">" && tokens[len(tokens)-1].Type=="bracket_close" && tokens[len(tokens)-1].Value=="}" {
+		dict_Token,err:=Type_Tokens_Parser(tokens[4:len(tokens)-1], depth+1)
+		if err!=nil {
+			return Token{}, err
+		}
+		return Token{Type: "dict", Children: []Token{Token{Type: "raw", Children: []Token{tokens[1]}}, dict_Token}}, nil
+	}
+	return Token{}, errors.New("type declaration is invalid")
+}
+
 func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 	parsed_tokens := make([]Token, 0)
 	for i := 0; i < len(code); i++ {
@@ -288,32 +325,37 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 				continue
 			}
 		}
-		if len(parsed_tokens) > 0 && parsed_tokens[len(parsed_tokens)-1].Type == "operator" && parsed_tokens[len(parsed_tokens)-1].Value == "->" && ( str_index_in_arr(current_token.Value, types)!=-1 || (len(code) > i+1 && len(parsed_tokens) != 0 && current_token.Type == "bracket_open" && (current_token.Value == "[" || current_token.Value == "{"))) {
-			type_tokens := make([]string, 0)
+		if len(parsed_tokens) > 0 && parsed_tokens[len(parsed_tokens)-1].Type == "operator" && parsed_tokens[len(parsed_tokens)-1].Value == "->" {
+			if str_index_in_arr(current_token.Type, []string{"variable", "bracket_open", "operator"})==-1 {
+				return make([]Token, 0), errors.New("type declaration is invalid")
+			}
+			Type_Tokens := make([]Token, 0)
 			brackets := 0
 			for {
 				if len(code) < i+1 {
-					return make([]Token, 0), errors.New("Unexpected EOF")
+					return make([]Token, 0), errors.New("unexpected EOF")
 				}
-				if code[i].Type == "bracket_open" && code[i].Value == current_token.Value {
+				if code[i].Type == "bracket_open" && (code[i].Value=="[" || code[i].Value=="{") {
 					brackets += 1
 				}
-				if code[i].Type == "bracket_close" && ((code[i].Value == "]" && current_token.Value == "[") || (code[i].Value == "}" && current_token.Value == "{")) {
+				if code[i].Type == "bracket_close" && (code[i].Value=="]" || code[i].Value=="}") {
 					brackets -= 1
 				}
-				if str_index_in_arr(code[i].Type, []string{"bracket_open", "bracket_close", "variable"}) == -1 {
-					return make([]Token, 0), errors.New("Illegal type definition")
+				Type_Tokens = append(Type_Tokens, code[i])
+				if code[i].Type=="operator" && code[i].Value=="*" {
+					i++
+					continue
 				}
-				type_tokens = append(type_tokens, code[i].Value)
 				if brackets == 0 {
 					break
 				}
 				i++
 			}
-			if str_index_in_arr("void", type_tokens)!=-1 && len(type_tokens)!=1 {
-				return make([]Token, 0), errors.New("void type can only be used as is")
+			Type_Token,err:=Type_Tokens_Parser(Type_Tokens, 0)
+			if err!=nil {
+				return make([]Token, 0), err
 			}
-			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", String_Children: type_tokens}
+			parsed_tokens[len(parsed_tokens)-1] = Token{Type: "type", Children: []Token{Type_Token}}
 			continue
 		}
 		if code[i].Type == "bracket_open" && code[i].Value == "[" {
@@ -322,7 +364,7 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 			for {
 				i++
 				if len(code) < i+1 {
-					return make([]Token, 0), errors.New("Unexpected EOF")
+					return make([]Token, 0), errors.New("unexpected EOF")
 				}
 				if code[i].Type == "bracket_open" && code[i].Value == "[" {
 					bracket_count += 1
@@ -348,7 +390,7 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 			for {
 				i++
 				if len(code) < i+1 {
-					return make([]Token, 0), errors.New("Unexpected EOF")
+					return make([]Token, 0), errors.New("unexpected EOF")
 				}
 				if code[i].Type == "bracket_open" && code[i].Value == "(" {
 					bracket_count += 1
