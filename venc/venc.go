@@ -68,7 +68,7 @@ type Definitions struct {
 
 var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "package"}
 var types = []string{"int", "int64", "string", "float", "float64", "void"}
-var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "%", ":="}
+var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "&", "%", ":=", "**", "&&", "||", "//"}
 var end_of_statements = []string{";"}
 var brackets = []string{"(", ")", "[", "]", "{", "}"}
 var string_quotes = []string{"\"", "'"}
@@ -245,7 +245,7 @@ func Type_Tokens_Parser(tokens []Token, depth int) (Token, error) {
 	}
 	if len(tokens)==1 {
 		if tokens[0].Type!="variable" {
-			return Token{}, errors.New("type declaration is invalid"+tokens[0].Type)
+			return Token{}, errors.New("type declaration is invalid "+tokens[0].Type)
 		}
 		if tokens[0].Value=="void" && depth!=0 {
 			return Token{}, errors.New("void type can only be used as is")
@@ -280,34 +280,6 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 	parsed_tokens := make([]Token, 0)
 	for i := 0; i < len(code); i++ {
 		current_token := code[i]
-		if len(code) > i+1 && code[i+1].Type == "dot" {
-			nested_variables := make([]string, 0)
-			first := true
-			for {
-				if len(code) > i+1 && (!first || code[i+1].Type == "dot") {
-					if !first {
-						if code[i-1].Type != "dot" {
-							break
-						}
-					}
-					nested_variables = append(nested_variables, code[i].Value)
-					if code[i+1].Type == "dot" {
-						i++
-					}
-					i++
-					first = false
-				} else {
-					if !first && current_token.Type == "variable" && Is_Valid_Var_Name(code[i].Value) && code[i-1].Type == "dot" {
-						nested_variables = append(nested_variables, code[i].Value)
-						i++
-					}
-					break
-				}
-			}
-			parsed_tokens = append(parsed_tokens, Token{Type: "nested_tokens", String_Children: nested_variables})
-			i--
-			continue
-		}
 		if len(code) > i+1 && current_token.Type == "operator" && code[i+1].Type == "operator" {
 			combined_operator := current_token.Value + code[i+1].Value
 			accepted_combined_operator_array := []string{"+=", "-=", "/=", "*=", "%=", "//", "!=", "==", "->", ":=", "||", "&&"}
@@ -424,18 +396,13 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 		}
 		code[i].Children = tokens_children
 		if code[i].Type == "expression_wrapper_[]" {
-			if len(grouped_tokens) > 0 && (grouped_tokens[len(grouped_tokens)-1].Type == "variable" || grouped_tokens[len(grouped_tokens)-1].Type == "nested_tokens" || grouped_tokens[len(grouped_tokens)-1].Type == "lookup" || grouped_tokens[len(grouped_tokens)-1].Type == "expression" || grouped_tokens[len(grouped_tokens)-1].Type == "funcall" || grouped_tokens[len(grouped_tokens)-1].Type == "array") {
+			if len(grouped_tokens) > 0 && (grouped_tokens[len(grouped_tokens)-1].Type == "variable" || grouped_tokens[len(grouped_tokens)-1].Type == "lookup" || grouped_tokens[len(grouped_tokens)-1].Type == "expression" || grouped_tokens[len(grouped_tokens)-1].Type == "funcall" || grouped_tokens[len(grouped_tokens)-1].Type == "array") {
 				grouped_tokens[len(grouped_tokens)-1] = Token{Type: "lookup", Children: []Token{Token{Type: "parent", Children: []Token{grouped_tokens[len(grouped_tokens)-1]}}, Token{Type: "tokens", Children: code[i].Children}}}
 				continue
 			}
 		}
 		if len(grouped_tokens) > 0 && code[i].Type == "type" && grouped_tokens[len(grouped_tokens)-1].Type == "expression_wrapper_[]" {
 			grouped_tokens[len(grouped_tokens)-1] = Token{Type: "array", Children: []Token{code[i], grouped_tokens[len(grouped_tokens)-1]}}
-			continue
-		}
-		if len(grouped_tokens) > 1 && grouped_tokens[len(grouped_tokens)-1].Type == "dot" && (grouped_tokens[len(grouped_tokens)-2].Type == "nested_tokens" || grouped_tokens[len(grouped_tokens)-2].Type == "lookup" || grouped_tokens[len(grouped_tokens)-2].Type == "variable" || grouped_tokens[len(grouped_tokens)-2].Type == "expression" || grouped_tokens[len(grouped_tokens)-2].Type == "funcall") {
-			grouped_tokens[len(grouped_tokens)-2] = Token{Type: "nested_tokens", Children: []Token{grouped_tokens[len(grouped_tokens)-2], code[i]}}
-			grouped_tokens = grouped_tokens[:len(grouped_tokens)-1]
 			continue
 		}
 		if len(grouped_tokens) > 0 && code[i].Type == "expression" {
@@ -445,6 +412,33 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 			}
 		}
 		grouped_tokens = append(grouped_tokens, code[i])
+	}
+	i:=-1
+	for {
+		i+=1
+		if i>=len(grouped_tokens) {
+			break
+		}
+		if len(grouped_tokens)-i>1 && grouped_tokens[i].Type=="dot" {
+			grouped_tokens[i-1]=Token{Type: "field_access", Children: []Token{grouped_tokens[i-1], grouped_tokens[i+1]}}
+			grouped_tokens = append(grouped_tokens[:i], grouped_tokens[i+2:]...)
+			i-=2
+			continue
+		}
+		if i>0 && grouped_tokens[i].Type=="operator" && grouped_tokens[i-1].Type=="operator" {
+			if str_index_in_arr(grouped_tokens[i].Value+grouped_tokens[i-1].Value, operators)!=-1 {
+				grouped_tokens[i-1].Value=grouped_tokens[i].Value+grouped_tokens[i-1].Value
+				grouped_tokens=append(grouped_tokens[:i], grouped_tokens[i+1:]...)
+				i-=1
+				continue
+			}
+		}
+		if i>0 && grouped_tokens[i].Type=="operator" && grouped_tokens[i].Value=="=" && grouped_tokens[i-1].Type=="colon" {
+			grouped_tokens[i].Value=":="
+			grouped_tokens=append(grouped_tokens[:i-1], grouped_tokens[i:]...)
+			i-=1
+			continue
+		}
 	}
 	return grouped_tokens, nil
 }
