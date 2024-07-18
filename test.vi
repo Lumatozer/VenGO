@@ -1,7 +1,1 @@
-struct A {
-    a->*A
-}
-
-struct B {
-    b->*+B
-}
+function main(a->string)->string

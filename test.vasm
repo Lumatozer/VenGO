@@ -10,4 +10,9 @@ function main()->void {
     var a->int;
     set a 10;
     call test.print(a) _;
+    call hi() _;
+}
+
+function hi()->void {
+
 }

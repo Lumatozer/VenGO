@@ -494,6 +494,56 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			i=j
 			continue
 		}
+		if code[i].Type=="sys" && code[i].Value=="function" {
+			if !(len(code)-i>=2) || code[i+1].Type!="funcall" {
+				return definitions, errors.New("invalid function declaration during file parsing")
+			}
+			if !Is_Valid_Var_Name(code[i+1].Children[0].Value) {
+				return definitions, errors.New("function name \""+code[i+1].Children[0].Value+"\" is invalid")
+			}
+			ArgumentTokens:=code[i+1].Children[1].Children
+			if len(ArgumentTokens)!=0 && len(ArgumentTokens)!=2 && (len(ArgumentTokens)+2)%3!=0 {
+				return definitions, errors.New("Improper declaration of function arguments inside function '"+code[i+1].Children[0].Value+"'")
+			}
+			FunctionArguments:=make(map[string]Token)
+			if len(ArgumentTokens)!=0 {
+				for j:=0; j<len(ArgumentTokens); j+=3 {
+					if ArgumentTokens[j].Type!="variable" {
+						return definitions, errors.New("Improper declaration of function arguments inside function '"+code[i+1].Children[0].Value+"'")
+					}
+					_,ArgumentFound:=FunctionArguments[ArgumentTokens[j].Value]
+					if ArgumentFound {
+						return definitions, errors.New("Improper declaration of function arguments inside function '"+code[i+1].Children[0].Value+"'")
+					}
+					if ArgumentTokens[j+1].Type!="type" {
+						return definitions, errors.New("Improper declaration of function arguments inside function '"+code[i+1].Children[0].Value+"'")
+					}
+					FunctionArguments[ArgumentTokens[j].Value]=ArgumentTokens[j+1]
+					if j+2<len(ArgumentTokens) {
+						if ArgumentTokens[j+2].Type!="comma" {
+							return definitions, errors.New("Improper declaration of function arguments inside function '"+code[i+1].Children[0].Value+"'")
+						}
+					}
+				}
+			}
+			function_Name:=code[i+1].Children[0].Value
+			for _,function:=range definitions.Functions {
+				if function.Name==function_Name {
+					return definitions, errors.New("function \""+function_Name+"\" has already been declared")
+				}
+			}
+			if !(len(code)-(i+1)>1) || code[i+2].Type!="type" {
+				definitions.Functions = append(definitions.Functions, Function_Definition{Name: function_Name, Out_Type: Token{Type: "type", Children: []Token{Token{Type: "raw", Value: "void"}}}, Arguments: FunctionArguments})
+				i+=1
+				continue
+			}
+			function_TypeToken:=code[i+2]
+			if !(len(code)-(i+2)>1) || (code[i+3].Type!="bracket_open" && code[i+3].Value!="{") {
+				definitions.Functions = append(definitions.Functions, Function_Definition{Name: function_Name, Out_Type: function_TypeToken, Arguments: FunctionArguments})
+				i+=2
+				continue
+			}
+		}
 		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
 	}
 	return definitions, nil
