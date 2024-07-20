@@ -1,5 +1,5 @@
 package main
 
-import (
-    "hi.vi" as hi
-)
+function main()->hi.X.Y {
+
+}

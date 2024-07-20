@@ -274,6 +274,19 @@ func Type_Tokens_Parser(tokens []Token, depth int) (Token, error) {
 		}
 		return Token{Type: "dict", Children: []Token{Token{Type: "raw", Children: []Token{tokens[1]}}, dict_Token}}, nil
 	}
+	if len(tokens)>=3 && tokens[1].Type=="dot" && len(tokens)%2!=0 {
+		RawType:=tokens[0].Value
+		for i:=1; len(tokens)>i; i+=2 {
+			if tokens[i].Type!="dot" {
+				return Token{}, errors.New("type declaration is invalid")
+			}
+			if tokens[i+1].Type!="variable" || !Is_Valid_Var_Name(tokens[i+1].Value) {
+				return Token{}, errors.New("type declaration is invalid")
+			}
+			RawType+="."+tokens[i+1].Value
+		}
+		return Token{Type: "raw", Value: RawType}, nil
+	}
 	return Token{}, errors.New("type declaration is invalid")
 }
 
@@ -304,8 +317,10 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 			}
 			Type_Tokens := make([]Token, 0)
 			brackets := 0
+			i-=1
 			for {
-				if len(code) < i+1 {
+				i++
+				if i>=len(code) {
 					return make([]Token, 0), errors.New("unexpected EOF")
 				}
 				if code[i].Type == "bracket_open" && (code[i].Value=="[" || code[i].Value=="{") {
@@ -319,10 +334,14 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 					i++
 					continue
 				}
+				if len(code)-i>=3 && code[i+1].Type=="dot" {
+					Type_Tokens = append(Type_Tokens, code[i+1])
+					i+=1
+					continue
+				}
 				if brackets == 0 {
 					break
 				}
-				i++
 			}
 			Type_Token,err:=Type_Tokens_Parser(Type_Tokens, 0)
 			if err!=nil {
@@ -617,7 +636,31 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			continue
 		}
 		if code[i].Type=="sys" && code[i].Value=="import" {
-
+			if code[i+1].Type!="expression" {
+				fmt.Println(code[i+1])
+				return definitions, errors.New("invalid import statement declaration")
+			}
+			importTokens:=code[i+1].Children
+			if len(importTokens)%3!=0 {
+				return definitions, errors.New("invalid import statement declaration")
+			}
+			packagesImported:=make([]string, 0)
+			for j:=0; len(importTokens)>j; j+=3 {
+				if importTokens[j].Type!="string" || importTokens[j+1].Type!="sys" || importTokens[j+1].Value!="as" || importTokens[j+2].Type!="variable" || !Is_Valid_Var_Name(importTokens[j+2].Value) {
+					return definitions, errors.New("import statement declaration is invalid")
+				}
+				_,AlreadyImported:=definitions.Imports[importTokens[j].Value]
+				if AlreadyImported {
+					return definitions, errors.New("file '"+importTokens[j].Value+"' has already been imported")
+				}
+				if str_index_in_arr(importTokens[j+2].Value, packagesImported)!=-1 {
+					return definitions, errors.New("module '"+importTokens[j+2].Value+"' has already been imported")
+				}
+				definitions.Imports[importTokens[j].Value]=importTokens[j+2].Value
+				packagesImported = append(packagesImported, importTokens[j+2].Value)
+			}
+			i+=1
+			continue
 		}
 		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
 	}
