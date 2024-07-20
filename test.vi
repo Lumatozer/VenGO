@@ -1,20 +1,5 @@
-struct Hi {
-    a->string
-}
+var a b->string;
 
-struct Hello {
-    b->string
-}
-
-function yo()
-
-function hi()->string {}
-
-
-function hello() {
-
-}
-
-function test(a->string, b->string) {
+function main() {
     
 }

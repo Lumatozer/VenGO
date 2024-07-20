@@ -572,6 +572,42 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			i=j
 			continue
 		}
+		if code[i].Type=="sys" && code[i].Value=="var" {
+			if !(len(code)-i>=3) {
+				return definitions, errors.New("invalid variable declartion during file parsing")
+			}
+			variables:=make([]string, 0)
+			j:=i
+			variablesTypeToken:=Token{}
+			for {
+				j++
+				if j>=len(code) {
+					return definitions, errors.New("unexpected EOF during variable parsing")
+				}
+				if code[j].Type=="type" {
+					if (len(code)-j>1) && code[j+1].Type=="EOS" {
+						variablesTypeToken=code[j]
+						break
+					} else {
+						return definitions, errors.New("type should be the last token during variable declarations proceeded by an EOS")
+					}
+				}
+				if code[j].Type!="variable" || !Is_Valid_Var_Name(code[j].Value) || str_index_in_arr(code[j].Value, variables)!=-1 {
+					return definitions, errors.New("invalid variable declaration statement")
+				}
+				for variable:=range definitions.Variables {
+					if variable==code[j].Value {
+						return definitions, errors.New("invalid variable declaration statement")
+					}
+				}
+				variables = append(variables, code[j].Value)
+			}
+			i=j+1
+			for _,variable:=range variables {
+				definitions.Variables[variable]=variablesTypeToken
+			}
+			continue
+		}
 		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
 	}
 	return definitions, nil
