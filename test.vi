@@ -1,5 +1,5 @@
-var a b->string;
+package main
 
-function main() {
-    
-}
+import (
+    "hi.vi" as hi
+)

@@ -20,8 +20,8 @@ const (
 type Token struct {
 	Type                 string
 	Num_Value            float64
-	Value         string
-	String_Children      []string
+	Value                string
+	Line_Number          int
 	Children             []Token
 }
 
@@ -60,6 +60,7 @@ type Function_Definition struct {
 }
 
 type Definitions struct {
+	Package_Name         string
 	Imports              map[string]string
 	Variables            map[string]Token
 	Functions            []Function_Definition
@@ -445,7 +446,11 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 
 func Definition_Parser(code []Token) (Definitions, error) {
 	definitions:=Definitions{Imports: make(map[string]string), Variables: make(map[string]Token), Functions: make([]Function_Definition, 0), Structs: make(map[string]map[string]Token)}
-	for i:=0; i<len(code); i++ {
+	if len(code)<2 || code[0].Type!="sys" || code[0].Value!="package" || code[1].Type!="variable" || !Is_Valid_Var_Name(code[1].Value) {
+		return definitions, errors.New("a valid package name is required")
+	}
+	definitions.Package_Name=code[1].Value
+	for i:=2; i<len(code); i++ {
 		if code[i].Type=="sys" && code[i].Value=="struct" {
 			if !(len(code)-1>4) {
 				return definitions, errors.New("struct definition is incomplete")
@@ -610,6 +615,9 @@ func Definition_Parser(code []Token) (Definitions, error) {
 				definitions.Variables[variable]=variablesTypeToken
 			}
 			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="import" {
+
 		}
 		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
 	}
