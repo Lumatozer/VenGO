@@ -1,0 +1,5 @@
+package venc
+
+func Compile() {
+	
+}

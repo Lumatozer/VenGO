@@ -38,10 +38,6 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 		instructions := function.Instructions[i]
 		opcode := instructions[0]
 		if opcode == SET_INSTRUCTION {
-			if function.Name=="main" {
-				fmt.Println(scope[1])
-			}
-			fmt.Println("setting", instructions[1], instructions[2])
 			scope[instructions[1]].Value = instructions[2]
 		}
 		if opcode == ADD_INSTRUCTION {
@@ -62,9 +58,6 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			return execution_Result
 		}
 		if opcode == CALL_INSTRUCTION {
-			if function.Name=="main" {
-				fmt.Println(scope[1])
-			}
 			call_Stack:=Stack{}
 			function_to_be_Called:=function.Base_Program.Functions[instructions[1]]
 			for i:=0; i<len(function_to_be_Called.Argument_Names); i++ {
@@ -78,14 +71,11 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 				return execution_Result
 			}
 			scope[instructions[2]].Value=perfomed_Execution.Return_Value
-			if function.Name=="main" {
-				fmt.Println(scope[1])
-			}
 		}
 	}
 	for i := range scope {
 		if scope[i]!=nil && scope[i].Value != nil {
-			fmt.Print(scope[i].Value, " ", function.Name)
+			fmt.Print(scope[i].Value, " ")
 		}
 	}
 	fmt.Println()
