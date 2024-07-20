@@ -592,12 +592,15 @@ func Definition_Parser(code []Token) (Definitions, error) {
 						return definitions, errors.New("type should be the last token during variable declarations proceeded by an EOS")
 					}
 				}
-				if code[j].Type!="variable" || !Is_Valid_Var_Name(code[j].Value) || str_index_in_arr(code[j].Value, variables)!=-1 {
+				if code[j].Type!="variable" || !Is_Valid_Var_Name(code[j].Value) {
 					return definitions, errors.New("invalid variable declaration statement")
+				}
+				if str_index_in_arr(code[j].Value, variables)!=-1 {
+					return definitions, errors.New("variable '"+code[j].Value+"' has already been declared")
 				}
 				for variable:=range definitions.Variables {
 					if variable==code[j].Value {
-						return definitions, errors.New("invalid variable declaration statement")
+						return definitions, errors.New("variable '"+variable+"' has already been declared")
 					}
 				}
 				variables = append(variables, code[j].Value)
