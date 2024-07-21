@@ -1,5 +1,5 @@
 package main
 
-function main()->hi.X {
+function main()->[*hi.X] {
 
 }

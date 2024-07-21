@@ -66,6 +66,31 @@ func Tokensier(code string, debug bool) []Token {
 			}
 			continue
 		}
+		if strings.Contains(allowed_variable_character, char) {
+			for {
+				char := string(code[i])
+				if strings.Contains(allowed_variable_character, char) || strings.Contains("1234567890", char) {
+					cache += char
+				} else {
+					if str_index_in_arr(cache, reserved_tokens) != -1 {
+						tokens = append(tokens, Token{Type: "sys", Value: cache})
+					} else {
+						tokens = append(tokens, Token{Type: "variable", Value: cache})
+					}
+					cache = ""
+					i--
+					break
+				}
+				i++
+				if i == len(code) {
+					tokens = append(tokens, Token{Type: "variable", Value: cache})
+					cache = ""
+					i--
+					break
+				}
+			}
+			continue
+		}
 		if str_index_in_arr(char, brackets) != -1 {
 			open_type := ""
 			if (str_index_in_arr(char, brackets) % 2) != 1 {
@@ -115,31 +140,6 @@ func Tokensier(code string, debug bool) []Token {
 		}
 		if char == "." {
 			tokens = append(tokens, Token{Type: "dot"})
-			continue
-		}
-		if strings.Contains(allowed_variable_character, char) {
-			for {
-				char := string(code[i])
-				if strings.Contains(allowed_variable_character, char) || strings.Contains("1234567890", char) {
-					cache += char
-				} else {
-					if str_index_in_arr(cache, reserved_tokens) != -1 {
-						tokens = append(tokens, Token{Type: "sys", Value: cache})
-					} else {
-						tokens = append(tokens, Token{Type: "variable", Value: cache})
-					}
-					cache = ""
-					i--
-					break
-				}
-				i++
-				if i == len(code) {
-					tokens = append(tokens, Token{Type: "variable", Value: cache})
-					cache = ""
-					i--
-					break
-				}
-			}
 			continue
 		}
 		if str_index_in_arr(char, comments) != -1 {
@@ -271,7 +271,6 @@ func Tokens_Parser(code []Token, debug bool) ([]Token, error) {
 				}
 				Type_Tokens = append(Type_Tokens, code[i])
 				if code[i].Type=="operator" && code[i].Value=="*" {
-					i++
 					continue
 				}
 				if len(code)-i>=3 && code[i+1].Type=="dot" {
