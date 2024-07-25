@@ -250,7 +250,7 @@ func Parse_Type(type_token Token, program *Program) (*Type, error) {
 }
 
 func Parser(path string, definitions Definitions) (Program, error) {
-	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true}
+	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type)}
 	for Struct_Name:=range definitions.Structs {
 		program.Structs[Struct_Name]=&Type{}
 	}

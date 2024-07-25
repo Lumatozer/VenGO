@@ -59,6 +59,12 @@ func main() {
 			return
 		}
 		fmt.Println(definitions)
+		program,err:=venc.Parser(os.Args[1], definitions)
+		if err!=nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(program)
 		return
 	}
 	tokens,err:=Tokenizer(string(data))
@@ -90,21 +96,4 @@ func main() {
 		fmt.Println(exec_Result.Return_Value)
 		return
 	}
-	// program,err:=Parse_Program(tokens, []string{}, os.Args[1], nil)
-	// entry_function:=-1
-	// if err!=nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-	// for i,function:=range program.Functions {
-	// 	if function.Name=="_start" {
-	// 		entry_function=i
-	// 		break
-	// 	}
-	// }
-	// if entry_function==-1 {
-	// 	fmt.Println("Entry file has no _start function")
-	// 	return
-	// }
-	// Interpreter(program.Functions[entry_function])
 }

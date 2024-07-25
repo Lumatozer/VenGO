@@ -4,6 +4,10 @@ import (
     "std" as std
 )
 
+struct Hi {
+    Name->string
+}
+
 function main()->{string->string} {
 
 }
