@@ -1,10 +1,10 @@
 package main
 
 import (
-    "std" as std
+    "hi.vi" as hi
 )
 
-var a->Hi;
+var a->hi.Test;
 
 struct Hi {
     Name->*Hi

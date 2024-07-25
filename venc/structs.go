@@ -40,7 +40,6 @@ type Type struct {
 }
 
 type Function struct {
-	Name                 string
 	Out_Type             Type
 	Arguments            map[string]Type
 	Scope                map[string]Type
@@ -52,7 +51,7 @@ type Program struct {
 	Path                 string
 	Package_Name         string
 	Structs              map[string]*Type
-	Functions            []Function
+	Functions            map[string]Function
 	Global_Variables     map[string]*Type
 	Imported_Libraries   map[string]*Program
 }

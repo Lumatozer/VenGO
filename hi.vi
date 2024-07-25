@@ -1,5 +1,9 @@
 package hi
 
+struct Test {
+    a->string
+}
+
 function test() {
 
 }

@@ -3,6 +3,7 @@ package venc
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -273,8 +274,37 @@ func Struct_Dependencies(Struct_Fields map[string]Token, program *Program) []str
 }
 
 func Parser(path string, definitions Definitions) (Program, error) {
-	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type)}
+	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type), Functions: make(map[string]Function)}
 	Dependencies:=make(map[string][]string)
+	for Import_Path, Import_Alias:=range definitions.Imports {
+		data,err:=os.ReadFile(Import_Path)
+		if err!=nil {
+			return program, err
+		}
+		tokens:=Tokensier(string(data), false)
+		tokens,err=Tokens_Parser(tokens, false)
+		if err!=nil {
+			return program, err
+		}
+		tokens,err=Token_Grouper(tokens, false)
+		if err!=nil {
+			return program, err
+		}
+		imported_Definition,err:=Definition_Parser(tokens)
+		if err!=nil {
+			return program, err
+		}
+		imported_Program,err:=Parser(Import_Path, imported_Definition)
+		if err!=nil {
+			return program, err
+		}
+		for Imported_Struct:=range imported_Program.Structs {
+			program.Structs[Import_Alias+"."+Imported_Struct]=imported_Program.Structs[Imported_Struct]
+		}
+		for Imported_Function:=range imported_Program.Functions {
+			program.Functions[Import_Alias+"."+Imported_Function]=imported_Program.Functions[Imported_Function]
+		}
+	}
 	for Struct_Name:=range definitions.Structs {
 		program.Structs[Struct_Name]=&Type{}
 		Dependencies[Struct_Name]=Struct_Dependencies(definitions.Structs[Struct_Name], &program)
