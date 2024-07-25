@@ -3,6 +3,7 @@ package venc
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 func Definition_Parser(code []Token) (Definitions, error) {
@@ -249,10 +250,41 @@ func Parse_Type(type_token Token, program *Program) (*Type, error) {
 	return &Type{}, errors.New("invalid type")
 }
 
+func Does_Struct_Depend_On(Struct_A string, Struct_B string, Dependency_Map map[string][]string) bool {
+	for _,Dependency:=range Dependency_Map[Struct_A] {
+		if Dependency==Struct_B || Does_Struct_Depend_On(Dependency, Struct_B, Dependency_Map) {
+			return true
+		}
+	}
+	return false
+}
+
+func Struct_Dependencies(Struct_Fields map[string]Token, program *Program) []string {
+	Dependencies:=make([]string, 0)
+	for _,Field_Token:=range Struct_Fields {
+		if Field_Token.Children[0].Type=="raw" && !strings.Contains(Field_Token.Children[0].Value, ".") {
+			_,ok:=program.Structs[Field_Token.Children[0].Value]
+			if ok {
+				Dependencies = append(Dependencies, Field_Token.Children[0].Value)
+			}
+		}
+	}
+	return Dependencies
+}
+
 func Parser(path string, definitions Definitions) (Program, error) {
 	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type)}
+	Dependencies:=make(map[string][]string)
 	for Struct_Name:=range definitions.Structs {
 		program.Structs[Struct_Name]=&Type{}
+		Dependencies[Struct_Name]=Struct_Dependencies(definitions.Structs[Struct_Name], &program)
+	}
+	for Struct_Name:=range Dependencies {
+		for Struct_B:=range Dependencies {
+			if Does_Struct_Depend_On(Struct_Name, Struct_B, Dependencies) {
+				return program, errors.New("struct '"+Struct_Name+"' declaration is recursive")
+			}
+		}
 	}
 	for Struct_Name:=range definitions.Structs {
 		Struct:=map[string]*Type{}

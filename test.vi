@@ -5,7 +5,11 @@ import (
 )
 
 struct Hi {
-    Name->string
+    Name->Yo
+}
+
+struct Yo {
+    Name->Hi
 }
 
 function main()->{string->string} {
