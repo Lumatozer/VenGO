@@ -88,7 +88,8 @@ func Compile(program Program) string {
 		compiled += "import (\n"
 	}
 	for Import_Alias, Imported_Program := range program.Imported_Libraries {
-		compiled += "    " + "\"" + strings.Split(Imported_Program.Path, ".")[0]+"\" as "+Import_Alias+"\n"
+		File_Path:=strings.Split(Imported_Program.Path, "/")
+		compiled += "    " + "\"" + File_Path[len(File_Path)-1] +"\" as "+Import_Alias+"\n"
 	}
 	if len(program.Imported_Libraries)!=0 {
 		compiled+=")\n"
