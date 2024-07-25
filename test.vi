@@ -4,12 +4,16 @@ import (
     "hi.vi" as hi
 )
 
-var a->hi.Test;
+var a->Hi;
 
 struct Hi {
-    Name->*Hi
+    a->string
+}
+
+struct Test {
+    b->Hi
 }
 
 function main() {
-    
+
 }

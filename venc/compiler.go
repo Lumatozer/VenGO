@@ -9,7 +9,11 @@ import (
 )
 
 func Hash(a string) string {
-	return hex.EncodeToString(sha256.New().Sum([]byte(a)))
+	hashed_Bytes:=make([]byte, 0)
+	for _,b:=range sha256.Sum256([]byte(a)) {
+		hashed_Bytes = append(hashed_Bytes, b)
+	}
+	return hex.EncodeToString(hashed_Bytes)
 }
 
 func Same_Types(Type_A *Type, Type_B *Type) bool {
@@ -90,6 +94,9 @@ func Compile(program Program) string {
 		compiled+=")\n"
 	}
 	for Struct:=range program.Structs {
+		if strings.Contains(Struct, ".") {
+			continue
+		}
 		compiled+="struct "+Struct+" {\n"
 		for Field, Field_Type:=range program.Structs[Struct].Struct_Details {
 			compiled+="    "+Field+"->"+Type_Object_To_String(Field_Type, &program)+"\n"

@@ -311,8 +311,8 @@ func Parser(path string, definitions Definitions) (Program, error) {
 		Dependencies[Struct_Name]=Struct_Dependencies(definitions.Structs[Struct_Name], &program)
 	}
 	for Struct_Name:=range Dependencies {
-		for Struct_B:=range Dependencies {
-			if Does_Struct_Depend_On(Struct_Name, Struct_B, Dependencies) {
+		for _,Struct_B:=range Dependencies[Struct_Name] {
+			if Does_Struct_Depend_On(Struct_B, Struct_Name, Dependencies) {
 				return program, errors.New("struct '"+Struct_Name+"' declaration is recursive")
 			}
 		}
