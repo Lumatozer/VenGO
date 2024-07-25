@@ -53,7 +53,7 @@ type Program struct {
 	Package_Name         string
 	Structs              map[string]*Type
 	Functions            []Function
-	Global_Variables     map[string]Type
+	Global_Variables     map[string]*Type
 	Imported_Libraries   map[string]*Program
 }
 

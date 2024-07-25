@@ -273,7 +273,7 @@ func Struct_Dependencies(Struct_Fields map[string]Token, program *Program) []str
 }
 
 func Parser(path string, definitions Definitions) (Program, error) {
-	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type)}
+	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type)}
 	Dependencies:=make(map[string][]string)
 	for Struct_Name:=range definitions.Structs {
 		program.Structs[Struct_Name]=&Type{}
@@ -296,6 +296,13 @@ func Parser(path string, definitions Definitions) (Program, error) {
 			Struct[Field]=Struct_Type
 		}
 		*program.Structs[Struct_Name]=Type{Is_Struct: true, Struct_Details: Struct}
+	}
+	for Variable_Name, Var_Type:=range definitions.Variables {
+		Variable_Type,err:=Parse_Type(Var_Type, &program)
+		if err!=nil {
+			return program, err
+		}
+		program.Global_Variables[Variable_Name]=Variable_Type
 	}
 	return program, nil
 }

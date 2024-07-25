@@ -4,14 +4,12 @@ import (
     "std" as std
 )
 
+var a->Hi;
+
 struct Hi {
-    Name->Yo
+    Name->*Hi
 }
 
-struct Yo {
-    Name->Hi
-}
-
-function main()->{string->string} {
+function main() {
 
 }
