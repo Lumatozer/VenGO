@@ -335,5 +335,19 @@ func Parser(path string, definitions Definitions) (Program, error) {
 		}
 		program.Global_Variables[Variable_Name]=Variable_Type
 	}
+	for _,Function_Definition:=range definitions.Functions {
+		Out_Type,err:=Parse_Type(Function_Definition.Out_Type, &program)
+		if err!=nil {
+			return program, err
+		}
+		program.Functions[Function_Definition.Name]=Function{Out_Type: Out_Type, Arguments: make(map[string]*Type), Scope: make(map[string]*Type), Instructions: make([][]string, 0)}
+		for Argument, Argument_Token:=range Function_Definition.Arguments {
+			Argument_Type,err:=Parse_Type(Argument_Token, &program)
+			if err!=nil {
+				return program, err
+			}
+			program.Functions[Function_Definition.Name].Arguments[Argument]=Argument_Type
+		}
+	}
 	return program, nil
 }

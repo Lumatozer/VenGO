@@ -103,5 +103,28 @@ func Compile(program Program) string {
 		}
 		compiled+="}\n"
 	}
+	for Variable, Variable_Type:=range program.Global_Variables {
+		compiled+="var "+Variable+"->"+Type_Object_To_String(Variable_Type, &program)+"\n"
+	}
+	sorted_Functions:=make([]string, 0)
+	for Function:=range program.Functions {
+		sorted_Functions = append(sorted_Functions, Function)
+	}
+	slices.Sort(sorted_Functions)
+	for _,Function:=range sorted_Functions {
+		compiled+="function "+Function+"("
+		Argument_String:=""
+		for Argument:=range program.Functions[Function].Arguments {
+			Argument_String+=Argument+"->"+Type_Object_To_String(program.Functions[Function].Arguments[Argument], &program)+", "
+		}
+		Argument_String=strings.Trim(Argument_String, ", ")
+		compiled+=Argument_String
+		compiled+=")"
+		compiled+="->"+Type_Object_To_String(program.Functions[Function].Out_Type, &program)+" {\n"
+		for _,Instruction_Line:=range program.Functions[Function].Instructions {
+			compiled+="    "+strings.Join(Instruction_Line, " ")+"\n"
+		}
+		compiled+="}\n"
+	}
 	return strings.Trim(compiled, "\n")
 }

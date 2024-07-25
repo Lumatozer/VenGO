@@ -14,6 +14,6 @@ struct Test {
     b->Hi
 }
 
-function main() {
+function main()->Test {
 
 }

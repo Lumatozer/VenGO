@@ -26,6 +26,7 @@ var Reverse_Standard_Type_Map map[int8]string = map[int8]string{
 	STRING_TYPE:"string",
 	FLOAT_TYPE:"float",
 	FLOAT64_TYPE:"float64",
+	VOID_TYPE:"void",
 }
 
 type Token struct {
@@ -48,9 +49,9 @@ type Type struct {
 }
 
 type Function struct {
-	Out_Type             Type
-	Arguments            map[string]Type
-	Scope                map[string]Type
+	Out_Type             *Type
+	Arguments            map[string]*Type
+	Scope                map[string]*Type
 	Instructions         [][]string
 }
 
