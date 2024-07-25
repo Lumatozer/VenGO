@@ -1,52 +1,54 @@
 package venc
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"slices"
+	"strconv"
 	"strings"
 )
 
+func Hash(a string) string {
+	return hex.EncodeToString(sha256.New().Sum([]byte(a)))
+}
+
 func Same_Types(Type_A *Type, Type_B *Type) bool {
-	if (Type_A==nil && Type_B!=nil) || (Type_B==nil && Type_A!=nil) {
-		return false
+	return Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(Type_B, make([]*Type, 0))
+}
+
+func Type_Signature(a *Type, traversed []*Type) string {
+	if a.Is_Array {
+		return Hash("array"+Type_Signature(a.Child, traversed))
 	}
-	if Type_A==nil && Type_B==nil {
-		return true
+	if a.Is_Dict {
+		return Hash("dict:key->"+Reverse_Standard_Type_Map[a.Raw_Type]+":value->"+Type_Signature(a.Child, traversed))
 	}
-	if Type_A.Is_Array!=Type_B.Is_Array {
-		return false
+	if a.Is_Raw {
+		return Hash("raw"+Reverse_Standard_Type_Map[a.Raw_Type])
 	}
-	if Type_A.Is_Dict!=Type_B.Is_Dict {
-		return false
+	if a.Is_Pointer {
+		return Hash("pointer"+Type_Signature(a.Child, traversed))
 	}
-	if Type_A.Is_Pointer!=Type_B.Is_Pointer {
-		return false
-	}
-	if Type_A.Is_Raw!=Type_B.Is_Raw {
-		return false
-	}
-	if Type_A.Is_Struct!=Type_B.Is_Struct {
-		return false
-	}
-	if !Same_Types(Type_A.Child, Type_B.Child) {
-		return false
-	}
-	if (Type_A.Struct_Details==nil && Type_B.Struct_Details!=nil) || (Type_A.Struct_Details!=nil && Type_B.Struct_Details==nil) {
-		return false
-	}
-	if Type_A.Struct_Details!=nil {
-		if len(Type_A.Struct_Details)!=len(Type_B.Struct_Details) {
-			return false
-		}
-		for Key:=range Type_A.Struct_Details {
-			_,ok:=Type_B.Struct_Details[Key]
-			if !ok {
-				return false
-			}
-			if !Same_Types(Type_A.Struct_Details[Key], Type_B.Struct_Details[Key]) {
-				return false
+	if a.Is_Struct {
+		for _,traveresed_Struct:=range traversed {
+			if traveresed_Struct==a {
+				return Hash("struct-recursed-at"+strconv.FormatInt(int64(len(traversed)), 10))
 			}
 		}
+		traversed = append(traversed, a)
+		struct_Keys:=make([]string, 0)
+		for Field:=range a.Struct_Details {
+			struct_Keys = append(struct_Keys, Field)
+		}
+		slices.Sort(struct_Keys)
+		out:="struct{"
+		for _,Field:=range struct_Keys {
+			out+=Field+"->"+Type_Signature(a.Struct_Details[Field], traversed)
+		}
+		out+="}"
+		return Hash(out)
 	}
-	return true
+	return ""
 }
 
 func Type_Object_To_String(Type_Object *Type, program *Program) string {
