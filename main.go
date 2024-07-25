@@ -65,6 +65,7 @@ func main() {
 			return
 		}
 		fmt.Println(program)
+		fmt.Println(venc.Compile(program))
 		return
 	}
 	tokens,err:=Tokenizer(string(data))

@@ -20,6 +20,14 @@ var TYPE_MAP map[string]int8 = map[string]int8{
 	"void":VOID_TYPE,
 }
 
+var Reverse_Standard_Type_Map map[int8]string = map[int8]string{
+	INT_TYPE:"int",
+	INT64_TYPE:"int64",
+	STRING_TYPE:"string",
+	FLOAT_TYPE:"float",
+	FLOAT64_TYPE:"float64",
+}
+
 type Token struct {
 	Type                 string
 	Num_Value            float64
