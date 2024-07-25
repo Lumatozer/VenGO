@@ -1,5 +1,9 @@
 package main
 
-function main()->[*hi.X] {
+import (
+    "std" as std
+)
+
+function main()->{string->string} {
 
 }

@@ -10,6 +10,16 @@ const (
 	VOID_TYPE              int8 = iota
 )
 
+var TYPE_MAP map[string]int8 = map[string]int8{
+	"int":INT_TYPE,
+	"int64":INT64_TYPE,
+	"string":STRING_TYPE,
+	"float":FLOAT_TYPE,
+	"float64":FLOAT64_TYPE,
+	"pointer":POINTER_TYPE,
+	"void":VOID_TYPE,
+}
+
 type Token struct {
 	Type                 string
 	Num_Value            float64
@@ -38,7 +48,9 @@ type Function struct {
 }
 
 type Program struct {
+	Vitality             bool
 	Path                 string
+	Package_Name         string
 	Structs              map[string]*Type
 	Functions            []Function
 	Global_Variables     map[string]Type

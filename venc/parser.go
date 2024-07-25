@@ -208,3 +208,62 @@ func Definition_Parser(code []Token) (Definitions, error) {
 	}
 	return definitions, nil
 }
+
+func Parse_Type(type_token Token, program *Program) (*Type, error) {
+	if type_token.Type=="type" {
+		return Parse_Type(type_token.Children[0], program)
+	}
+	if type_token.Type=="raw" {
+		Raw_Value,ok:=TYPE_MAP[type_token.Value]
+		if ok {
+			return &Type{Is_Raw: true, Raw_Type: Raw_Value}, nil
+		}
+		Struct,ok:=program.Structs[type_token.Value]
+		if ok {
+			return Struct, nil
+		}
+		return &Type{}, errors.New("type "+"'"+type_token.Value+"' was not found during type parsing")
+	}
+	if type_token.Type=="array" {
+		Array_Type,err:=Parse_Type(type_token.Children[0], program)
+		if err!=nil {
+			return &Type{}, err
+		}
+		return &Type{Is_Array: true, Child: Array_Type}, nil
+	}
+	if type_token.Type=="dict" {
+		Key_Type:=TYPE_MAP[type_token.Children[0].Value]
+		Value_Type,err:=Parse_Type(type_token.Children[1], program)
+		if err!=nil {
+			return &Type{}, err
+		}
+		return &Type{Is_Dict: true, Raw_Type: Key_Type, Child: Value_Type}, nil
+	}
+	if type_token.Type=="pointer" {
+		Child_Type,err:=Parse_Type(type_token.Children[0], program)
+		if err!=nil {
+			return &Type{}, err
+		}
+		return &Type{Is_Pointer: true, Child: Child_Type}, nil
+	}
+	return &Type{}, errors.New("invalid type")
+}
+
+func Parser(path string, definitions Definitions) (Program, error) {
+	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true}
+	for Struct_Name:=range definitions.Structs {
+		program.Structs[Struct_Name]=&Type{}
+	}
+	for Struct_Name:=range definitions.Structs {
+		Struct:=map[string]*Type{}
+		for Field, Field_Type:=range definitions.Structs[Struct_Name] {
+			Struct_Type,err:=Parse_Type(Field_Type, &program)
+			if err!=nil {
+				return program, err
+			}
+			Struct[Field]=Struct_Type
+		}
+		*program.Structs[Struct_Name]=Type{Is_Struct: true, Struct_Details: Struct}
+	}
+	return program, nil
+}
