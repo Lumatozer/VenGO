@@ -138,9 +138,6 @@ func Definition_Parser(code []Token, codePath string) (Definitions, error) {
 				if code[j].Type!="variable" {
 					return definitions, errors.New("expected token of type 'variable' during variable definition got '"+code[j].Type+"'")
 				}
-				if !Is_Valid_Variable_Name(code[j].Value) {
-					return definitions, errors.New("invalid variable name '"+code[j].Value+"'")
-				}
 				if str_index_in_str_arr(code[j].Value, global_Variables)!=-1 {
 					return definitions, errors.New("Variable '"+code[j].Value+"' has already been initialized")
 				}
@@ -606,9 +603,6 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				}
 				if code[j].Type!="variable" {
 					return errors.New("expected token of type 'variable' during variable definition got '"+code[j].Type+"'")
-				}
-				if !Is_Valid_Variable_Name(code[j].Value) {
-					return errors.New("invalid variable name '"+code[j].Value+"'")
 				}
 				if str_index_in_str_arr(code[j].Value, local_Variables)!=-1 && str_index_in_str_arr(code[j].Value, global_Variables)==-1 {
 					return errors.New("Variable '"+code[j].Value+"' has already been initialized 1"+function.Name)

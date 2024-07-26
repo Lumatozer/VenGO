@@ -4,12 +4,7 @@ import (
     "test.vh" as test
 )
 
-var _->void;
-
 function main()->void {
-    var a->int;
-}
-
-function test()->void {
-    set a 1;
+    var a.b->int;
+    set a.b 1;
 }
