@@ -105,7 +105,7 @@ func Compile(program Program) string {
 		compiled+="}\n"
 	}
 	for Variable, Variable_Type:=range program.Global_Variables {
-		compiled+="var "+Variable+"->"+Type_Object_To_String(Variable_Type, &program)+"\n"
+		compiled+="var "+Variable+"->"+Type_Object_To_String(Variable_Type, &program)+";\n"
 	}
 	sorted_Functions:=make([]string, 0)
 	for Function:=range program.Functions {
@@ -113,6 +113,9 @@ func Compile(program Program) string {
 	}
 	slices.Sort(sorted_Functions)
 	for _,Function:=range sorted_Functions {
+		if strings.Contains(Function, ".") {
+			continue
+		}
 		compiled+="function "+Function+"("
 		Argument_String:=""
 		for Argument:=range program.Functions[Function].Arguments {

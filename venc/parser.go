@@ -269,7 +269,7 @@ func Struct_Dependencies(Struct_Fields map[string]Token, program *Program) []str
 }
 
 func Parser(path string, definitions Definitions) (Program, error) {
-	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type), Functions: make(map[string]Function), Imported_Libraries: make(map[string]*Program)}
+	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type), Functions: make(map[string]*Function), Imported_Libraries: make(map[string]*Program)}
 	Dependencies:=make(map[string][]string)
 	for Import_Path, Import_Alias:=range definitions.Imports {
 		data,err:=os.ReadFile(Import_Path)
@@ -335,7 +335,11 @@ func Parser(path string, definitions Definitions) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		program.Functions[Function_Definition.Name]=Function{Out_Type: Out_Type, Arguments: make(map[string]*Type), Scope: make(map[string]*Type), Instructions: make([][]string, 0)}
+		defined_Function:=Function{Out_Type: Out_Type, Arguments: make(map[string]*Type), Scope: make(map[string]*Type), Instructions: make([][]string, 0)}
+		for Variable_Name, Variable_Type:=range program.Global_Variables {
+			defined_Function.Scope[Variable_Name]=Variable_Type
+		}
+		program.Functions[Function_Definition.Name]=&defined_Function
 		for Argument, Argument_Token:=range Function_Definition.Arguments {
 			Argument_Type,err:=Parse_Type(Argument_Token, &program)
 			if err!=nil {
@@ -343,6 +347,66 @@ func Parser(path string, definitions Definitions) (Program, error) {
 			}
 			program.Functions[Function_Definition.Name].Arguments[Argument]=Argument_Type
 		}
+		err=Function_Parser(Function_Definition, &defined_Function, &program)
+		fmt.Println()
+		if err!=nil {
+			return program, err
+		}
 	}
 	return program, nil
+}
+
+func Function_Parser(function_definition Function_Definition, function *Function, program *Program) error {
+	code:=function_definition.Internal_Tokens
+	for i:=0; len(code)>i; i++ {
+		if code[i].Type=="sys" && code[i].Value=="var" {
+			if !(len(code)-i>=3) {
+				return  errors.New("invalid variable declartion during file parsing")
+			}
+			variables:=make([]string, 0)
+			j:=i
+			variablesType:=&Type{}
+			for {
+				j++
+				if j>=len(code) {
+					return errors.New("unexpected EOF during variable parsing")
+				}
+				if code[j].Type=="type" {
+					if (len(code)-j>1) && code[j+1].Type=="EOS" {
+						varType,err:=Parse_Type(code[j], program)
+						if err!=nil {
+							return err
+						}
+						variablesType=varType
+						break
+					} else {
+						return errors.New("type should be the last token during variable declarations proceeded by an EOS")
+					}
+				}
+				if code[j].Type!="variable" || !Is_Valid_Var_Name(code[j].Value) {
+					return errors.New("invalid variable declaration statement")
+				}
+				if str_index_in_arr(code[j].Value, variables)!=-1 {
+					return errors.New("variable '"+code[j].Value+"' has already been declared")
+				}
+				for variable:=range function.Scope {
+					if variable==code[j].Value {
+						return errors.New("variable '"+variable+"' has already been declared")
+					}
+				}
+				variables = append(variables, code[j].Value)
+			}
+			i=j+1
+			Instructions:=make([]string, 0)
+			Instructions = append(Instructions, "var")
+			for _,variable:=range variables {
+				function.Scope[variable]=variablesType
+				Instructions = append(Instructions, variable)
+			}
+			Instructions = append(Instructions, "->"+Type_Object_To_String(variablesType, program)+";")
+			function.Instructions = append(function.Instructions, Instructions)
+			continue
+		}
+	}
+	return nil
 }

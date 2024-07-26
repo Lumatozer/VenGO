@@ -60,7 +60,7 @@ type Program struct {
 	Path                 string
 	Package_Name         string
 	Structs              map[string]*Type
-	Functions            map[string]Function
+	Functions            map[string]*Function
 	Global_Variables     map[string]*Type
 	Imported_Libraries   map[string]*Program
 }

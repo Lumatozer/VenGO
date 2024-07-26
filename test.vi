@@ -15,6 +15,5 @@ struct Test {
 }
 
 function main()->Test {
-    var a->int;
-    a=a+1;
+    var b->int;
 }

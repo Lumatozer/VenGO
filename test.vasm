@@ -1,10 +1,9 @@
 package main
 
-import (
-    "test.vh" as test
-)
+struct Test {
+    b->*string
+}
 
-function main()->void {
-    var a.b->int;
-    set a.b 1;
+function main()->Test {
+    var b ->int;
 }
