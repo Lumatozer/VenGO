@@ -65,8 +65,8 @@ func main() {
 			return
 		}
 		fmt.Println(program)
-		fmt.Println(venc.Compile(program))
-		return
+		data=[]byte(venc.Compile(program))
+		fmt.Println(string(data))
 	}
 	tokens,err:=Tokenizer(string(data))
 	if err!=nil {

@@ -4,6 +4,6 @@ struct Test {
     a->string
 }
 
-function test() {
+function test()->void {
 
 }

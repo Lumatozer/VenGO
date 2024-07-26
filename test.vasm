@@ -1,10 +1,6 @@
 package main
 
-struct Test {
-    b->*string
-}
-
-function main()->Test {
+function main()->string {
     var b ->int;
     var var0_0->int;
     set var0_0 1;
@@ -15,4 +11,6 @@ function main()->Test {
     add var0_1 var0_0 var0_2;
     set var0_0 5;
     add var0_2 var0_0 var0_1;
+    set var0_0 1;
+    add b var0_0 var0_2;
 }
