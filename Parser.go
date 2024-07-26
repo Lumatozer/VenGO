@@ -604,8 +604,10 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				if code[j].Type!="variable" {
 					return errors.New("expected token of type 'variable' during variable definition got '"+code[j].Type+"'")
 				}
-				if str_index_in_str_arr(code[j].Value, local_Variables)!=-1 && str_index_in_str_arr(code[j].Value, global_Variables)==-1 {
-					return errors.New("Variable '"+code[j].Value+"' has already been initialized 1"+function.Name)
+				local_Index:=str_index_in_str_arr(code[j].Value, local_Variables)
+				global_Index:=str_index_in_str_arr(code[j].Value, global_Variables)
+				if global_Index!=-1 || local_Index!=-1 {
+					return errors.New("Variable '"+code[j].Value+"' has already been initialized "+function.Name)
 				}
 				local_Variables = append(local_Variables, code[j].Value)
 				variables_Added = append(variables_Added, code[j].Value)

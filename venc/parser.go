@@ -3,6 +3,7 @@ package venc
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -386,54 +387,100 @@ func int_index_in_array(a int, arr []int) int {
 	return -1
 }
 
-func Generate_Unique_Temporary_Variable(signature string, temp_Variables map[string]struct{Used []int; Id int}) string {
-	Signature_Struct,ok:=temp_Variables[signature]
+func Generate_Unique_Temporary_Variable(variable_Type *Type, temp_Variables Temp_Variables, function *Function) string {
+	signature:=Type_Signature(variable_Type, make([]*Type, 0))
+	Signature_Id,ok:=temp_Variables.Signature_Lookup[signature]
 	if !ok {
-		temp_Variables[signature]=struct{Used []int; Id int}{Used: []int{0}, Id: len(temp_Variables)}
-		Signature_Struct=temp_Variables[signature]
+		temp_Variables.Signature_Lookup[signature]=len(temp_Variables.Signature_Lookup)
+		temp_Variables.Variable_Lookup[len(temp_Variables.Signature_Lookup)-1]=make([]struct{Free bool; Allocated bool}, 0)
+		Signature_Id=len(temp_Variables.Signature_Lookup)-1
 	}
-	i:=-1
-	for {
-		i++
-		if int_index_in_array(i, Signature_Struct.Used)==-1 {
-			Signature_Struct.Used = append(Signature_Struct.Used, i)
-			temp_Variables[signature] = Signature_Struct
-			return "var"+strconv.FormatInt(int64(Signature_Struct.Id), 10)+"_"+strconv.FormatInt(int64(i), 10)
+	Signature_Struct:=temp_Variables.Variable_Lookup[Signature_Id]
+	for i:=0; len(Signature_Struct)>i; i++ {
+		if Signature_Struct[i].Free {
+			temp_Variables.Variable_Lookup[Signature_Id][i].Free=false
+			variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(i), 10)
+			function.Scope[variable_Name]=variable_Type
+			return variable_Name
 		}
 	}
-	return ""
+	temp_Variables.Variable_Lookup[Signature_Id] = append(temp_Variables.Variable_Lookup[Signature_Id], struct{Free bool; Allocated bool}{Free: false, Allocated: false})
+	variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(len(temp_Variables.Variable_Lookup[Signature_Id])-1), 10)
+	function.Scope[variable_Name]=variable_Type
+	return variable_Name
 }
 
-func Evaluate_Type(code []Token) (*Type, error) {
+func Free_Temporary_Unique_Variable(variable_Name string, temp_Variables Temp_Variables, function *Function) {
+	delete(function.Scope, variable_Name)
+	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[0], 10, 64)
+	Temp_Int:=int(Temp_Id)
+	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[1], 10, 64)
+	Int_Used:=int(Used_Id)
+	temp_Variables.Variable_Lookup[Temp_Int][Int_Used].Free=true
+}
+
+func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, error) {
 	if len(code)==1 {
 		if code[0].Type=="num" {
-			return &Type{Is_Raw: true, Raw_Type: INT_TYPE}, nil
+			if math.Round(code[0].Num_Value)==code[0].Num_Value {
+				return &Type{Is_Raw: true, Raw_Type: INT_TYPE}, nil
+			} else {
+				return &Type{Is_Raw: true, Raw_Type: FLOAT64_TYPE}, nil
+			}
+		}
+		if code[0].Type=="string" {
+			return &Type{Is_Raw: true, Raw_Type: STRING_TYPE}, nil
+		}
+		if code[0].Type=="variable" {
+			Var_Type,ok:=function.Scope[code[0].Value]
+			if !ok {
+				return &Type{}, errors.New("variable "+"'"+code[0].Value+"'"+" not in scope of expression")
+			}
+			return Var_Type, nil
+		}
+		if code[0].Type=="expression" {
+			return Evaluate_Type(code[0].Children, function, program)
 		}
 	}
 	return &Type{}, errors.New("could not determine type of the given expression")
 }
 
-func Compile_Expression(code []Token, function *Function, program *Program, temp_Variables map[string]struct{Used []int; Id int}) (string, []string, error) {
+func Initialise_Temporary_Unique_Variable(variable_Name string, variable_Type *Type, function *Function, program *Program, temp_Variables Temp_Variables) {
+	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[0], 10, 64)
+	Temp_Int:=int(Temp_Id)
+	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[1], 10, 64)
+	Int_Used:=int(Used_Id)
+	if !temp_Variables.Variable_Lookup[Temp_Int][Int_Used].Allocated {
+		function.Instructions = append(function.Instructions, []string{"var", variable_Name+"->"+Type_Object_To_String(variable_Type, program)+";"})
+		temp_Variables.Variable_Lookup[Temp_Int][Int_Used].Allocated=true
+	}
+}
+
+func Compile_Expression(code []Token, function *Function, program *Program, temp_Variables Temp_Variables) (string, []string, error) {
 	out:=""
 	used_Variables:=make([]string, 0)
 	if len(code)==1 {
-		Var_Type,err:=Evaluate_Type([]Token{code[0]})
+		Var_Type,err:=Evaluate_Type([]Token{code[0]}, function, program)
 		if err!=nil {
 			return out, used_Variables, err
 		}
-		Temp_Var:=Generate_Unique_Temporary_Variable(Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)), temp_Variables)
-		function.Instructions = append(function.Instructions, []string{"var", Temp_Var+"->"+Type_Object_To_String(Var_Type, program)+";"})
+		if code[0].Type=="variable" {
+			return code[0].Value, used_Variables, nil
+		}
 		if code[0].Type=="num" {
+			Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Temp_Var, Var_Type, function, program, temp_Variables)
 			function.Instructions = append(function.Instructions, []string{"set", Temp_Var, strconv.FormatInt(int64(code[0].Num_Value), 10)+";"})
+			return Temp_Var, []string{Temp_Var}, nil
 		}
-		return Temp_Var, []string{Temp_Var}, nil
+		return out, used_Variables, errors.New("could not compile expression")
 	}
-	if len(code)==3 && code[1].Value=="+" {
-		Type_A,err:=Evaluate_Type([]Token{code[0]})
+	if len(code)==3 {
+		Type_A,err:=Evaluate_Type([]Token{code[0]}, function, program)
 		if err!=nil {
 			return out, used_Variables, err
 		}
-		Type_B,err:=Evaluate_Type([]Token{code[2]})
+		Type_B,err:=Evaluate_Type([]Token{code[2]}, function, program)
 		if err!=nil {
 			return out, used_Variables, err
 		}
@@ -448,20 +495,39 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 		}
 		used_Variables = append(used_Variables, Occupied_Vars...)
 		if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(Type_B, make([]*Type, 0)) && Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
-			Temp_Var:=Generate_Unique_Temporary_Variable(Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)), temp_Variables)
-			function.Instructions = append(function.Instructions, []string{"var", Temp_Var+"->"+Type_Object_To_String(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, program)+";"})
-			function.Instructions = append(function.Instructions, []string{"add", Var_A, Var_B, Temp_Var+";"})
-			return Temp_Var, used_Variables, nil
+			if code[1].Value=="+" {
+				Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
+				Initialise_Temporary_Unique_Variable(Temp_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
+				function.Instructions = append(function.Instructions, []string{"add", Var_A, Var_B, Temp_Var+";"})
+				return Temp_Var, used_Variables, nil
+			}
 		}
+		return out, used_Variables, errors.New("could not compile expression")
+	}
+	if len(code)>3 {
+		Token_A:=code[0]
+		to_Free:=""
+		for i:=0; len(code)>i+1; i+=2 {
+			out, Occupied_Vars, err:=Compile_Expression(append(append([]Token{}, Token_A), code[i+1:i+3]...), function, program, temp_Variables)
+			if to_Free!="" {
+				Free_Temporary_Unique_Variable(to_Free, temp_Variables, function)
+			}
+			if err!=nil {
+				return out, used_Variables, err
+			}
+			for _,Variable:=range Occupied_Vars {
+				Free_Temporary_Unique_Variable(Variable, temp_Variables, function)
+			}
+			Token_A=Token{Type: "variable", Value: out}
+			to_Free=out
+		}
+		out=Token_A.Value
 	}
 	return out, used_Variables, nil
 }
 
 func Function_Parser(function_definition Function_Definition, function *Function, program *Program) error {
-	temp_Variables:=make(map[string]struct{
-		Used         []int
-		Id           int
-	})
+	temp_Variables:=Temp_Variables{Signature_Lookup: make(map[string]int), Variable_Lookup: make(map[int][]struct{Free bool; Allocated bool})}
 	code:=function_definition.Internal_Tokens
 	for i:=0; len(code)>i; i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" {
@@ -526,8 +592,14 @@ func Function_Parser(function_definition Function_Definition, function *Function
 				}
 				expression_Tokens = append(expression_Tokens, code[i])
 			}
-			fmt.Println(LHS_Token, expression_Tokens, Is_Expression_Valid(expression_Tokens))
-			fmt.Println(Compile_Expression(expression_Tokens, function, program, temp_Variables))
+			if !Is_Expression_Valid(expression_Tokens) {
+				return errors.New("invalid expression")
+			}
+			RHS,used_Variables,err:=Compile_Expression(expression_Tokens, function, program, temp_Variables)
+			if err!=nil {
+				return err
+			}
+			fmt.Println(RHS, used_Variables, LHS_Token)
 			continue
 		}
 		return errors.New("unexpected token of type '"+code[i].Type+"' inside function '"+function_definition.Name+"'")

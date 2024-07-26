@@ -79,3 +79,8 @@ type Definitions struct {
 	Functions            []Function_Definition
 	Structs              map[string]map[string]Token
 }
+
+type Temp_Variables struct {
+	Signature_Lookup    map[string]int
+	Variable_Lookup     map[int][]struct{Free bool; Allocated bool}
+}
