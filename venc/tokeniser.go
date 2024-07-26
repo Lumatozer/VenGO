@@ -364,11 +364,14 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 			grouped_tokens[len(grouped_tokens)-1] = Token{Type: "array", Children: []Token{code[i], grouped_tokens[len(grouped_tokens)-1]}}
 			continue
 		}
+		if len(grouped_tokens) > 0 && code[i].Type=="dot" && len(code)-i>1 {
+			grouped_tokens[len(grouped_tokens)-1] = Token{Type: "field_access", Children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i+1]}}
+			i+=1
+			continue
+		}
 		if len(grouped_tokens) > 0 && code[i].Type == "expression" {
-			if grouped_tokens[len(grouped_tokens)-1].Type == "variable" || grouped_tokens[len(grouped_tokens)-1].Type == "lookup" || grouped_tokens[len(grouped_tokens)-1].Type == "expression" || grouped_tokens[len(grouped_tokens)-1].Type == "funcall" || grouped_tokens[len(grouped_tokens)-1].Type == "nested_tokens" {
-				grouped_tokens[len(grouped_tokens)-1] = Token{Type: "funcall", Children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i]}}
-				continue
-			}
+			grouped_tokens[len(grouped_tokens)-1] = Token{Type: "funcall", Children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i]}}
+			continue
 		}
 		grouped_tokens = append(grouped_tokens, code[i])
 	}
@@ -377,12 +380,6 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 		i+=1
 		if i>=len(grouped_tokens) {
 			break
-		}
-		if len(grouped_tokens)-i>1 && grouped_tokens[i].Type=="dot" {
-			grouped_tokens[i-1]=Token{Type: "field_access", Children: []Token{grouped_tokens[i-1], grouped_tokens[i+1]}}
-			grouped_tokens = append(grouped_tokens[:i], grouped_tokens[i+2:]...)
-			i-=2
-			continue
 		}
 		if i>0 && grouped_tokens[i].Type=="operator" && grouped_tokens[i-1].Type=="operator" {
 			if str_index_in_arr(grouped_tokens[i].Value+grouped_tokens[i-1].Value, operators)!=-1 {
