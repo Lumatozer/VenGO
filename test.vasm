@@ -6,4 +6,10 @@ struct Test {
 
 function main()->Test {
     var b ->int;
+    var var0_1->int;
+    set var0_1 1;
+    var var0_2->int;
+    set var0_2 1;
+    var var0_3->int;
+    add var0_1 var0_2 var0_3;
 }

@@ -16,4 +16,5 @@ struct Test {
 
 function main()->Test {
     var b->int;
+    b=1+1;
 }

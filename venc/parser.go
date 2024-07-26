@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -356,7 +357,111 @@ func Parser(path string, definitions Definitions) (Program, error) {
 	return program, nil
 }
 
+func Is_Expression_Valid(code []Token) bool {
+	if len(code)%2==0 {
+		return false
+	}
+	for i:=0; len(code)>i; i+=2 {
+		if code[i].Type=="expression" {
+			if !Is_Expression_Valid(code[i].Children) {
+				return false
+			}
+		}
+		if code[i].Type=="operator" {
+			return false
+		}
+		if len(code)>i+1 && code[i+1].Type!="operator" {
+			return false
+		}
+	}
+	return true
+}
+
+func int_index_in_array(a int, arr []int) int {
+	for i:=0; len(arr)>i; i++ {
+		if arr[i]==a {
+			return a
+		}
+	}
+	return -1
+}
+
+func Generate_Unique_Temporary_Variable(signature string, temp_Variables map[string]struct{Used []int; Id int}) string {
+	Signature_Struct,ok:=temp_Variables[signature]
+	if !ok {
+		temp_Variables[signature]=struct{Used []int; Id int}{Used: []int{0}, Id: len(temp_Variables)}
+		Signature_Struct=temp_Variables[signature]
+	}
+	i:=-1
+	for {
+		i++
+		if int_index_in_array(i, Signature_Struct.Used)==-1 {
+			Signature_Struct.Used = append(Signature_Struct.Used, i)
+			temp_Variables[signature] = Signature_Struct
+			return "var"+strconv.FormatInt(int64(Signature_Struct.Id), 10)+"_"+strconv.FormatInt(int64(i), 10)
+		}
+	}
+	return ""
+}
+
+func Evaluate_Type(code []Token) (*Type, error) {
+	if len(code)==1 {
+		if code[0].Type=="num" {
+			return &Type{Is_Raw: true, Raw_Type: INT_TYPE}, nil
+		}
+	}
+	return &Type{}, errors.New("could not determine type of the given expression")
+}
+
+func Compile_Expression(code []Token, function *Function, program *Program, temp_Variables map[string]struct{Used []int; Id int}) (string, []string, error) {
+	out:=""
+	used_Variables:=make([]string, 0)
+	if len(code)==1 {
+		Var_Type,err:=Evaluate_Type([]Token{code[0]})
+		if err!=nil {
+			return out, used_Variables, err
+		}
+		Temp_Var:=Generate_Unique_Temporary_Variable(Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)), temp_Variables)
+		function.Instructions = append(function.Instructions, []string{"var", Temp_Var+"->"+Type_Object_To_String(Var_Type, program)+";"})
+		if code[0].Type=="num" {
+			function.Instructions = append(function.Instructions, []string{"set", Temp_Var, strconv.FormatInt(int64(code[0].Num_Value), 10)+";"})
+		}
+		return Temp_Var, []string{Temp_Var}, nil
+	}
+	if len(code)==3 && code[1].Value=="+" {
+		Type_A,err:=Evaluate_Type([]Token{code[0]})
+		if err!=nil {
+			return out, used_Variables, err
+		}
+		Type_B,err:=Evaluate_Type([]Token{code[2]})
+		if err!=nil {
+			return out, used_Variables, err
+		}
+		Var_A, Occupied_Vars, err:=Compile_Expression([]Token{code[0]}, function, program, temp_Variables)
+		if err!=nil {
+			return out, used_Variables, err
+		}
+		used_Variables = append(used_Variables, Occupied_Vars...)
+		Var_B, Occupied_Vars, err:=Compile_Expression([]Token{code[2]}, function, program, temp_Variables)
+		if err!=nil {
+			return out, used_Variables, err
+		}
+		used_Variables = append(used_Variables, Occupied_Vars...)
+		if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(Type_B, make([]*Type, 0)) && Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
+			Temp_Var:=Generate_Unique_Temporary_Variable(Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)), temp_Variables)
+			function.Instructions = append(function.Instructions, []string{"var", Temp_Var+"->"+Type_Object_To_String(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, program)+";"})
+			function.Instructions = append(function.Instructions, []string{"add", Var_A, Var_B, Temp_Var+";"})
+			return Temp_Var, used_Variables, nil
+		}
+	}
+	return out, used_Variables, nil
+}
+
 func Function_Parser(function_definition Function_Definition, function *Function, program *Program) error {
+	temp_Variables:=make(map[string]struct{
+		Used         []int
+		Id           int
+	})
 	code:=function_definition.Internal_Tokens
 	for i:=0; len(code)>i; i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" {
@@ -407,6 +512,25 @@ func Function_Parser(function_definition Function_Definition, function *Function
 			function.Instructions = append(function.Instructions, Instructions)
 			continue
 		}
+		if len(code)-i>=4 && code[i+1].Type=="operator" && code[i+1].Value=="=" {
+			LHS_Token:=code[i]
+			expression_Tokens:=make([]Token, 0)
+			i+=1
+			for {
+				i++
+				if i>=len(code) {
+					return errors.New("unexpected EOS during function '"+function_definition.Name+"' parsing")
+				}
+				if code[i].Type=="EOS" {
+					break
+				}
+				expression_Tokens = append(expression_Tokens, code[i])
+			}
+			fmt.Println(LHS_Token, expression_Tokens, Is_Expression_Valid(expression_Tokens))
+			fmt.Println(Compile_Expression(expression_Tokens, function, program, temp_Variables))
+			continue
+		}
+		return errors.New("unexpected token of type '"+code[i].Type+"' inside function '"+function_definition.Name+"'")
 	}
 	return nil
 }
