@@ -179,12 +179,8 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			}
 			continue
 		}
-		if code[i].Type=="sys" && code[i].Value=="import" {
-			if code[i+1].Type!="expression" {
-				fmt.Println(code[i+1])
-				return definitions, errors.New("invalid import statement declaration")
-			}
-			importTokens:=code[i+1].Children
+		if code[i].Type=="funcall" && code[i].Children[0].Value=="import" {
+			importTokens:=code[i].Children[1].Children
 			if len(importTokens)%3!=0 {
 				return definitions, errors.New("invalid import statement declaration")
 			}
@@ -203,7 +199,6 @@ func Definition_Parser(code []Token) (Definitions, error) {
 				definitions.Imports[importTokens[j].Value]=importTokens[j+2].Value
 				packagesImported = append(packagesImported, importTokens[j+2].Value)
 			}
-			i+=1
 			continue
 		}
 		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
