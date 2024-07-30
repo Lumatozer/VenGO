@@ -13,9 +13,3 @@ struct Hi {
 struct Test {
     b->Hi
 }
-
-function main()->Test {
-    var b->int;
-    b=b+1+1+5;
-    b=b+1;
-}

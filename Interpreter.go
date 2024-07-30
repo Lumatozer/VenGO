@@ -17,7 +17,7 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 	for i:=0; i<len(scope); i++ {
 		stack_Index:=int_index_in_int_arr(i, stack.Locations)
 		if stack_Index!=-1 {
-			scope[i]=&Object{Value: stack.Objects[stack_Index]}
+			scope[i]=stack.Objects[stack_Index]
 		} else {
 			if int_index_in_int_arr(i, function.Base_Program.Globally_Available)!=-1 && function.Base_Program.Rendered_Scope[i].Value!=nil {
 				scope[i]=function.Base_Program.Rendered_Scope[i]
