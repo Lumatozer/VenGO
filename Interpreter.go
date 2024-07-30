@@ -13,8 +13,9 @@ type Stack struct {
 
 func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 	execution_Result:=structs.Execution_Result{}
-	scope := function.Base_Program.Rendered_Scope
+	scope := make([]*Object, len(function.Base_Program.Rendered_Scope))
 	for i:=0; i<len(scope); i++ {
+		scope[i] = function.Base_Program.Rendered_Scope[i]
 		stack_Index:=int_index_in_int_arr(i, stack.Locations)
 		if stack_Index!=-1 {
 			scope[i]=stack.Objects[stack_Index]
@@ -62,7 +63,7 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			function_to_be_Called:=function.Base_Program.Functions[instructions[1]]
 			for i:=0; i<len(function_to_be_Called.Argument_Names); i++ {
 				call_Stack.Locations = append(call_Stack.Locations, function_to_be_Called.Argument_Indexes[i])
-				call_Stack.Objects = append(call_Stack.Objects, function.Base_Program.Rendered_Scope[instructions[3+i]])
+				call_Stack.Objects = append(call_Stack.Objects, scope[instructions[3+i]])
 			}
 			perfomed_Execution:=Interpreter(&function_to_be_Called, call_Stack)
 			execution_Result.Gas_Used+=perfomed_Execution.Gas_Used
