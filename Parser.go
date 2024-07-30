@@ -757,8 +757,8 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			if len(variable_Indexes)!=len(program.Functions[function_Index].Arguments) {
 				return errors.New("function call arguments number do not match")
 			}
-			for index,argument_Name:=range function.Argument_Names {
-				argument_Type:=function.Arguments[argument_Name]
+			for index,argument_Name:=range program.Functions[function_Index].Argument_Names {
+				argument_Type:=program.Functions[function_Index].Arguments[argument_Name]
 				if !Equal_Type(&program.Object_References[variable_Indexes[index]].Object_Type, &argument_Type) {
 					return errors.New("function argument types do not match")
 				}
