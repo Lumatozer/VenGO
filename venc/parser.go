@@ -494,12 +494,17 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 			return out, used_Variables, err
 		}
 		used_Variables = append(used_Variables, Occupied_Vars...)
-		if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(Type_B, make([]*Type, 0)) && Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
-			if code[1].Value=="+" {
+		if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(Type_B, make([]*Type, 0)) {
+			if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
 				Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
 				Initialise_Temporary_Unique_Variable(Temp_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
-				function.Instructions = append(function.Instructions, []string{"add", Var_A, Var_B, Temp_Var+";"})
-				return Temp_Var, used_Variables, nil
+				Instructions_Map:=map[string]string{"+":"add", "-":"sub", "*":"mult", "/":"div", "**":"pow", "//":"floor", "%":"mod", "==":"equals", "!=":"nequals", ">":"greater", "<":"smaller", "&&":"and", "||":"or", "^":"xor"}
+				Instruction, Instruction_Found:=Instructions_Map[code[1].Value]
+				if Instruction_Found {
+					function.Instructions = append(function.Instructions, []string{Instruction, Var_A, Var_B, Temp_Var+";"})
+					return Temp_Var, used_Variables, nil
+				}
+				return "", used_Variables, errors.New("invalid operation between integers")
 			}
 		}
 		return out, used_Variables, errors.New("could not compile expression")

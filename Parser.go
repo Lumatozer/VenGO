@@ -625,7 +625,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i=j+1
 			continue
 		}
-		if code[i].Type=="sys" && code[i].Value=="set" {
+		if code[i].Type=="variable" && code[i].Value=="set" {
 			if len(code)-i<4 {
 				return errors.New("invalid set instruction definition structure 1")
 			}
@@ -646,22 +646,23 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i+=3
 			continue
 		}
-		if code[i].Type=="sys" && code[i].Value=="add" {
+		if Instruction_Index:=str_index_in_str_arr(code[i].Value, []string{"add", "sub", "div", "mult", "pow", "floor", "mod", "greater", "smaller", "and", "or", "xor"}); code[i].Type=="variable" && Instruction_Index!=-1 {
+			Instruction:=[]int{ADD_INSTRUCTION, SUB_INSTRUCTION, DIV_INSTRUCTION, MULT_INSTRUCTION, POWER_INSTRUCTION, FLOOR_INSTRUCTION, MOD_INSTRUCTION, GREATER_INSTRUCTION, SMALLER_INSTRUCTION, AND_INSTRUCTION, OR_INSTRUCTION, XOR_INSTRUCTION}[Instruction_Index]
 			if len(code)-i<5 {
-				return errors.New("invalid add instruction definition structure")
+				return errors.New("invalid instruction definition structure")
 			}
 			if code[i+1].Type!="variable" {
-				return errors.New("invalid add instruction definition structure")
+				return errors.New("invalid instruction definition structure")
 			}
 			variable1_Index, found:=function.Variable_Scope[code[i+1].Value]
 			if !found {
 				return errors.New("variable '"+code[i+1].Value+"' not found")
 			}
 			if !Equal_Type(&program.Object_References[variable1_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
-				return errors.New("expected type a variable integer while parsing add instruction")
+				return errors.New("expected type a variable integer while parsing instruction")
 			}
 			if code[i+2].Type!="variable" {
-				return errors.New("invalid add instruction definition structure")
+				return errors.New("invalid instruction definition structure")
 			}
 			variable2_Index, found:=function.Variable_Scope[code[i+2].Value]
 			if !found {
@@ -671,23 +672,23 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("expected type a variable integer while parsing add instruction")
 			}
 			if code[i+3].Type!="variable" {
-				return errors.New("invalid add instruction definition structure")
+				return errors.New("invalid instruction definition structure")
 			}
 			variable3_Index, found:=function.Variable_Scope[code[i+3].Value]
 			if !found {
 				return errors.New("variable '"+code[i+3].Value+"' not found")
 			}
 			if !Equal_Type(&program.Object_References[variable3_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
-				return errors.New("expected type a variable integer while parsing add instruction")
+				return errors.New("expected type a variable integer while parsing instruction")
 			}
 			if code[i+4].Type!="semicolon" {
-				return errors.New("invalid add instruction definition structure")
+				return errors.New("invalid instruction definition structure")
 			}
-			function.Instructions = append(function.Instructions, []int{ADD_INSTRUCTION, variable1_Index, variable2_Index, variable3_Index})
+			function.Instructions = append(function.Instructions, []int{Instruction, variable1_Index, variable2_Index, variable3_Index})
 			i+=4
 			continue
 		}
-		if code[i].Type=="sys" && code[i].Value=="return" {
+		if code[i].Type=="variable" && code[i].Value=="return" {
 			if len(code)-i<3 {
 				return errors.New("")
 			}
@@ -708,7 +709,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i+=2
 			continue
 		}
-		if code[i].Type=="sys" && code[i].Value=="call" {
+		if code[i].Type=="variable" && code[i].Value=="call" {
 			if code[i+1].Type!="variable" {
 				return errors.New("invalid call instruction definition")
 			}

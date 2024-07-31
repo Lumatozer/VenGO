@@ -4,12 +4,15 @@ import (
     "hi.vi" as hi
 )
 
-var a->Hi;
-
 struct Hi {
     a->string
 }
 
 struct Test {
     b->Hi
+}
+
+function main() {
+    var a b->int;
+    a=8/2;
 }
