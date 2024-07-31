@@ -18,9 +18,12 @@ function hi(a->int)->int {
 }
 
 function main() {
-    var a->int;
-    if (1==1) {
-        a=2;
-        a=hi(a);
+    var i count->int;
+    for {
+        i=i+1;
+        if (i==5) {
+            break;
+        }
+        count=count+2;
     }
 }

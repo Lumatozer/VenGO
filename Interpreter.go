@@ -52,7 +52,6 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			scope[instructions[1]].Value = instructions[2]
 		case ADD_INSTRUCTION, SUB_INSTRUCTION, MULT_INSTRUCTION, DIV_INSTRUCTION, FLOOR_INSTRUCTION, MOD_INSTRUCTION, GREATER_INSTRUCTION, SMALLER_INSTRUCTION, AND_INSTRUCTION, OR_INSTRUCTION, XOR_INSTRUCTION, EQUALS_INSTRUCTION, NEQUALS_INSTRUCTION:
 			var1,is_int:=scope[instructions[1]].Value.(int)
-			fmt.Println(scope[instructions[1]], scope[instructions[2]])
 			if !is_int {
 				execution_Result.Error=errors.New("variable is not of type integer")
 				return execution_Result
@@ -109,12 +108,13 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			Copied_Object:=Copy_Object(scope[instructions[2]])
 			scope[instructions[1]].Value=Copied_Object.Value
 		case JUMP_INSTRUCTION:
-			fmt.Println("hi", scope[instructions[2]].Value)
 			if scope[instructions[2]].Value.(int)!=0 {
 				i+=scope[instructions[1]].Value.(int)
 			}
 		case NOT_INSTRUCTION:
 			scope[instructions[1]].Value = Bool2Int(scope[instructions[1]].Value.(int)==0)
+		case JUMPTO_INSTRUCTION:
+			i=scope[instructions[1]].Value.(int)-1
 		}
 	}
 	for i := range scope {

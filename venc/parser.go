@@ -355,7 +355,7 @@ func Parser(path string, definitions Definitions) (Program, error) {
 			defined_Function.Scope[Argument]=Argument_Type
 		}
 		temp_Variables:=Temp_Variables{Signature_Lookup: make(map[string]int), Variable_Lookup: make(map[int][]struct{Free bool; Allocated bool})}
-		err=Function_Parser(Function_Definition.Internal_Tokens, Function_Definition, &defined_Function, &program, temp_Variables)
+		err=Function_Parser(Function_Definition.Internal_Tokens, Function_Definition, &defined_Function, &program, temp_Variables, struct{In_Loop bool; Loop_Details Loop_Details}{})
 		if err!=nil {
 			return program, err
 		}
@@ -611,7 +611,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 	return out, used_Variables, nil
 }
 
-func Function_Parser(code []Token, function_definition Function_Definition, function *Function, program *Program, temp_Variables Temp_Variables) error {
+func Function_Parser(code []Token, function_definition Function_Definition, function *Function, program *Program, temp_Variables Temp_Variables, loop_Details struct{In_Loop bool; Loop_Details Loop_Details}) error {
 	for i:=0; len(code)>i; i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" {
 			if !(len(code)-i>=3) {
@@ -794,11 +794,76 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 			for _,variable:=range used_Variables {
 				Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 			}
-			err=Function_Parser(conditional_Tokens, function_definition, function, program, temp_Variables)
+			err=Function_Parser(conditional_Tokens, function_definition, function, program, temp_Variables, loop_Details)
 			if err!=nil {
 				return err
 			}
 			function.Instructions[Jump_Line_Instruction_Index]=[]string{"set", Jump_Line_Count_Var, strconv.FormatInt(int64(len(function.Instructions)-instruction_Count), 10)+";"}
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="for" {
+			if !(len(code)-i>=3) {
+				return errors.New("incomplete if condition declaration found")
+			}
+			if code[i+1].Type!="bracket_open" && code[i+1].Value!="{" {
+				return errors.New("curly bracket expression expected after for keyword")
+			}
+			brackets:=0
+			loop_Tokens:=make([]Token, 0)
+			for {
+				i++
+				if i>=len(code) {
+					return errors.New("unexpected EOS during function '"+function_definition.Name+"' parsing")
+				}
+				if code[i].Type=="bracket_open" && code[i].Value=="{" {
+					brackets+=1
+				}
+				if code[i].Type=="bracket_close" && code[i].Value=="}" {
+					brackets-=1
+				}
+				loop_Tokens = append(loop_Tokens, code[i])
+				if brackets==0 {
+					break
+				}
+			}
+			loop_Tokens=loop_Tokens[1:len(loop_Tokens)-1]
+			Loop_Start:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Loop_Start, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
+			Loop_Break:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Loop_Break, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
+			Variable_Index:=len(function.Instructions)
+			function.Instructions = append(function.Instructions, []string{"set", Loop_Break, "0;"})
+			function.Instructions = append(function.Instructions, []string{"set", Loop_Start, strconv.FormatInt(int64(len(function.Instructions)+1), 10)+";"})
+			err:=Function_Parser(loop_Tokens, function_definition, function, program, temp_Variables, struct{In_Loop bool; Loop_Details Loop_Details}{In_Loop: true, Loop_Details: Loop_Details{Continue_Variable: Loop_Start, Break_Variable: Loop_Break}})
+			function.Instructions = append(function.Instructions, []string{"jumpto", Loop_Start+";"})
+			if err!=nil {
+				return err
+			}
+			function.Instructions[Variable_Index]=[]string{"set", Loop_Break, strconv.FormatInt(int64(len(function.Instructions))+1, 10)+";"}
+			Free_Temporary_Unique_Variable(Loop_Break, temp_Variables, function)
+			Free_Temporary_Unique_Variable(Loop_Start, temp_Variables, function)
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="break" {
+			if !(len(code)-i>=2) {
+				return errors.New("semicolon not found after break keyword")
+			}
+			if !loop_Details.In_Loop {
+				return errors.New("break keyword used outside loop")
+			}
+			function.Instructions = append(function.Instructions, []string{"jumpto", loop_Details.Loop_Details.Break_Variable+";"})
+			i+=1
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="continue" {
+			if !(len(code)-i>=2) {
+				return errors.New("semicolon not found after continue keyword")
+			}
+			if !loop_Details.In_Loop {
+				return errors.New("continue keyword used outside loop")
+			}
+			function.Instructions = append(function.Instructions, []string{"jumpto", loop_Details.Loop_Details.Continue_Variable+";"})
+			i+=1
 			continue
 		}
 		return errors.New("unexpected token of type '"+code[i].Type+"' inside function '"+function_definition.Name+"'")

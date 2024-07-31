@@ -791,6 +791,27 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i+=3
 			continue
 		}
+		if code[i].Type=="variable" && code[i].Value=="jumpto" {
+			if len(code)-i<3 {
+				return errors.New("unexpected EOF while parsing copy statement")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid jumpto instruction definition structure")
+			}
+			variable_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !(Equal_Type(&program.Object_References[variable_Index].Object_Type, &Type{Raw_Type: INT_TYPE})) {
+				return errors.New("jumpto instruction has invalid variable types")
+			}
+			if code[i+2].Type!="semicolon" {
+				return errors.New("invalid jumpto instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{JUMPTO_INSTRUCTION, variable_Index})
+			i+=2
+			continue
+		}
 		if code[i].Type=="variable" && code[i].Value=="call" {
 			if code[i+1].Type!="variable" {
 				return errors.New("invalid call instruction definition")

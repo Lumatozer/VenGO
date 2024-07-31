@@ -84,3 +84,8 @@ type Temp_Variables struct {
 	Signature_Lookup    map[string]int
 	Variable_Lookup     map[int][]struct{Free bool; Allocated bool}
 }
+
+type Loop_Details struct {
+	Continue_Variable   string
+	Break_Variable      string
+}

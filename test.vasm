@@ -1,19 +1,25 @@
 package main
 
-function hi(a->int)->int {
-    var temp.0_0->int;
-    var temp.0_2->int;
-    mult a a a;
-    return a;
-}
-
 function main()->void {
+    var i count->int;
     var temp.0_0->int;
     var temp.0_1->int;
+    set temp.0_1 21;
+    set temp.0_0 5;
     var temp.0_2->int;
-    equals temp.0_0 temp.0_1 temp.0_2;
-    set temp.0_0 3;
-    jump temp.0_2 temp.0_0;
-    var a->int;
-    call hi(a) temp.0_0;
+    set temp.0_2 1;
+    var temp.0_3->int;
+    add i temp.0_2 temp.0_3;
+    copy i temp.0_3;
+    set temp.0_2 5;
+    equals i temp.0_2 temp.0_3;
+    set temp.0_2 1;
+    not temp.0_3;
+    jump temp.0_2 temp.0_3;
+    jumpto temp.0_1;
+    set temp.0_2 2;
+    var temp.0_4->int;
+    add count temp.0_2 temp.0_4;
+    copy count temp.0_4;
+    jumpto temp.0_0;
 }
