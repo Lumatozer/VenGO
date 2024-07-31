@@ -723,7 +723,6 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("function '"+code[i+1].Value+"' was not found")
 			}
 			if code[i+2].Type!="bracket" || code[i+2].Value!="(" {
-				fmt.Println(code[i+1])
 				return errors.New("invalid call instruction definition")
 			}
 			j:=i+2

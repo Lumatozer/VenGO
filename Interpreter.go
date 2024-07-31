@@ -70,9 +70,9 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			case MOD_INSTRUCTION:
 				scope[instructions[3]].Value = var1 % var2
 			case GREATER_INSTRUCTION:
-				scope[instructions[3]].Value = var1 > var2
+				scope[instructions[3]].Value = Bool2Int(var1 > var2)
 			case SMALLER_INSTRUCTION:
-				scope[instructions[3]].Value = var1 < var2
+				scope[instructions[3]].Value = Bool2Int(var1 < var2)
 			case AND_INSTRUCTION:
 				scope[instructions[3]].Value = Bool2Int((var1!=0 && var2!=0))
 			case OR_INSTRUCTION:

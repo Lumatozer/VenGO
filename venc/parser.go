@@ -350,7 +350,6 @@ func Parser(path string, definitions Definitions) (Program, error) {
 			program.Functions[Function_Definition.Name].Arguments[Argument]=Argument_Type
 		}
 		err=Function_Parser(Function_Definition, &defined_Function, &program)
-		fmt.Println()
 		if err!=nil {
 			return program, err
 		}
@@ -442,6 +441,25 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 			return Evaluate_Type(code[0].Children, function, program)
 		}
 	}
+	if len(code)>=3 {
+		TypeA,err:=Evaluate_Type([]Token{code[0]}, function, program)
+		if err!=nil {
+			return &Type{}, err
+		}
+		for i:=0; len(code)>i+1; i+=2 {
+			TypeB,err:=Evaluate_Type([]Token{code[i+2]}, function, program)
+			if err!=nil {
+				return &Type{}, err
+			}
+			if Type_Signature(TypeA, make([]*Type, 0))==Type_Signature(TypeB, make([]*Type, 0)) {
+				if Type_Signature(TypeA, make([]*Type, 0))==Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
+					TypeA=&Type{Is_Raw: true, Raw_Type: INT_TYPE}
+					continue
+				}
+			}
+		}
+		return TypeA, nil
+	}
 	return &Type{}, errors.New("could not determine type of the given expression")
 }
 
@@ -472,6 +490,9 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 			Initialise_Temporary_Unique_Variable(Temp_Var, Var_Type, function, program, temp_Variables)
 			function.Instructions = append(function.Instructions, []string{"set", Temp_Var, strconv.FormatInt(int64(code[0].Num_Value), 10)+";"})
 			return Temp_Var, []string{Temp_Var}, nil
+		}
+		if code[0].Type=="expression" {
+			return Compile_Expression(code[0].Children, function, program, temp_Variables)
 		}
 		return out, used_Variables, errors.New("could not compile expression")
 	}

@@ -94,7 +94,10 @@ func main() {
 	Load_Packages(&program, Get_Packages())
 	exec_Result:=Interpreter(&program.Functions[index], Stack{})
 	if exec_Result.Error!=nil {
-		fmt.Println(exec_Result.Return_Value)
+		fmt.Println(exec_Result.Error)
 		return
+	}
+	if exec_Result.Return_Value!=nil {
+		fmt.Println(exec_Result.Return_Value)
 	}
 }

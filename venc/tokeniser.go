@@ -369,7 +369,7 @@ func Token_Grouper(code []Token, debug bool) ([]Token, error) {
 			i+=1
 			continue
 		}
-		if len(grouped_tokens) > 0 && code[i].Type == "expression" {
+		if len(grouped_tokens) > 0 && code[i].Type == "expression" && grouped_tokens[len(grouped_tokens)-1].Type!="operator" {
 			grouped_tokens[len(grouped_tokens)-1] = Token{Type: "funcall", Children: []Token{grouped_tokens[len(grouped_tokens)-1], code[i]}}
 			continue
 		}
