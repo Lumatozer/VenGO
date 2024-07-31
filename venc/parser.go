@@ -404,16 +404,16 @@ func Generate_Unique_Temporary_Variable(variable_Type *Type, temp_Variables Temp
 		}
 	}
 	temp_Variables.Variable_Lookup[Signature_Id] = append(temp_Variables.Variable_Lookup[Signature_Id], struct{Free bool; Allocated bool}{Free: false, Allocated: false})
-	variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"."+strconv.FormatInt(int64(len(temp_Variables.Variable_Lookup[Signature_Id])-1), 10)
+	variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(len(temp_Variables.Variable_Lookup[Signature_Id])-1), 10)
 	function.Scope[variable_Name]=variable_Type
 	return variable_Name
 }
 
 func Free_Temporary_Unique_Variable(variable_Name string, temp_Variables Temp_Variables, function *Function) {
 	delete(function.Scope, variable_Name)
-	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, ".")[0], 10, 64)
+	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[0], 10, 64)
 	Temp_Int:=int(Temp_Id)
-	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, ".")[1], 10, 64)
+	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[1], 10, 64)
 	Int_Used:=int(Used_Id)
 	temp_Variables.Variable_Lookup[Temp_Int][Int_Used].Free=true
 }
@@ -464,9 +464,9 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 }
 
 func Initialise_Temporary_Unique_Variable(variable_Name string, variable_Type *Type, function *Function, program *Program, temp_Variables Temp_Variables) {
-	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, ".")[0], 10, 64)
+	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[0], 10, 64)
 	Temp_Int:=int(Temp_Id)
-	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, ".")[1], 10, 64)
+	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[1], 10, 64)
 	Int_Used:=int(Used_Id)
 	if !temp_Variables.Variable_Lookup[Temp_Int][Int_Used].Allocated {
 		function.Instructions = append(function.Instructions, []string{"var", variable_Name+"->"+Type_Object_To_String(variable_Type, program)+";"})
