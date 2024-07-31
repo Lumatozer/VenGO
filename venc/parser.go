@@ -523,7 +523,10 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				Instruction, Instruction_Found:=Instructions_Map[code[1].Value]
 				if Instruction_Found {
 					function.Instructions = append(function.Instructions, []string{Instruction, Var_A, Var_B, Temp_Var+";"})
-					return Temp_Var, used_Variables, nil
+					for _,variable:=range used_Variables {
+						Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+					}
+					return Temp_Var, make([]string, 0), nil
 				}
 				return "", used_Variables, errors.New("invalid operation between integers")
 			}
@@ -625,7 +628,13 @@ func Function_Parser(function_definition Function_Definition, function *Function
 			if err!=nil {
 				return err
 			}
-			fmt.Println(RHS, used_Variables, LHS_Token)
+			for _,variable:=range used_Variables {
+				Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+			}
+			if LHS_Token.Type=="variable" {
+				function.Instructions = append(function.Instructions, []string{"copy", LHS_Token.Value, RHS+";"})
+			}
+			Free_Temporary_Unique_Variable(RHS, temp_Variables, function)
 			continue
 		}
 		return errors.New("unexpected token of type '"+code[i].Type+"' inside function '"+function_definition.Name+"'")
