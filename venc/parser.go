@@ -399,20 +399,20 @@ func Generate_Unique_Temporary_Variable(variable_Type *Type, temp_Variables Temp
 	for i:=0; len(Signature_Struct)>i; i++ {
 		if Signature_Struct[i].Free {
 			temp_Variables.Variable_Lookup[Signature_Id][i].Free=false
-			variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(i), 10)
+			variable_Name:="temp."+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(i), 10)
 			function.Scope[variable_Name]=variable_Type
 			return variable_Name
 		}
 	}
 	temp_Variables.Variable_Lookup[Signature_Id] = append(temp_Variables.Variable_Lookup[Signature_Id], struct{Free bool; Allocated bool}{Free: false, Allocated: false})
-	variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(len(temp_Variables.Variable_Lookup[Signature_Id])-1), 10)
+	variable_Name:="temp."+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(len(temp_Variables.Variable_Lookup[Signature_Id])-1), 10)
 	function.Scope[variable_Name]=variable_Type
 	return variable_Name
 }
 
 func Free_Temporary_Unique_Variable(variable_Name string, temp_Variables Temp_Variables, function *Function) {
 	delete(function.Scope, variable_Name)
-	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[0], 10, 64)
+	Temp_Id,_:=strconv.ParseInt(strings.Split(strings.Split(variable_Name, "_")[0], ".")[1], 10, 64)
 	Temp_Int:=int(Temp_Id)
 	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[1], 10, 64)
 	Int_Used:=int(Used_Id)
@@ -533,7 +533,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 			Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
 			function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
 			for _,variable:=range Variables {
-				if strings.HasPrefix(variable, "var0") {
+				if strings.HasPrefix(variable, "temp.") {
 					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 				}
 			}
@@ -571,10 +571,10 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 					for _,variable:=range used_Variables {
 						Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 					}
-					if strings.HasPrefix(Var_A, "var0") {
+					if strings.HasPrefix(Var_A, "temp.") {
 						Free_Temporary_Unique_Variable(Var_A, temp_Variables, function)
 					}
-					if strings.HasPrefix(Var_B, "var0") {
+					if strings.HasPrefix(Var_B, "temp.") {
 						Free_Temporary_Unique_Variable(Var_B, temp_Variables, function)
 					}
 					return Temp_Var, make([]string, 0), nil
@@ -696,7 +696,7 @@ func Function_Parser(function_definition Function_Definition, function *Function
 			if LHS_Token.Type=="variable" {
 				function.Instructions = append(function.Instructions, []string{"copy", LHS_Token.Value, RHS+";"})
 			}
-			if strings.HasPrefix(RHS, "var0") {
+			if strings.HasPrefix(RHS, "temp.") {
 				Free_Temporary_Unique_Variable(RHS, temp_Variables, function)
 			}
 			continue
@@ -728,7 +728,7 @@ func Function_Parser(function_definition Function_Definition, function *Function
 				for _,variable:=range used_Variables {
 					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 				}
-				if strings.HasPrefix(RHS, "var0") {
+				if strings.HasPrefix(RHS, "temp.") {
 					Free_Temporary_Unique_Variable(RHS, temp_Variables, function)
 				}
 				function.Instructions = append(function.Instructions, []string{"return", RHS+";"})

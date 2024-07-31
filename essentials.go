@@ -32,7 +32,10 @@ func Can_access(index int, arr_len int) bool {
 }
 
 func Is_Valid_Variable_Name(name string) bool {
-	for _,char:=range "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890_" {
+	if len(strings.Trim(name, "."))==0 {
+		return false
+	}
+	for _,char:=range "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890_." {
 		name=strings.ReplaceAll(name, string(char), "")
 	}
 	return len(name)==0
