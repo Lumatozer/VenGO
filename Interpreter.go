@@ -106,7 +106,7 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			scope[instructions[2]].Value=perfomed_Execution.Return_Value
 		case DEEP_COPY_OBJECT_INSTRUCTION:
 			Copied_Object:=Copy_Object(scope[instructions[2]])
-			scope[instructions[1]]=&Copied_Object
+			scope[instructions[1]].Value=Copied_Object.Value
 		}
 	}
 	for i := range scope {

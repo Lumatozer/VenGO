@@ -12,8 +12,13 @@ struct Test {
     b->Hi
 }
 
+function hi(a->int)->int {
+    a=a*(2+567)+17;
+    return 1;
+}
+
 function main() {
     var a b->int;
-    a=(8+6)+8+6;
-    b=a;
+    a=1;
+    b=hi(a);
 }

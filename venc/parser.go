@@ -337,7 +337,7 @@ func Parser(path string, definitions Definitions) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
-		defined_Function:=Function{Out_Type: Out_Type, Arguments: make(map[string]*Type), Scope: make(map[string]*Type), Instructions: make([][]string, 0)}
+		defined_Function:=Function{Out_Type: Out_Type, Arguments: make([]struct{Name string; Type *Type}, 0), Scope: make(map[string]*Type), Instructions: make([][]string, 0)}
 		for Variable_Name, Variable_Type:=range program.Global_Variables {
 			defined_Function.Scope[Variable_Name]=Variable_Type
 		}
@@ -347,7 +347,8 @@ func Parser(path string, definitions Definitions) (Program, error) {
 			if err!=nil {
 				return program, err
 			}
-			program.Functions[Function_Definition.Name].Arguments[Argument]=Argument_Type
+			program.Functions[Function_Definition.Name].Arguments = append(program.Functions[Function_Definition.Name].Arguments, struct{Name string; Type *Type}{Name: Argument, Type: Argument_Type})
+			defined_Function.Scope[Argument]=Argument_Type
 		}
 		err=Function_Parser(Function_Definition, &defined_Function, &program)
 		if err!=nil {
@@ -440,6 +441,13 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 		if code[0].Type=="expression" {
 			return Evaluate_Type(code[0].Children, function, program)
 		}
+		if code[0].Type=="funcall" {
+			for Fn_Name, Fn:=range program.Functions {
+				if Fn_Name==code[0].Children[0].Value {
+					return Fn.Out_Type, nil
+				}
+			}
+		}
 	}
 	if len(code)>=3 {
 		TypeA,err:=Evaluate_Type([]Token{code[0]}, function, program)
@@ -494,6 +502,43 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 		if code[0].Type=="expression" {
 			return Compile_Expression(code[0].Children, function, program, temp_Variables)
 		}
+		if code[0].Type=="funcall" {
+			found_Function:=&Function{}
+			function_Name:=""
+			for Fn_Name, Fn:=range program.Functions {
+				if Fn_Name==code[0].Children[0].Value {
+					found_Function=Fn
+					function_Name=Fn_Name
+					break
+				}
+			}
+			if len(code[0].Children[1].Children)!=len(found_Function.Arguments) {
+				return out, make([]string, 0), errors.New("function call arguments do not match length of function call")
+			}
+			Variables:=make([]string, 0)
+			call_String:="("
+			for i:=0; len(code[0].Children[1].Children)>i; i+=2 {
+				Var, Occupied_Variable, err:=Compile_Expression([]Token{code[0].Children[1].Children[i]}, function, program, temp_Variables)
+				if err!=nil {
+					return "", used_Variables, err
+				}
+				for _,variable:=range Occupied_Variable {
+					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+				}
+				Variables = append(Variables, Var)
+				call_String+=Var+", "
+			}
+			call_String=strings.Trim(call_String, ", ")+")"
+			Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
+			function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
+			for _,variable:=range Variables {
+				if strings.HasPrefix(variable, "var0") {
+					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+				}
+			}
+			return Temp_Var, []string{Temp_Var}, nil
+		}
 		return out, used_Variables, errors.New("could not compile expression")
 	}
 	if len(code)==3 {
@@ -525,6 +570,12 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 					function.Instructions = append(function.Instructions, []string{Instruction, Var_A, Var_B, Temp_Var+";"})
 					for _,variable:=range used_Variables {
 						Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+					}
+					if strings.HasPrefix(Var_A, "var0") {
+						Free_Temporary_Unique_Variable(Var_A, temp_Variables, function)
+					}
+					if strings.HasPrefix(Var_B, "var0") {
+						Free_Temporary_Unique_Variable(Var_B, temp_Variables, function)
 					}
 					return Temp_Var, make([]string, 0), nil
 				}
@@ -624,6 +675,17 @@ func Function_Parser(function_definition Function_Definition, function *Function
 			if !Is_Expression_Valid(expression_Tokens) {
 				return errors.New("invalid expression")
 			}
+			RHS_Type,err:=Evaluate_Type(expression_Tokens, function, program)
+			if err!=nil {
+				return err
+			}
+			LHS_Type,err:=Evaluate_Type([]Token{LHS_Token}, function, program)
+			if err!=nil {
+				return err
+			}
+			if Type_Signature(RHS_Type, make([]*Type, 0))!=Type_Signature(LHS_Type, make([]*Type, 0)) {
+				return errors.New("LHS and RHS Types do not match")
+			}
 			RHS,used_Variables,err:=Compile_Expression(expression_Tokens, function, program, temp_Variables)
 			if err!=nil {
 				return err
@@ -636,6 +698,44 @@ func Function_Parser(function_definition Function_Definition, function *Function
 			}
 			if strings.HasPrefix(RHS, "var0") {
 				Free_Temporary_Unique_Variable(RHS, temp_Variables, function)
+			}
+			continue
+		}
+		if len(code)-i>=2 && code[i].Type=="sys" && code[i].Value=="return" {
+			return_Tokens:=make([]Token, 0)
+			for {
+				i++
+				if i>=len(code) {
+					return errors.New("unexpected EOS during function '"+function_definition.Name+"' parsing")
+				}
+				if code[i].Type=="EOS" {
+					break
+				}
+				return_Tokens = append(return_Tokens, code[i])
+			}
+			if !(len(return_Tokens)==0 && function.Out_Type.Is_Raw && function.Out_Type.Raw_Type==VOID_TYPE) {
+				RHS_Type,err:=Evaluate_Type(return_Tokens, function, program)
+				if err!=nil {
+					return err
+				}
+				if Type_Signature(RHS_Type, make([]*Type, 0))!=Type_Signature(function.Out_Type, make([]*Type, 0)) {
+					return errors.New("function return statement type does not match function return type")
+				}
+				RHS,used_Variables,err:=Compile_Expression(return_Tokens, function, program, temp_Variables)
+				if err!=nil {
+					return err
+				}
+				for _,variable:=range used_Variables {
+					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+				}
+				if strings.HasPrefix(RHS, "var0") {
+					Free_Temporary_Unique_Variable(RHS, temp_Variables, function)
+				}
+				function.Instructions = append(function.Instructions, []string{"return", RHS+";"})
+			} else {
+				void_Variable:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: VOID_TYPE}, temp_Variables, function)
+				function.Instructions = append(function.Instructions, []string{"return", void_Variable+";"})
+				Free_Temporary_Unique_Variable(void_Variable, temp_Variables, function)
 			}
 			continue
 		}

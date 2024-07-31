@@ -1,12 +1,15 @@
 package main
 
-import (
-    "packages/print/print.vh" as print
-)
-
+function hi(a->int)->int {
+    var var0_0->int;
+    set var0_0 1;
+    var var0_1->int;
+    add a var0_0 var0_1;
+    return var0_1;
+}
 function main()->void {
-    var x->int;
-    set x 1;
-    var y->int;
-    copy y x;
+    var a b->int;
+    call hi(a) var0_0;
+    var var0_0->int;
+    copy b var0_0;
 }

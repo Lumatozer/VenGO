@@ -119,7 +119,7 @@ func Compile(program Program) string {
 		compiled+="function "+Function+"("
 		Argument_String:=""
 		for Argument:=range program.Functions[Function].Arguments {
-			Argument_String+=Argument+"->"+Type_Object_To_String(program.Functions[Function].Arguments[Argument], &program)+", "
+			Argument_String+=program.Functions[Function].Arguments[Argument].Name+"->"+Type_Object_To_String(program.Functions[Function].Arguments[Argument].Type, &program)+", "
 		}
 		Argument_String=strings.Trim(Argument_String, ", ")
 		compiled+=Argument_String

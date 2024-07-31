@@ -50,7 +50,7 @@ type Type struct {
 
 type Function struct {
 	Out_Type             *Type
-	Arguments            map[string]*Type
+	Arguments            []struct{Name string; Type *Type}
 	Scope                map[string]*Type
 	Instructions         [][]string
 }
