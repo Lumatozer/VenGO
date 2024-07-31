@@ -15,6 +15,7 @@ import (
 // "path/filepath"
 
 const (
+	_                      int8 = iota
 	INT_TYPE               int8 = iota
 	INT64_TYPE             int8 = iota
 	STRING_TYPE            int8 = iota
@@ -36,7 +37,6 @@ type Object_Reference struct {
 type Object_Abstract struct {
 	Is_Mapping             bool
 	Is_Array               bool
-	Is_Raw                 bool
 	Raw_Type               int8
 }
 
@@ -690,7 +690,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 		}
 		if code[i].Type=="variable" && code[i].Value=="return" {
 			if len(code)-i<3 {
-				return errors.New("")
+				return errors.New("unexpected EOF while parsing return statement")
 			}
 			if code[i+1].Type!="variable" {
 				return errors.New("invalid return instruction definition structure")
@@ -707,6 +707,35 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			}
 			function.Instructions = append(function.Instructions, []int{RETURN_INSTRUCTION, variable_Index})
 			i+=2
+			continue
+		}
+		if code[i].Type=="variable" && code[i].Value=="copy" {
+			if len(code)-i<4 {
+				return errors.New("unexpected EOF while parsing copy statement")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid return instruction definition structure")
+			}
+			variableA_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid return instruction definition structure")
+			}
+			variableB_Index, found:=function.Variable_Scope[code[i+2].Value]
+			if !found {
+				return errors.New("variable '"+code[i+2].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variableA_Index].Object_Type, &program.Object_References[variableB_Index].Object_Type) {
+				return errors.New("return type of function does not match the type being returned")
+			}
+			if code[i+3].Type!="semicolon" {
+				return errors.New("invalid return instruction definition structure")
+			}
+			fmt.Println(function.Variable_Scope)
+			function.Instructions = append(function.Instructions, []int{DEEP_COPY_OBJECT_INSTRUCTION, variableA_Index, variableB_Index})
+			i+=3
 			continue
 		}
 		if code[i].Type=="variable" && code[i].Value=="call" {

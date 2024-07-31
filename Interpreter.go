@@ -30,8 +30,11 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			if int_index_in_int_arr(i, function.Base_Program.Globally_Available)!=-1 && function.Base_Program.Rendered_Scope[i].Value!=nil {
 				scope[i]=function.Base_Program.Rendered_Scope[i]
 			} else {
-				object_Value:=function.Base_Program.Rendered_Scope[i].Value
-				scope[i]=&Object{Value: Copy_Interface(object_Value)}
+				object_Abstract,ok:=function.Stack_Spec[i]
+				if ok {
+					Constructed_Object:=Default_Object_By_Object_Abstract(object_Abstract)
+					scope[i]=&Constructed_Object
+				}
 			}
 		}
 	}
@@ -101,6 +104,9 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 				return execution_Result
 			}
 			scope[instructions[2]].Value=perfomed_Execution.Return_Value
+		case DEEP_COPY_OBJECT_INSTRUCTION:
+			Copied_Object:=Copy_Object(scope[instructions[2]])
+			scope[instructions[1]]=&Copied_Object
 		}
 	}
 	for i := range scope {

@@ -5,8 +5,8 @@ import (
 )
 
 function main()->void {
-    var x->void;
+    var x->int;
+    set x 1;
     var y->int;
-    set y 5;
-    call print.print(y) x;
+    copy y x;
 }

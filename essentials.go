@@ -146,7 +146,7 @@ func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
 		return Object_Abstract{Is_Mapping: true}
 	}
 	if Type_Object.Is_Pointer {
-		return Object_Abstract{Is_Raw: true, Raw_Type: POINTER_TYPE}
+		return Object_Abstract{Raw_Type: POINTER_TYPE}
 	}
 	return Object_Abstract{Is_Array: true, Raw_Type: Type_Object.Raw_Type}
 }
@@ -187,26 +187,26 @@ func Equal_Type(a *Type, b *Type) bool {
 
 func Default_Object_By_Object_Abstract(object_Abstract Object_Abstract) Object {
 	if object_Abstract.Is_Array {
-		return Object{Value: make([]Object, 0)}
+		return Object{Value: make([]*Object, 0)}
 	}
 	if object_Abstract.Is_Mapping {
 		if object_Abstract.Raw_Type==INT_TYPE {
-			return Object{Value: make(map[int]Object)}
+			return Object{Value: make(map[int]*Object)}
 		}
 		if object_Abstract.Raw_Type==INT64_TYPE {
-			return Object{Value: make(map[int64]Object)}
+			return Object{Value: make(map[int64]*Object)}
 		}
 		if object_Abstract.Raw_Type==STRING_TYPE {
-			return Object{Value: make(map[string]Object)}
+			return Object{Value: make(map[string]*Object)}
 		}
 		if object_Abstract.Raw_Type==FLOAT_TYPE {
-			return Object{Value: make(map[float32]Object)}
+			return Object{Value: make(map[float32]*Object)}
 		}
 		if object_Abstract.Raw_Type==FLOAT64_TYPE {
-			return Object{Value: make(map[float64]Object)}
+			return Object{Value: make(map[float64]*Object)}
 		}
 	}
-	if object_Abstract.Is_Raw {
+	if object_Abstract.Raw_Type!=0 {
 		if object_Abstract.Raw_Type==INT_TYPE {
 			return Object{Value: int(0)}
 		}
@@ -226,46 +226,67 @@ func Default_Object_By_Object_Abstract(object_Abstract Object_Abstract) Object {
 	return Object{}
 }
 
-func Copy_Interface(a interface{}) interface{} {
+func Copy_Object(object *Object) Object  {
+	a:=object.Value
 	_,ok:=a.(int)
 	if ok {
-		return 0
+		return Object{Value: a}
 	}
 	_,ok=a.(int64)
 	if ok {
-		return int64(0)
+		return Object{Value: a}
 	}
 	_,ok=a.(string)
 	if ok {
-		return ""
+		return Object{Value: a}
 	}
 	_,ok=a.(float32)
 	if ok {
-		return float32(0)
+		return Object{Value: a}
 	}
 	_,ok=a.(float64)
 	if ok {
-		return float64(0)
+		return Object{Value: a}
 	}
-	_,ok=a.(map[int]Object)
+	_,ok=a.(map[int]*Object)
 	if ok {
-		return make(map[int]Object)
+		Object_Value:=make(map[int]*Object)
+		for Map_Key,Map_Item:=range a.(map[int]*Object) {
+			Object_Value[Map_Key]=Map_Item
+		}
+		return Object{Value: Object_Value}
 	}
-	_,ok=a.(map[int64]Object)
+	_,ok=a.(map[int64]*Object)
 	if ok {
-		return make(map[int64]Object)
+		Object_Value:=make(map[int64]*Object)
+		for Map_Key,Map_Item:=range a.(map[int64]*Object) {
+			Object_Value[Map_Key]=Map_Item
+		}
+		return Object{Value: Object_Value}
 	}
-	_,ok=a.(map[string]Object)
+	_,ok=a.(map[string]*Object)
 	if ok {
-		return make(map[string]Object)
+		Object_Value:=make(map[string]*Object)
+		for Map_Key,Map_Item:=range a.(map[string]*Object) {
+			Object_Value[Map_Key]=Map_Item
+		}
+		return Object{Value: Object_Value}
 	}
-	_,ok=a.(map[float32]Object)
+	_,ok=a.(map[float32]*Object)
 	if ok {
-		return make(map[float32]Object)
+		Object_Value:=make(map[float32]*Object)
+		for Map_Key,Map_Item:=range a.(map[float32]*Object) {
+			Object_Value[Map_Key]=Map_Item
+		}
+		return Object{Value: Object_Value}
 	}
-	_,ok=a.(map[float64]Object)
+	_,ok=a.(map[float64]*Object)
 	if ok {
-		return make(map[float64]Object)
+		Object_Value:=make(map[float64]*Object)
+		for Map_Key,Map_Item:=range a.(map[float64]*Object) {
+			Object_Value[Map_Key]=Map_Item
+		}
+		return Object{Value: Object_Value}
 	}
-	return nil
+	return Object{Value: nil}
 }

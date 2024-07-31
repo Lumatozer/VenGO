@@ -18,4 +18,5 @@ const (
 	OR_INSTRUCTION            int = iota
 	XOR_INSTRUCTION           int = iota
 	MOD_INSTRUCTION           int = iota
+	DEEP_COPY_OBJECT_INSTRUCTION          int = iota
 )
