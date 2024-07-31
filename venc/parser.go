@@ -181,8 +181,11 @@ func Definition_Parser(code []Token) (Definitions, error) {
 			}
 			continue
 		}
-		if code[i].Type=="funcall" && code[i].Children[0].Value=="import" {
-			importTokens:=code[i].Children[1].Children
+		if code[i].Type=="sys" && code[i].Value=="import" {
+			if !(len(code)-i>=2) || !(code[i+1].Type=="expression") {
+				return definitions, errors.New("invalid import statement during file parsing")
+			}
+			importTokens:=code[i+1].Children
 			if len(importTokens)%3!=0 {
 				return definitions, errors.New("invalid import statement declaration")
 			}
@@ -201,6 +204,7 @@ func Definition_Parser(code []Token) (Definitions, error) {
 				definitions.Imports[importTokens[j].Value]=importTokens[j+2].Value
 				packagesImported = append(packagesImported, importTokens[j+2].Value)
 			}
+			i+=1
 			continue
 		}
 		return definitions, errors.New("unexpected token of type '"+code[i].Type+"'")
@@ -350,7 +354,8 @@ func Parser(path string, definitions Definitions) (Program, error) {
 			program.Functions[Function_Definition.Name].Arguments = append(program.Functions[Function_Definition.Name].Arguments, struct{Name string; Type *Type}{Name: Argument, Type: Argument_Type})
 			defined_Function.Scope[Argument]=Argument_Type
 		}
-		err=Function_Parser(Function_Definition, &defined_Function, &program)
+		temp_Variables:=Temp_Variables{Signature_Lookup: make(map[string]int), Variable_Lookup: make(map[int][]struct{Free bool; Allocated bool})}
+		err=Function_Parser(Function_Definition.Internal_Tokens, Function_Definition, &defined_Function, &program, temp_Variables)
 		if err!=nil {
 			return program, err
 		}
@@ -562,18 +567,18 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 		used_Variables = append(used_Variables, Occupied_Vars...)
 		if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(Type_B, make([]*Type, 0)) {
 			if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
-				if strings.HasPrefix(Var_A, "temp.") {
-					Free_Temporary_Unique_Variable(Var_A, temp_Variables, function)
-				}
-				if strings.HasPrefix(Var_B, "temp.") {
-					Free_Temporary_Unique_Variable(Var_B, temp_Variables, function)
-				}
 				Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
 				Initialise_Temporary_Unique_Variable(Temp_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
 				Instructions_Map:=map[string]string{"+":"add", "-":"sub", "*":"mult", "/":"div", "**":"pow", "//":"floor", "%":"mod", "==":"equals", "!=":"nequals", ">":"greater", "<":"smaller", "&&":"and", "||":"or", "^":"xor"}
 				Instruction, Instruction_Found:=Instructions_Map[code[1].Value]
 				if Instruction_Found {
 					function.Instructions = append(function.Instructions, []string{Instruction, Var_A, Var_B, Temp_Var+";"})
+					if strings.HasPrefix(Var_A, "temp.") {
+						Free_Temporary_Unique_Variable(Var_A, temp_Variables, function)
+					}
+					if strings.HasPrefix(Var_B, "temp.") {
+						Free_Temporary_Unique_Variable(Var_B, temp_Variables, function)
+					}
 					for _,variable:=range used_Variables {
 						Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 					}
@@ -606,9 +611,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 	return out, used_Variables, nil
 }
 
-func Function_Parser(function_definition Function_Definition, function *Function, program *Program) error {
-	temp_Variables:=Temp_Variables{Signature_Lookup: make(map[string]int), Variable_Lookup: make(map[int][]struct{Free bool; Allocated bool})}
-	code:=function_definition.Internal_Tokens
+func Function_Parser(code []Token, function_definition Function_Definition, function *Function, program *Program, temp_Variables Temp_Variables) error {
 	for i:=0; len(code)>i; i++ {
 		if code[i].Type=="sys" && code[i].Value=="var" {
 			if !(len(code)-i>=3) {
@@ -737,6 +740,65 @@ func Function_Parser(function_definition Function_Definition, function *Function
 				function.Instructions = append(function.Instructions, []string{"return", void_Variable+";"})
 				Free_Temporary_Unique_Variable(void_Variable, temp_Variables, function)
 			}
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="if" {
+			if !(len(code)-i>=4) {
+				return errors.New("incomplete if condition declaration found")
+			}
+			Condition_Type,err:=Evaluate_Type([]Token{code[i+1]}, function, program)
+			if err!=nil {
+				return err
+			}
+			if Type_Signature(Condition_Type, make([]*Type, 0))!=Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
+				return errors.New("if condition must be of type int")
+			}
+			condition_Variable,used_Variables,err:=Compile_Expression([]Token{code[i+1]}, function, program, temp_Variables)
+			if err!=nil {
+				return err
+			}
+			if code[i+2].Type!="bracket_open" && code[i+2].Value!="{" {
+				return errors.New("curly bracket expression expected after if condition")
+			}
+			conditional_Tokens:=make([]Token, 0)
+			i+=1
+			brackets:=0
+			for {
+				i++
+				if i>=len(code) {
+					return errors.New("unexpected EOS during function '"+function_definition.Name+"' parsing")
+				}
+				if code[i].Type=="bracket_open" && code[i].Value=="{" {
+					brackets+=1
+				}
+				if code[i].Type=="bracket_close" && code[i].Value=="}" {
+					brackets-=1
+				}
+				conditional_Tokens = append(conditional_Tokens, code[i])
+				if brackets==0 {
+					break
+				}
+			}
+			conditional_Tokens = conditional_Tokens[1:len(conditional_Tokens)-1]
+			Jump_Line_Count_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Jump_Line_Count_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
+			Jump_Line_Instruction_Index:=len(function.Instructions)
+			function.Instructions = append(function.Instructions, []string{"set", Jump_Line_Count_Var})
+			function.Instructions = append(function.Instructions, []string{"not", condition_Variable+";"})
+			function.Instructions = append(function.Instructions, []string{"jump", Jump_Line_Count_Var, condition_Variable+";"})
+			if strings.HasPrefix("temp.", condition_Variable) {
+				Free_Temporary_Unique_Variable(condition_Variable, temp_Variables, function)
+			}
+			instruction_Count:=len(function.Instructions)
+			Free_Temporary_Unique_Variable(Jump_Line_Count_Var, temp_Variables, function)
+			for _,variable:=range used_Variables {
+				Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+			}
+			err=Function_Parser(conditional_Tokens, function_definition, function, program, temp_Variables)
+			if err!=nil {
+				return err
+			}
+			function.Instructions[Jump_Line_Instruction_Index]=[]string{"set", Jump_Line_Count_Var, strconv.FormatInt(int64(len(function.Instructions)-instruction_Count), 10)+";"}
 			continue
 		}
 		return errors.New("unexpected token of type '"+code[i].Type+"' inside function '"+function_definition.Name+"'")

@@ -20,4 +20,5 @@ const (
 	MOD_INSTRUCTION                   int = iota
 	DEEP_COPY_OBJECT_INSTRUCTION      int = iota
 	JUMP_INSTRUCTION                  int = iota
+	NOT_INSTRUCTION                   int = iota
 )

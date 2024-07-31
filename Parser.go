@@ -654,8 +654,8 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i+=3
 			continue
 		}
-		if Instruction_Index:=str_index_in_str_arr(code[i].Value, []string{"add", "sub", "div", "mult", "pow", "floor", "mod", "greater", "smaller", "and", "or", "xor"}); code[i].Type=="variable" && Instruction_Index!=-1 {
-			Instruction:=[]int{ADD_INSTRUCTION, SUB_INSTRUCTION, DIV_INSTRUCTION, MULT_INSTRUCTION, POWER_INSTRUCTION, FLOOR_INSTRUCTION, MOD_INSTRUCTION, GREATER_INSTRUCTION, SMALLER_INSTRUCTION, AND_INSTRUCTION, OR_INSTRUCTION, XOR_INSTRUCTION}[Instruction_Index]
+		if Instruction_Index:=str_index_in_str_arr(code[i].Value, []string{"add", "sub", "div", "mult", "pow", "floor", "mod", "greater", "smaller", "and", "or", "xor", "equals", "nequals"}); code[i].Type=="variable" && Instruction_Index!=-1 {
+			Instruction:=[]int{ADD_INSTRUCTION, SUB_INSTRUCTION, DIV_INSTRUCTION, MULT_INSTRUCTION, POWER_INSTRUCTION, FLOOR_INSTRUCTION, MOD_INSTRUCTION, GREATER_INSTRUCTION, SMALLER_INSTRUCTION, AND_INSTRUCTION, OR_INSTRUCTION, XOR_INSTRUCTION, EQUALS_INSTRUCTION, NEQUALS_INSTRUCTION}[Instruction_Index]
 			if len(code)-i<5 {
 				return errors.New("invalid instruction definition structure")
 			}
@@ -694,6 +694,24 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			}
 			function.Instructions = append(function.Instructions, []int{Instruction, variable1_Index, variable2_Index, variable3_Index})
 			i+=4
+			continue
+		}
+		if code[i].Type=="variable" && code[i].Value=="not" {
+			if len(code)-i<3 {
+				return errors.New("invalid instruction definition structure")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable_Index].Object_Type, &Type{Raw_Type: INT_TYPE}) {
+				return errors.New("expected type a variable integer while parsing instruction")
+			}
+			function.Instructions = append(function.Instructions, []int{NOT_INSTRUCTION, variable_Index})
+			i+=2
 			continue
 		}
 		if code[i].Type=="variable" && code[i].Value=="return" {
