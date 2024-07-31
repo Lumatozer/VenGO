@@ -141,6 +141,9 @@ func Definition_Parser(code []Token, codePath string) (Definitions, error) {
 				if str_index_in_str_arr(code[j].Value, global_Variables)!=-1 {
 					return definitions, errors.New("Variable '"+code[j].Value+"' has already been initialized")
 				}
+				if !Is_Valid_Variable_Name(code[j].Value) {
+					return definitions, errors.New("variable name is invalid")
+				}
 				variable_Definition.Names = append(variable_Definition.Names, code[j].Value)
 				global_Variables = append(global_Variables, code[j].Value)
 			}
@@ -220,6 +223,9 @@ func Definition_Parser(code []Token, codePath string) (Definitions, error) {
 						return definitions, errors.New("same module alias '"+code[j].Value+"' used twice")
 					}
 					imported_Aliases = append(imported_Aliases, code[j].Value)
+					if !Is_Package_Name_Valid(code[j].Value) {
+						return definitions, errors.New("package import alias is invalid")
+					}
 					definitions.Imports = append(definitions.Imports, []string{file_Path, code[j].Value})
 					last_Token=code[j]
 					continue
@@ -603,6 +609,9 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				}
 				if code[j].Type!="variable" {
 					return errors.New("expected token of type 'variable' during variable definition got '"+code[j].Type+"'")
+				}
+				if !Is_Valid_Variable_Name(code[j].Value) {
+					return errors.New("variable name is invalid")
 				}
 				local_Index:=str_index_in_str_arr(code[j].Value, local_Variables)
 				global_Index:=str_index_in_str_arr(code[j].Value, global_Variables)

@@ -398,7 +398,7 @@ func Generate_Unique_Temporary_Variable(variable_Type *Type, temp_Variables Temp
 	for i:=0; len(Signature_Struct)>i; i++ {
 		if Signature_Struct[i].Free {
 			temp_Variables.Variable_Lookup[Signature_Id][i].Free=false
-			variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"."+strconv.FormatInt(int64(i), 10)
+			variable_Name:="var"+strconv.FormatInt(int64(Signature_Id), 10)+"_"+strconv.FormatInt(int64(i), 10)
 			function.Scope[variable_Name]=variable_Type
 			return variable_Name
 		}
@@ -634,7 +634,7 @@ func Function_Parser(function_definition Function_Definition, function *Function
 			if LHS_Token.Type=="variable" {
 				function.Instructions = append(function.Instructions, []string{"copy", LHS_Token.Value, RHS+";"})
 			}
-			if strings.HasPrefix(RHS, "var0.") {
+			if strings.HasPrefix(RHS, "var0") {
 				Free_Temporary_Unique_Variable(RHS, temp_Variables, function)
 			}
 			continue

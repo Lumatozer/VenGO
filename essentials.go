@@ -32,10 +32,17 @@ func Can_access(index int, arr_len int) bool {
 }
 
 func Is_Valid_Variable_Name(name string) bool {
-	if strings.Contains(name, ".") {
-		return false
+	for _,char:=range "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890_" {
+		name=strings.ReplaceAll(name, string(char), "")
 	}
-	return true
+	return len(name)==0
+}
+
+func Is_Package_Name_Valid(name string) bool {
+	for _,char:=range "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
+		name=strings.ReplaceAll(name, string(char), "")
+	}
+	return len(name)==0
 }
 
 func String_Type_To_Int8(string_Type string) int8 {
@@ -287,6 +294,10 @@ func Copy_Object(object *Object) Object  {
 			Object_Value[Map_Key]=Map_Item
 		}
 		return Object{Value: Object_Value}
+	}
+	_,ok=a.(*Object)
+	if ok {
+		return Object{Value: a}
 	}
 	return Object{Value: nil}
 }
