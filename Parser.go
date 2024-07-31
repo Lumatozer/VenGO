@@ -56,7 +56,6 @@ type Function struct {
 type Type struct {
 	Is_Array               bool
 	Is_Dict                bool
-	Is_Raw                 bool
 	Raw_Type               int8
 	Is_Struct              bool
 	Is_Pointer             bool
@@ -645,7 +644,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			if !found {
 				return errors.New("variable '"+code[i+1].Value+"' not found")
 			}
-			if !Equal_Type(&program.Object_References[variable_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+			if !Equal_Type(&program.Object_References[variable_Index].Object_Type, &Type{Raw_Type: INT_TYPE}) {
 				return errors.New("expected type a variable integer while parsing set instruction")
 			}
 			if code[i+2].Type!="number" || code[i+3].Type!="semicolon" {
@@ -667,7 +666,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			if !found {
 				return errors.New("variable '"+code[i+1].Value+"' not found")
 			}
-			if !Equal_Type(&program.Object_References[variable1_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+			if !Equal_Type(&program.Object_References[variable1_Index].Object_Type, &Type{Raw_Type: INT_TYPE}) {
 				return errors.New("expected type a variable integer while parsing instruction")
 			}
 			if code[i+2].Type!="variable" {
@@ -677,7 +676,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			if !found {
 				return errors.New("variable '"+code[i+2].Value+"' not found")
 			}
-			if !Equal_Type(&program.Object_References[variable2_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+			if !Equal_Type(&program.Object_References[variable2_Index].Object_Type, &Type{Raw_Type: INT_TYPE}) {
 				return errors.New("expected type a variable integer while parsing add instruction")
 			}
 			if code[i+3].Type!="variable" {
@@ -687,7 +686,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			if !found {
 				return errors.New("variable '"+code[i+3].Value+"' not found")
 			}
-			if !Equal_Type(&program.Object_References[variable3_Index].Object_Type, &Type{Is_Raw: true, Raw_Type: INT_TYPE}) {
+			if !Equal_Type(&program.Object_References[variable3_Index].Object_Type, &Type{Raw_Type: INT_TYPE}) {
 				return errors.New("expected type a variable integer while parsing instruction")
 			}
 			if code[i+4].Type!="semicolon" {
@@ -730,7 +729,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("variable '"+code[i+1].Value+"' not found")
 			}
 			if code[i+2].Type!="variable" {
-				return errors.New("invalid return instruction definition structure")
+				return errors.New("invalid copy instruction definition structure")
 			}
 			variableB_Index, found:=function.Variable_Scope[code[i+2].Value]
 			if !found {
@@ -743,6 +742,34 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("invalid return instruction definition structure")
 			}
 			function.Instructions = append(function.Instructions, []int{DEEP_COPY_OBJECT_INSTRUCTION, variableA_Index, variableB_Index})
+			i+=3
+			continue
+		}
+		if code[i].Type=="variable" && code[i].Value=="jump" {
+			if len(code)-i<4 {
+				return errors.New("unexpected EOF while parsing copy statement")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid jump instruction definition structure")
+			}
+			variableA_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid jump instruction definition structure")
+			}
+			variableB_Index, found:=function.Variable_Scope[code[i+2].Value]
+			if !found {
+				return errors.New("variable '"+code[i+2].Value+"' not found")
+			}
+			if !(Equal_Type(&program.Object_References[variableA_Index].Object_Type, &program.Object_References[variableB_Index].Object_Type) && Equal_Type(&program.Object_References[variableA_Index].Object_Type, &Type{Raw_Type: INT_TYPE})) {
+				return errors.New("jump instruction has invalid variable types")
+			}
+			if code[i+3].Type!="semicolon" {
+				return errors.New("invalid jump instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{JUMP_INSTRUCTION, variableA_Index, variableB_Index})
 			i+=3
 			continue
 		}

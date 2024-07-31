@@ -107,6 +107,11 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 		case DEEP_COPY_OBJECT_INSTRUCTION:
 			Copied_Object:=Copy_Object(scope[instructions[2]])
 			scope[instructions[1]].Value=Copied_Object.Value
+		case JUMP_INSTRUCTION:
+			fmt.Println("hi", scope[instructions[2]].Value)
+			if scope[instructions[2]].Value.(int)!=0 {
+				i+=scope[instructions[1]].Value.(int)
+			}
 		}
 	}
 	for i := range scope {

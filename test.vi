@@ -18,7 +18,7 @@ function hi(a->int)->int {
 }
 
 function main() {
-    var a b->int;
-    a=1;
-    b=hi(a);
+    if (1==1) {
+        
+    }
 }
