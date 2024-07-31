@@ -733,7 +733,6 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			if code[i+3].Type!="semicolon" {
 				return errors.New("invalid return instruction definition structure")
 			}
-			fmt.Println(function.Variable_Scope)
 			function.Instructions = append(function.Instructions, []int{DEEP_COPY_OBJECT_INSTRUCTION, variableA_Index, variableB_Index})
 			i+=3
 			continue
