@@ -603,7 +603,7 @@ func Function_Parser(function_definition Function_Definition, function *Function
 				function.Scope[variable]=variablesType
 				Instructions = append(Instructions, variable)
 			}
-			Instructions = append(Instructions, "->"+Type_Object_To_String(variablesType, program)+";")
+			Instructions[len(Instructions)-1]+="->"+Type_Object_To_String(variablesType, program)+";"
 			function.Instructions = append(function.Instructions, Instructions)
 			continue
 		}
