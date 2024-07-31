@@ -529,14 +529,14 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				call_String+=Var+", "
 			}
 			call_String=strings.Trim(call_String, ", ")+")"
-			Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
-			Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
-			function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
 			for _,variable:=range Variables {
 				if strings.HasPrefix(variable, "temp.") {
 					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 				}
 			}
+			Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
+			function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
 			return Temp_Var, []string{Temp_Var}, nil
 		}
 		return out, used_Variables, errors.New("could not compile expression")
@@ -562,6 +562,12 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 		used_Variables = append(used_Variables, Occupied_Vars...)
 		if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(Type_B, make([]*Type, 0)) {
 			if Type_Signature(Type_A, make([]*Type, 0))==Type_Signature(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, make([]*Type, 0)) {
+				if strings.HasPrefix(Var_A, "temp.") {
+					Free_Temporary_Unique_Variable(Var_A, temp_Variables, function)
+				}
+				if strings.HasPrefix(Var_B, "temp.") {
+					Free_Temporary_Unique_Variable(Var_B, temp_Variables, function)
+				}
 				Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
 				Initialise_Temporary_Unique_Variable(Temp_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
 				Instructions_Map:=map[string]string{"+":"add", "-":"sub", "*":"mult", "/":"div", "**":"pow", "//":"floor", "%":"mod", "==":"equals", "!=":"nequals", ">":"greater", "<":"smaller", "&&":"and", "||":"or", "^":"xor"}
@@ -570,12 +576,6 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 					function.Instructions = append(function.Instructions, []string{Instruction, Var_A, Var_B, Temp_Var+";"})
 					for _,variable:=range used_Variables {
 						Free_Temporary_Unique_Variable(variable, temp_Variables, function)
-					}
-					if strings.HasPrefix(Var_A, "temp.") {
-						Free_Temporary_Unique_Variable(Var_A, temp_Variables, function)
-					}
-					if strings.HasPrefix(Var_B, "temp.") {
-						Free_Temporary_Unique_Variable(Var_B, temp_Variables, function)
 					}
 					return Temp_Var, make([]string, 0), nil
 				}

@@ -1,15 +1,36 @@
 package main
 
-function hi(a->int)->int {
-    var var0_0->int;
-    set var0_0 1;
-    var var0_1->int;
-    add a var0_0 var0_1;
-    return var0_1;
+import (
+    "hi.vi" as hi
+)
+
+struct Hi {
+    a->string
 }
+
+struct Test {
+    b->hi.Test
+}
+
+function hi(a->int)->int {
+    var temp.0_0->int;
+    set temp.0_0 2;
+    var temp.0_1->int;
+    set temp.0_1 567;
+    add temp.0_0 temp.0_1 temp.0_0;
+    mult a temp.0_0 temp.0_0;
+    set temp.0_1 17;
+    add temp.0_0 temp.0_1 temp.0_0;
+    copy a temp.0_0;
+    set temp.0_0 1;
+    return temp.0_0;
+}
+
 function main()->void {
     var a b->int;
-    call hi(a) var0_0;
-    var var0_0->int;
-    copy b var0_0;
+    var temp.0_0->int;
+    set temp.0_0 1;
+    copy a temp.0_0;
+    call hi(a) temp.0_0;
+    copy b temp.0_0;
 }
