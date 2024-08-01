@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -275,7 +276,11 @@ func Struct_Dependencies(Struct_Fields map[string]Token, program *Program) []str
 }
 
 func Parser(path string, definitions Definitions) (Program, error) {
-	program:=Program{Path: path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type), Functions: make(map[string]*Function), Imported_Libraries: make(map[string]*Program)}
+	Abs_Path,err:=filepath.Abs(path)
+	if err!=nil {
+		return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
+	}
+	program:=Program{Path: Abs_Path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type), Functions: make(map[string]*Function), Imported_Libraries: make(map[string]*Program)}
 	Dependencies:=make(map[string][]string)
 	for Import_Path, Import_Alias:=range definitions.Imports {
 		data,err:=os.ReadFile(Import_Path)
@@ -295,7 +300,17 @@ func Parser(path string, definitions Definitions) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
+		old_Dir,err:=os.Getwd()
+		if err!=nil {
+			return program, err
+		}
+		Import_Path,err:=filepath.Abs(Import_Path)
+		if err!=nil {
+			return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
+		}
+		os.Chdir(filepath.Dir(Import_Path))
 		imported_Program,err:=Parser(Import_Path, imported_Definition)
+		os.Chdir(old_Dir)
 		if err!=nil {
 			return program, err
 		}

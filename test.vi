@@ -1,29 +1,15 @@
 package main
 
-import (
-    "hi.vi" as hi
+import  (
+    "packages/print/print.vh" as print
 )
 
-struct Hi {
-    a->string
-}
-
-struct Test {
-    b->Hi
-}
-
-function hi(a->int)->int {
-    a=a*(2+567)+17;
-    return a;
+function yo(a->int)->int {
+    return (a*5);
 }
 
 function main() {
-    var i count->int;
-    for {
-        i=i+1;
-        if (i==5) {
-            break;
-        }
-        count=count+2;
-    }
+    var a->int;
+    a=5+5;
+    a=yo(a);
 }

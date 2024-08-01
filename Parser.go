@@ -475,8 +475,14 @@ func Parser(code []Token, filePath string) (Program, error) {
 		if err!=nil {
 			return program, err
 		}
+		old_dir,err:=os.Getwd()
+		if err!=nil {
+			return program, err
+		}
+		os.Chdir(filepath.Dir(file_Path))
 		Imported_Program,err:=Parser(Imported_File, file_Path)
 		Imported_Program.Package_Name=file_Path
+		os.Chdir(old_dir)
 		if err!=nil {
 			return program, err
 		}

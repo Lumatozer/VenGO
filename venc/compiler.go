@@ -3,6 +3,8 @@ package venc
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -82,14 +84,57 @@ func Type_Object_To_String(Type_Object *Type, program *Program) string {
 	return ""
 }
 
-func Compile(program Program) string {
+func Get_Program_Import_Tree(program *Program) map[string]*Program {
+	out:=make(map[string]*Program)
+	for _,Imported_Program:=range program.Imported_Libraries {
+		out[Imported_Program.Path]=Imported_Program
+		for Path, Internal_Program:=range Get_Program_Import_Tree(Imported_Program) {
+			out[Path]=Internal_Program
+		}
+	}
+	return out
+}
+
+func Compile_Program(program *Program) string {
+	out:=""
+	current_Dir,_:=os.Getwd()
+	compiled_Program:=Compile(program)
+	out=compiled_Program
+	Program_Path:=filepath.Join("distributable", strings.TrimPrefix(program.Path, current_Dir))
+	if strings.HasSuffix(Program_Path, ".vi") {
+		Program_Path=Program_Path[:len(Program_Path)-2]+"vasm"
+	}
+	os.MkdirAll(Program_Path, os.ModePerm)
+	os.Remove(Program_Path)
+	os.Create(Program_Path)
+	os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
+	old_Dir,_:=filepath.Abs(current_Dir)
+	for Program_Path, Imported_Program:=range Get_Program_Import_Tree(program) {
+		Program_Path=filepath.Join("distributable", strings.TrimPrefix(Program_Path, current_Dir))
+		if strings.HasSuffix(Program_Path, ".vi") {
+			Program_Path=Program_Path[:len(Program_Path)-2]+"vasm"
+		}
+		os.MkdirAll(Program_Path, os.ModePerm)
+		os.Remove(Program_Path)
+		os.Create(Program_Path)
+		os.Chdir(filepath.Dir(Program_Path))
+		compiled_Program=Compile(Imported_Program)
+		os.Chdir(old_Dir)
+		os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
+	}
+	return out
+}
+
+func Compile(program *Program) string {
 	compiled := "package "+program.Package_Name+"\n\n"
 	if len(program.Imported_Libraries) != 0 {
 		compiled += "import (\n"
 	}
+	current_Dir,_:=os.Getwd()
+	Absolute_Current_File_Path,_:=filepath.Abs(current_Dir)
 	for Import_Alias, Imported_Program := range program.Imported_Libraries {
-		File_Path:=strings.Split(Imported_Program.Path, "/")
-		compiled += "    " + "\"" + File_Path[len(File_Path)-1] +"\" as "+Import_Alias+"\n"
+		Imported_Program.Path=strings.TrimPrefix(Imported_Program.Path, Absolute_Current_File_Path)
+		compiled += "    " + "\"" + Imported_Program.Path +"\" as "+Import_Alias+"\n"
 	}
 	if len(program.Imported_Libraries)!=0 {
 		compiled+=")\n"
@@ -100,12 +145,12 @@ func Compile(program Program) string {
 		}
 		compiled+="struct "+Struct+" {\n"
 		for Field, Field_Type:=range program.Structs[Struct].Struct_Details {
-			compiled+="    "+Field+"->"+Type_Object_To_String(Field_Type, &program)+"\n"
+			compiled+="    "+Field+"->"+Type_Object_To_String(Field_Type, program)+"\n"
 		}
-		compiled+="}\n"
+		compiled+="}\n\n"
 	}
 	for Variable, Variable_Type:=range program.Global_Variables {
-		compiled+="var "+Variable+"->"+Type_Object_To_String(Variable_Type, &program)+";\n"
+		compiled+="var "+Variable+"->"+Type_Object_To_String(Variable_Type, program)+";\n\n"
 	}
 	sorted_Functions:=make([]string, 0)
 	for Function:=range program.Functions {
@@ -119,16 +164,16 @@ func Compile(program Program) string {
 		compiled+="function "+Function+"("
 		Argument_String:=""
 		for Argument:=range program.Functions[Function].Arguments {
-			Argument_String+=program.Functions[Function].Arguments[Argument].Name+"->"+Type_Object_To_String(program.Functions[Function].Arguments[Argument].Type, &program)+", "
+			Argument_String+=program.Functions[Function].Arguments[Argument].Name+"->"+Type_Object_To_String(program.Functions[Function].Arguments[Argument].Type, program)+", "
 		}
 		Argument_String=strings.Trim(Argument_String, ", ")
 		compiled+=Argument_String
 		compiled+=")"
-		compiled+="->"+Type_Object_To_String(program.Functions[Function].Out_Type, &program)+" {\n"
+		compiled+="->"+Type_Object_To_String(program.Functions[Function].Out_Type, program)+" {\n"
 		for _,Instruction_Line:=range program.Functions[Function].Instructions {
 			compiled+="    "+strings.Join(Instruction_Line, " ")+"\n"
 		}
-		compiled+="}\n"
+		compiled+="}\n\n"
 	}
 	return strings.Trim(compiled, "\n")
 }
