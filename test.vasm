@@ -1,13 +1,12 @@
 package main
 
-import (
-    "hi/main.vi" as hi
-    "packages/print/print.vh" as print
-)
-
 function main()->void {
-    var final->int;
-    call hi.hi() final;
-    var _->void;
-    call print.print(final) _;
+    var a->int;
+    var temp.0_0->int;
+    set temp.0_0 5;
+    var temp.0_1->int;
+    set temp.0_1 5;
+    var temp.0_2->int;
+    add temp.0_0 temp.0_1 temp.0_2;
+    copy a temp.0_2;
 }

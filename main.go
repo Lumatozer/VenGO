@@ -40,6 +40,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	Absolute_Path,err:=filepath.Abs(os.Args[1])
 	if strings.HasSuffix(os.Args[1] ,".vi") {
 		tokens:=venc.Tokensier(string(data), false)
 		tokens,err:=venc.Tokens_Parser(tokens, false)
@@ -65,7 +66,16 @@ func main() {
 			return
 		}
 		fmt.Println(program)
-		data=[]byte(venc.Compile_Program(&program))
+		venc.Compile_Program(&program)
+		current_Dir,_:=os.Getwd()
+		Absolute_Current_File_Path,_:=filepath.Abs(current_Dir)
+		Absolute_Path=filepath.Join("distributable", strings.Replace(strings.TrimPrefix(program.Path, Absolute_Current_File_Path), ".vi", ".vasm", 1))
+		file_Data,err:=os.ReadFile(Absolute_Path)
+		data=file_Data
+		if err!=nil {
+			fmt.Println(err)
+			return
+		}
 		fmt.Println(string(data))
 	}
 	tokens,err:=Tokenizer(string(data))
@@ -74,7 +84,6 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	Absolute_Path,err:=filepath.Abs(os.Args[1])
 	if err!=nil {
 		fmt.Println(err)
 		return

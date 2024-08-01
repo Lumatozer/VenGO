@@ -95,11 +95,9 @@ func Get_Program_Import_Tree(program *Program) map[string]*Program {
 	return out
 }
 
-func Compile_Program(program *Program) string {
-	out:=""
+func Compile_Program(program *Program) {
 	current_Dir,_:=os.Getwd()
 	compiled_Program:=Compile(program)
-	out=compiled_Program
 	Program_Path:=filepath.Join("distributable", strings.TrimPrefix(program.Path, current_Dir))
 	if strings.HasSuffix(Program_Path, ".vi") {
 		Program_Path=Program_Path[:len(Program_Path)-2]+"vasm"
@@ -122,7 +120,6 @@ func Compile_Program(program *Program) string {
 		os.Chdir(old_Dir)
 		os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
 	}
-	return out
 }
 
 func Compile(program *Program) string {

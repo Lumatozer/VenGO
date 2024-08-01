@@ -14,8 +14,6 @@ function main()->void {
     copy a temp.0_2;
     call yo(a) temp.0_0;
     copy a temp.0_0;
-    var _->void;
-    call print.print(a) _;
 }
 
 function yo(a->int)->int {
