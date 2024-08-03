@@ -439,6 +439,16 @@ func Free_Temporary_Unique_Variable(variable_Name string, temp_Variables Temp_Va
 	temp_Variables.Variable_Lookup[Temp_Int][Int_Used].Free=true
 }
 
+func Get_Function_Name_From_Call(code Token) string {
+	if code.Type=="variable" {
+		return code.Value
+	}
+	if code.Type=="field_access" {
+		return code.Children[0].Value+"."+Get_Function_Name_From_Call(code.Children[1])
+	}
+	return ""
+}
+
 func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, error) {
 	if len(code)==1 {
 		if code[0].Type=="num" {
@@ -462,8 +472,9 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 			return Evaluate_Type(code[0].Children, function, program)
 		}
 		if code[0].Type=="funcall" {
+			function_Name:=Get_Function_Name_From_Call(code[0].Children[0])
 			for Fn_Name, Fn:=range program.Functions {
-				if Fn_Name==code[0].Children[0].Value {
+				if Fn_Name==function_Name {
 					return Fn.Out_Type, nil
 				}
 			}
@@ -492,7 +503,7 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 }
 
 func Initialise_Temporary_Unique_Variable(variable_Name string, variable_Type *Type, function *Function, program *Program, temp_Variables Temp_Variables) {
-	Temp_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[0], 10, 64)
+	Temp_Id,_:=strconv.ParseInt(strings.Split(strings.Split(variable_Name, ".")[1], "_")[0], 10, 64)
 	Temp_Int:=int(Temp_Id)
 	Used_Id,_:=strconv.ParseInt(strings.Split(variable_Name, "_")[1], 10, 64)
 	Int_Used:=int(Used_Id)
@@ -525,8 +536,9 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 		if code[0].Type=="funcall" {
 			found_Function:=&Function{}
 			function_Name:=""
+			function_Name_To_Find:=Get_Function_Name_From_Call(code[0].Children[0])
 			for Fn_Name, Fn:=range program.Functions {
-				if Fn_Name==code[0].Children[0].Value {
+				if Fn_Name==function_Name_To_Find {
 					found_Function=Fn
 					function_Name=Fn_Name
 					break
@@ -555,7 +567,9 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				}
 			}
 			Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
+			fmt.Println(Temp_Var, function.Instructions[len(function.Instructions)-1])
 			Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
+			fmt.Println(Temp_Var, function.Instructions[len(function.Instructions)-1])
 			function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
 			return Temp_Var, []string{Temp_Var}, nil
 		}
@@ -752,6 +766,7 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 				function.Instructions = append(function.Instructions, []string{"return", RHS+";"})
 			} else {
 				void_Variable:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: VOID_TYPE}, temp_Variables, function)
+				Initialise_Temporary_Unique_Variable(void_Variable, &Type{Is_Raw: true, Raw_Type: VOID_TYPE}, function, program, temp_Variables)
 				function.Instructions = append(function.Instructions, []string{"return", void_Variable+";"})
 				Free_Temporary_Unique_Variable(void_Variable, temp_Variables, function)
 			}

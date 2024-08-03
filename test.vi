@@ -1,15 +1,12 @@
 package main
 
-import  (
-    "packages/print/print.vh" as print
+import (
+    "test.vh" as print
 )
 
-function yo(a->int)->int {
-    return (a*5);
-}
-
 function main() {
-    var a->int;
-    a=5+5;
-    a=yo(a);
+    var i->int;
+    i=5*5;
+    var _->void;
+    _=print.print(i);
 }

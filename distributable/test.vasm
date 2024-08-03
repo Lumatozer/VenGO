@@ -1,25 +1,19 @@
 package main
 
 import (
-    "\packages\print\print.vh" as print
+    "\test.vh" as print
 )
 function main()->void {
-    var a->int;
+    var i->int;
     var temp.0_0->int;
     set temp.0_0 5;
     var temp.0_1->int;
     set temp.0_1 5;
     var temp.0_2->int;
-    add temp.0_0 temp.0_1 temp.0_2;
-    copy a temp.0_2;
-    call yo(a) temp.0_0;
-    copy a temp.0_0;
-}
-
-function yo(a->int)->int {
-    var temp.0_0->int;
-    set temp.0_0 5;
-    var temp.0_1->int;
-    mult a temp.0_0 temp.0_1;
-    return temp.0_1;
+    mult temp.0_0 temp.0_1 temp.0_2;
+    copy i temp.0_2;
+    var _->void;
+    var temp.1_0->void;
+    call print.print(i) temp.1_0;
+    copy _ temp.1_0;
 }
