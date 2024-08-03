@@ -1,7 +1,8 @@
 package main
 
 import (
-    "test.vh" as print
+    "packages/print/print.vh" as print
+    "hi/hi.vi" as hi
 )
 
 function main() {
@@ -9,4 +10,5 @@ function main() {
     i=5*5;
     var _->void;
     _=print.print(i);
+    _=print.print(hi.hi());
 }

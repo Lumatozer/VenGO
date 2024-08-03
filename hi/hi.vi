@@ -1,0 +1,9 @@
+package hi
+
+import (
+    "lib.vi" as lib
+)
+
+function hi()->int {
+    return lib.hello();
+}

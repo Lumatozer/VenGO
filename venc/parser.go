@@ -567,9 +567,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				}
 			}
 			Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
-			fmt.Println(Temp_Var, function.Instructions[len(function.Instructions)-1])
 			Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
-			fmt.Println(Temp_Var, function.Instructions[len(function.Instructions)-1])
 			function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
 			return Temp_Var, []string{Temp_Var}, nil
 		}

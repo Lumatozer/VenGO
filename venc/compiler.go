@@ -3,6 +3,7 @@ package venc
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -108,17 +109,19 @@ func Compile_Program(program *Program) {
 	os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
 	old_Dir,_:=filepath.Abs(current_Dir)
 	for Program_Path, Imported_Program:=range Get_Program_Import_Tree(program) {
-		Program_Path=filepath.Join("distributable", strings.TrimPrefix(Program_Path, current_Dir))
+		Program_Path=strings.Trim(strings.Trim(Program_Path, "/"), "\\")
 		if strings.HasSuffix(Program_Path, ".vi") {
 			Program_Path=Program_Path[:len(Program_Path)-2]+"vasm"
 		}
-		os.MkdirAll(Program_Path, os.ModePerm)
-		os.Remove(Program_Path)
-		os.Create(Program_Path)
-		os.Chdir(filepath.Dir(Program_Path))
+		compile_Path:=filepath.Join("distributable", strings.TrimPrefix(Program_Path, current_Dir))
+		os.MkdirAll(compile_Path, os.ModePerm)
+		os.Remove(compile_Path)
+		os.Create(compile_Path)
+		abs_path,_:=filepath.Abs(Program_Path)
+		os.Chdir(filepath.Dir(abs_path))
 		compiled_Program=Compile(Imported_Program)
 		os.Chdir(old_Dir)
-		os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
+		os.WriteFile(compile_Path, []byte(compiled_Program), 0644)
 	}
 }
 
@@ -130,6 +133,10 @@ func Compile(program *Program) string {
 	current_Dir,_:=os.Getwd()
 	Absolute_Current_File_Path,_:=filepath.Abs(current_Dir)
 	for Import_Alias, Imported_Program := range program.Imported_Libraries {
+		if strings.HasSuffix(Imported_Program.Path, ".vi") {
+			Imported_Program.Path=Imported_Program.Path[:len(Imported_Program.Path)-2]+"vasm"
+		}
+		fmt.Println(current_Dir)
 		Imported_Program.Path=strings.TrimPrefix(Imported_Program.Path, Absolute_Current_File_Path)
 		compiled += "    " + "\"" + Imported_Program.Path +"\" as "+Import_Alias+"\n"
 	}

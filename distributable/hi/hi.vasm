@@ -1,0 +1,10 @@
+package hi
+
+import (
+    "\lib.vasm" as lib
+)
+function hi()->int {
+    var temp.0_0->int;
+    call lib.hello() temp.0_0;
+    return temp.0_0;
+}
