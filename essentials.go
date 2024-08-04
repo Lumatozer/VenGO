@@ -150,10 +150,10 @@ func Default_Object_By_Type(variable_Type Type) interface{} {
 
 func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
 	if Type_Object.Is_Array {
-		return Object_Abstract{Is_Array: true}
+		return Object_Abstract{Is_Array: true, Raw_Type: Type_Object.Raw_Type}
 	}
 	if Type_Object.Is_Dict {
-		return Object_Abstract{Is_Mapping: true}
+		return Object_Abstract{Is_Mapping: true, Raw_Type: Type_Object.Raw_Type}
 	}
 	if Type_Object.Is_Pointer {
 		return Object_Abstract{Raw_Type: POINTER_TYPE}
