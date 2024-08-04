@@ -634,7 +634,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				program.Rendered_Scope = append(program.Rendered_Scope, &Object{Value: Default_Object_By_Type(*variable_Type)})
 				function.Stack_Spec[len(program.Rendered_Scope)-1]=Type_Struct_To_Object_Abstract(*variable_Type)
 				function.Variable_Scope[variable]=len(program.Rendered_Scope)-1
-				function.Instructions = append(function.Instructions, []int{SET_INSTRUCTION, len(program.Rendered_Scope)-1, 0})
+				function.Instructions = append(function.Instructions, []int{USE_DEFAULT_OBJECT_INSTRUCTION, len(program.Rendered_Scope)-1, 0})
 			}
 			i=j+1
 			continue

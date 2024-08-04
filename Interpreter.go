@@ -21,6 +21,7 @@ func Bool2Int(a bool) int {
 func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 	execution_Result:=structs.Execution_Result{}
 	scope := make([]*Object, len(function.Base_Program.Rendered_Scope))
+	constructed_Objects:=make(map[int]Object)
 	for i:=0; i<len(scope); i++ {
 		scope[i] = function.Base_Program.Rendered_Scope[i]
 		stack_Index:=int_index_in_int_arr(i, stack.Locations)
@@ -33,6 +34,7 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 				object_Abstract,ok:=function.Stack_Spec[i]
 				if ok {
 					Constructed_Object:=Default_Object_By_Object_Abstract(object_Abstract)
+					constructed_Objects[i]=Constructed_Object
 					scope[i]=&Constructed_Object
 				}
 			}
@@ -115,6 +117,8 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			scope[instructions[1]].Value = Bool2Int(scope[instructions[1]].Value.(int)==0)
 		case JUMPTO_INSTRUCTION:
 			i=scope[instructions[1]].Value.(int)-1
+		case USE_DEFAULT_OBJECT_INSTRUCTION:
+			scope[instructions[1]].Value=constructed_Objects[instructions[1]].Value
 		}
 	}
 	for i := range scope {

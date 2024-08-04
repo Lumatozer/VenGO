@@ -22,4 +22,5 @@ const (
 	JUMP_INSTRUCTION                  int = iota
 	NOT_INSTRUCTION                   int = iota
 	JUMPTO_INSTRUCTION                int = iota
+	USE_DEFAULT_OBJECT_INSTRUCTION    int = iota
 )
