@@ -78,6 +78,9 @@ func VASM_Program_To_Vitality_Program(program Program, path string) venc.Program
 			venc_Program.Functions[Function.Name].Arguments = append(venc_Program.Functions[Function.Name].Arguments, struct{Name string; Type *venc.Type}{Name: Function_Argument, Type: VASM_Type_To_Vitality_Type(&Argument_Type)})
 		}
 	}
+	for _,Dependency:=range program.Dependencies {
+		venc_Program.Imported_Libraries[Dependency]=&venc.Program{Path: Dependency}
+	}
 	return venc_Program
 }
 

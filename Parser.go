@@ -74,6 +74,7 @@ type Program struct {
 	String_Constants       []string
 	Float_Constants        []float32
 	Float64_Constants      []float64
+	Dependencies           []string
 }
 
 type Function_Definition struct {
@@ -461,6 +462,7 @@ func Parser(code []Token, filePath string, imported_Programs map[string]Program)
 		Functions: make([]Function, 0),
 		Rendered_Scope: make([]*Object, 0),
 		Is_Dynamic: is_Header,
+		Dependencies: make([]string, 0),
 	}
 	definitions,err:=Definition_Parser(code, filePath)
 	if err!=nil {
@@ -470,6 +472,7 @@ func Parser(code []Token, filePath string, imported_Programs map[string]Program)
 	for _,Import_Declaration:=range definitions.Imports {
 		file_Path:=Import_Declaration[0]
 		file_Path,err=filepath.Abs(file_Path)
+		program.Dependencies = append(program.Dependencies, file_Path)
 		if err!=nil {
 			return program, err
 		}
@@ -490,6 +493,7 @@ func Parser(code []Token, filePath string, imported_Programs map[string]Program)
 			}
 			os.Chdir(filepath.Dir(file_Path))
 			Imported_Program,err=Parser(Imported_File, file_Path, imported_Programs)
+			program.Dependencies = append(program.Dependencies, Imported_Program.Dependencies...)
 			if err!=nil {
 				return program, err
 			}

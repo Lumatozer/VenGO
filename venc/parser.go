@@ -298,7 +298,6 @@ func Parser(path string, definitions Definitions, imported_Programs map[string]P
 				if err!=nil {
 					return program, err
 				}
-				fmt.Println("VASM Imported")
 			} else {
 				data,err:=os.ReadFile(Import_Path)
 				if err!=nil {

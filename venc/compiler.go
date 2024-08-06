@@ -3,7 +3,6 @@ package venc
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -106,7 +105,6 @@ func Compile_Program(program *Program) {
 	os.MkdirAll(Program_Path, os.ModePerm)
 	os.Remove(Program_Path)
 	os.Create(Program_Path)
-	fmt.Println(Program_Path, current_Dir, program.Path)
 	os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
 	old_Dir,_:=filepath.Abs(current_Dir)
 	for Program_Path, Imported_Program:=range Get_Program_Import_Tree(program) {
