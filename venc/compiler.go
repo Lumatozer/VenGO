@@ -111,17 +111,24 @@ func Compile_Program(program *Program) {
 	old_Dir,_:=filepath.Abs(current_Dir)
 	for Program_Path, Imported_Program:=range Get_Program_Import_Tree(program) {
 		Program_Path=strings.Trim(strings.Trim(Program_Path, "/"), "\\")
+		to_Copy:=true
 		if strings.HasSuffix(Program_Path, ".vi") {
 			Program_Path=Program_Path[:len(Program_Path)-2]+"vasm"
+			to_Copy=false
 		}
 		compile_Path:=filepath.Join("distributable", strings.TrimPrefix(Program_Path, current_Dir))
 		os.MkdirAll(compile_Path, os.ModePerm)
 		os.Remove(compile_Path)
 		os.Create(compile_Path)
 		abs_path,_:=filepath.Abs(Program_Path)
-		os.Chdir(filepath.Dir(abs_path))
-		compiled_Program=Compile(Imported_Program)
-		os.Chdir(old_Dir)
+		if to_Copy {
+			data,_:=os.ReadFile(strings.Trim(strings.Trim(Imported_Program.Path, "/"), "\\"))
+			compiled_Program=string(data)
+		} else {
+			os.Chdir(filepath.Dir(abs_path))
+			compiled_Program=Compile(Imported_Program)
+			os.Chdir(old_Dir)
+		}
 		os.WriteFile(compile_Path, []byte(compiled_Program), 0644)
 	}
 }

@@ -275,7 +275,7 @@ func Struct_Dependencies(Struct_Fields map[string]Token, program *Program) []str
 	return Dependencies
 }
 
-func Parser(path string, definitions Definitions, imported_Programs map[string]Program) (Program, error) {
+func Parser(path string, definitions Definitions, imported_Programs map[string]Program, VASM_Translator func(string)(Program, error)) (Program, error) {
 	Abs_Path,err:=filepath.Abs(path)
 	if err!=nil {
 		return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
@@ -293,31 +293,39 @@ func Parser(path string, definitions Definitions, imported_Programs map[string]P
 		}
 		imported_Program,recycled_Import:=imported_Programs[Import_Path]
 		if !recycled_Import {
-			data,err:=os.ReadFile(Import_Path)
-			if err!=nil {
-				return program, err
-			}
-			tokens:=Tokensier(string(data), false)
-			tokens,err=Tokens_Parser(tokens, false)
-			if err!=nil {
-				return program, err
-			}
-			tokens,err=Token_Grouper(tokens, false)
-			if err!=nil {
-				return program, err
-			}
-			imported_Definition,err:=Definition_Parser(tokens)
-			if err!=nil {
-				return program, err
-			}
-			Import_Path,err:=filepath.Abs(Import_Path)
-			if err!=nil {
-				return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
-			}
-			os.Chdir(filepath.Dir(Import_Path))
-			imported_Program,err=Parser(Import_Path, imported_Definition, imported_Programs)
-			if err!=nil {
-				return program, err
+			if strings.HasSuffix(Import_Path, ".vasm") {
+				imported_Program,err=VASM_Translator(Import_Path)
+				if err!=nil {
+					return program, err
+				}
+				fmt.Println("VASM Imported")
+			} else {
+				data,err:=os.ReadFile(Import_Path)
+				if err!=nil {
+					return program, err
+				}
+				tokens:=Tokensier(string(data), false)
+				tokens,err=Tokens_Parser(tokens, false)
+				if err!=nil {
+					return program, err
+				}
+				tokens,err=Token_Grouper(tokens, false)
+				if err!=nil {
+					return program, err
+				}
+				imported_Definition,err:=Definition_Parser(tokens)
+				if err!=nil {
+					return program, err
+				}
+				Import_Path,err:=filepath.Abs(Import_Path)
+				if err!=nil {
+					return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
+				}
+				os.Chdir(filepath.Dir(Import_Path))
+				imported_Program,err=Parser(Import_Path, imported_Definition, imported_Programs, VASM_Translator)
+				if err!=nil {
+					return program, err
+				}
 			}
 		}
 		imported_Programs[Import_Path]=imported_Program

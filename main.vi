@@ -1,10 +1,10 @@
 package main
 
 import (
-    "packages/print/print.vh" as print
+    "test.vasm" as vasm
 )
 
 function main() {
     var _->void;
-    _=print.print(1);
+    _=vasm.main();
 }

@@ -1,5 +1,12 @@
 package main
 
+import (
+    "packages/print/print.vh" as print
+)
+
 function main()->void {
-    var a->{int->int};
+    var a->int;
+    var _->void;
+    set a 5;
+    call print.print(a) _;
 }

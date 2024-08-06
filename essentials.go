@@ -97,7 +97,7 @@ func Type_Token_To_Struct(Type_Token Token, program *Program) (*Type, error) {
 		if err!=nil {
 			return &Type{}, err
 		}
-		return &Type{Is_Pointer: true, Child: rendered_Type, Raw_Type: POINTER_TYPE}, nil
+		return &Type{Child: rendered_Type, Raw_Type: POINTER_TYPE}, nil
 	}
 	if str_index_in_str_arr(Type_Token.Value, []string{"string", "bytes", "int", "int64", "float", "float64", "void"})!=-1 {
 		return &Type{Raw_Type: String_Type_To_Int8(Type_Token.Value)}, nil
@@ -159,7 +159,7 @@ func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
 	if Type_Object.Is_Dict {
 		return Object_Abstract{Is_Mapping: true, Raw_Type: Type_Object.Raw_Type}
 	}
-	if Type_Object.Is_Pointer {
+	if Type_Object.Raw_Type==POINTER_TYPE {
 		return Object_Abstract{Raw_Type: POINTER_TYPE}
 	}
 	return Object_Abstract{Is_Array: true, Raw_Type: Type_Object.Raw_Type}
@@ -183,7 +183,7 @@ func Type_Signature(a *Type, traversed []*Type) string {
 	if a.Raw_Type!=0 {
 		return Hash("raw"+strconv.FormatInt(int64(a.Raw_Type), 10))
 	}
-	if a.Is_Pointer {
+	if a.Raw_Type==POINTER_TYPE {
 		return Hash("pointer"+Type_Signature(a.Child, traversed))
 	}
 	if a.Is_Struct {

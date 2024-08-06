@@ -58,7 +58,6 @@ type Type struct {
 	Is_Dict                bool
 	Raw_Type               int8
 	Is_Struct              bool
-	Is_Pointer             bool
 	Struct_Details         map[string]*Type
 	Child                  *Type
 }
