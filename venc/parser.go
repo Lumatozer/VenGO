@@ -275,45 +275,53 @@ func Struct_Dependencies(Struct_Fields map[string]Token, program *Program) []str
 	return Dependencies
 }
 
-func Parser(path string, definitions Definitions) (Program, error) {
+func Parser(path string, definitions Definitions, imported_Programs map[string]Program) (Program, error) {
 	Abs_Path,err:=filepath.Abs(path)
 	if err!=nil {
 		return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
 	}
 	program:=Program{Path: Abs_Path, Package_Name: definitions.Package_Name, Vitality: true, Structs: make(map[string]*Type), Global_Variables: make(map[string]*Type), Functions: make(map[string]*Function), Imported_Libraries: make(map[string]*Program)}
 	Dependencies:=make(map[string][]string)
+	old_Dir,err:=os.Getwd()
+	if err!=nil {
+		return program, err
+	}
 	for Import_Path, Import_Alias:=range definitions.Imports {
-		data,err:=os.ReadFile(Import_Path)
+		Import_Path,err=filepath.Abs(Import_Path)
 		if err!=nil {
 			return program, err
 		}
-		tokens:=Tokensier(string(data), false)
-		tokens,err=Tokens_Parser(tokens, false)
-		if err!=nil {
-			return program, err
+		imported_Program,recycled_Import:=imported_Programs[Import_Path]
+		if !recycled_Import {
+			data,err:=os.ReadFile(Import_Path)
+			if err!=nil {
+				return program, err
+			}
+			tokens:=Tokensier(string(data), false)
+			tokens,err=Tokens_Parser(tokens, false)
+			if err!=nil {
+				return program, err
+			}
+			tokens,err=Token_Grouper(tokens, false)
+			if err!=nil {
+				return program, err
+			}
+			imported_Definition,err:=Definition_Parser(tokens)
+			if err!=nil {
+				return program, err
+			}
+			Import_Path,err:=filepath.Abs(Import_Path)
+			if err!=nil {
+				return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
+			}
+			os.Chdir(filepath.Dir(Import_Path))
+			imported_Program,err=Parser(Import_Path, imported_Definition, imported_Programs)
+			if err!=nil {
+				return program, err
+			}
 		}
-		tokens,err=Token_Grouper(tokens, false)
-		if err!=nil {
-			return program, err
-		}
-		imported_Definition,err:=Definition_Parser(tokens)
-		if err!=nil {
-			return program, err
-		}
-		old_Dir,err:=os.Getwd()
-		if err!=nil {
-			return program, err
-		}
-		Import_Path,err:=filepath.Abs(Import_Path)
-		if err!=nil {
-			return Program{}, errors.New("unable to find absolute path for path '"+path+"' "+err.Error())
-		}
-		os.Chdir(filepath.Dir(Import_Path))
-		imported_Program,err:=Parser(Import_Path, imported_Definition)
+		imported_Programs[Import_Path]=imported_Program
 		os.Chdir(old_Dir)
-		if err!=nil {
-			return program, err
-		}
 		for Imported_Struct:=range imported_Program.Structs {
 			program.Structs[Import_Alias+"."+Imported_Struct]=imported_Program.Structs[Imported_Struct]
 		}

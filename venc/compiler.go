@@ -106,6 +106,7 @@ func Compile_Program(program *Program) {
 	os.MkdirAll(Program_Path, os.ModePerm)
 	os.Remove(Program_Path)
 	os.Create(Program_Path)
+	fmt.Println(Program_Path, current_Dir, program.Path)
 	os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
 	old_Dir,_:=filepath.Abs(current_Dir)
 	for Program_Path, Imported_Program:=range Get_Program_Import_Tree(program) {
@@ -136,7 +137,6 @@ func Compile(program *Program) string {
 		if strings.HasSuffix(Imported_Program.Path, ".vi") {
 			Imported_Program.Path=Imported_Program.Path[:len(Imported_Program.Path)-2]+"vasm"
 		}
-		fmt.Println(current_Dir)
 		Imported_Program.Path=strings.TrimPrefix(Imported_Program.Path, Absolute_Current_File_Path)
 		compiled += "    " + "\"" + Imported_Program.Path +"\" as "+Import_Alias+"\n"
 	}

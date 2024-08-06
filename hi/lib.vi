@@ -1,5 +1,0 @@
-package hi
-
-function hello()->int {
-    return 5;
-}

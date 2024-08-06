@@ -60,7 +60,7 @@ func main() {
 			return
 		}
 		fmt.Println(definitions)
-		program,err:=venc.Parser(os.Args[1], definitions)
+		program,err:=venc.Parser(os.Args[1], definitions, make(map[string]venc.Program))
 		if err!=nil {
 			fmt.Println(err)
 			return
@@ -88,7 +88,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	program,err:=Parser(tokens, Absolute_Path)
+	program,err:=Parser(tokens, Absolute_Path, make(map[string]Program))
 	if err!=nil {
 		fmt.Println(err)
 		return

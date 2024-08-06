@@ -1,12 +1,10 @@
 package main
 
 import (
-    "b.vi" as b
     "a.vi" as a
 )
 
-function main() {
+function testA() {
     var _->void;
-    _=b.testA();
     _=a.test();
 }

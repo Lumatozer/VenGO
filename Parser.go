@@ -451,7 +451,11 @@ func Is_Struct_Declaration_Recursive(struct_name string, nested_Inside []string,
 	return false
 }
 
-func Parser(code []Token, filePath string) (Program, error) {
+func Parser(code []Token, filePath string, imported_Programs map[string]Program) (Program, error) {
+	filePath,err:=filepath.Abs(filePath)
+	if err!=nil {
+		return Program{}, err
+	}
 	is_Header:=strings.HasSuffix(filePath, ".vh")
 	program:=Program{
 		Structs: make(map[string]*Type),
@@ -466,26 +470,34 @@ func Parser(code []Token, filePath string) (Program, error) {
 	program.Package_Name=definitions.PackageName
 	for _,Import_Declaration:=range definitions.Imports {
 		file_Path:=Import_Declaration[0]
+		file_Path,err=filepath.Abs(file_Path)
+		if err!=nil {
+			return program, err
+		}
 		Alias:=Import_Declaration[1]
-		data,err:=os.ReadFile(file_Path)
-		if err!=nil {
-			return program, err
-		}
-		Imported_File,err:=Tokenizer(string(data))
-		if err!=nil {
-			return program, err
-		}
+		Imported_Program,recycled_Import:=imported_Programs[file_Path]
 		old_dir,err:=os.Getwd()
 		if err!=nil {
 			return program, err
 		}
-		os.Chdir(filepath.Dir(file_Path))
-		Imported_Program,err:=Parser(Imported_File, file_Path)
+		if !recycled_Import {
+			data,err:=os.ReadFile(file_Path)
+			if err!=nil {
+				return program, err
+			}
+			Imported_File,err:=Tokenizer(string(data))
+			if err!=nil {
+				return program, err
+			}
+			os.Chdir(filepath.Dir(file_Path))
+			Imported_Program,err=Parser(Imported_File, file_Path, imported_Programs)
+			if err!=nil {
+				return program, err
+			}
+		}
+		imported_Programs[file_Path]=Imported_Program
 		Imported_Program.Package_Name=file_Path
 		os.Chdir(old_dir)
-		if err!=nil {
-			return program, err
-		}
 		for Imported_Struct:=range Imported_Program.Structs {
 			program.Structs[Alias+"."+Imported_Struct]=Imported_Program.Structs[Imported_Struct]
 		}

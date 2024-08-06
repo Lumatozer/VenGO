@@ -1,7 +1,0 @@
-package hi
-
-function hello()->int {
-    var temp.0_0->int;
-    set temp.0_0 5;
-    return temp.0_0;
-}
