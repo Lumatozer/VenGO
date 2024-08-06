@@ -1,8 +1,12 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
+	"strconv"
+	"slices"
 )
 
 func str_index_in_str_arr(a string, b []string) int {
@@ -161,35 +165,51 @@ func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
 	return Object_Abstract{Is_Array: true, Raw_Type: Type_Object.Raw_Type}
 }
 
-func Equal_Type(a *Type, b *Type) bool {
-	if a.Is_Array!=b.Is_Array {
-		return false
+func Hash(a string) string {
+	hashed_Bytes:=make([]byte, 0)
+	for _,b:=range sha256.Sum256([]byte(a)) {
+		hashed_Bytes = append(hashed_Bytes, b)
 	}
-	if a.Is_Dict!=b.Is_Dict {
-		return false
+	return hex.EncodeToString(hashed_Bytes)
+}
+
+func Type_Signature(a *Type, traversed []*Type) string {
+	if a.Is_Array {
+		return Hash("array"+Type_Signature(a.Child, traversed))
 	}
-	if a.Is_Pointer!=b.Is_Pointer {
-		return false
+	if a.Is_Dict {
+		return Hash("dict:key->"+strconv.FormatInt(int64(a.Raw_Type), 10)+":value->"+Type_Signature(a.Child, traversed))
 	}
-	if a.Is_Struct!=b.Is_Struct {
-		return false
+	if a.Raw_Type!=0 {
+		return Hash("raw"+strconv.FormatInt(int64(a.Raw_Type), 10))
 	}
-	if a.Raw_Type!=b.Raw_Type {
-		return false
+	if a.Is_Pointer {
+		return Hash("pointer"+Type_Signature(a.Child, traversed))
 	}
-	if a.Child!=nil && b.Child!=nil {
-		return Equal_Type(a.Child, b.Child)
-	}
-	if a.Is_Struct && b.Is_Struct {
-		for field, field1_Type:=range a.Struct_Details {
-			field2_Type, found:=b.Struct_Details[field]
-			if !found {
-				return false
+	if a.Is_Struct {
+		for _,traveresed_Struct:=range traversed {
+			if traveresed_Struct==a {
+				return Hash("struct-recursed-at"+strconv.FormatInt(int64(len(traversed)), 10))
 			}
-			return Equal_Type(field1_Type, field2_Type)
 		}
+		traversed = append(traversed, a)
+		struct_Keys:=make([]string, 0)
+		for Field:=range a.Struct_Details {
+			struct_Keys = append(struct_Keys, Field)
+		}
+		slices.Sort(struct_Keys)
+		out:="struct{"
+		for _,Field:=range struct_Keys {
+			out+=Field+"->"+Type_Signature(a.Struct_Details[Field], traversed)
+		}
+		out+="}"
+		return Hash(out)
 	}
-	return true
+	return ""
+}
+
+func Equal_Type(a *Type, b *Type) bool {
+	return Type_Signature(a, make([]*Type, 0))==Type_Signature(b, make([]*Type, 0))
 }
 
 func Default_Object_By_Object_Abstract(object_Abstract Object_Abstract) Object {

@@ -1,12 +1,10 @@
 package main
 
 import (
-    "b.vi" as b
-    "a.vi" as a
+    "packages/print/print.vh" as print
 )
 
 function main() {
     var _->void;
-    _=b.testA();
-    _=a.test();
+    _=print.print(1);
 }
