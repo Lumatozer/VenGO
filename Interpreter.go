@@ -119,13 +119,16 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 			i=scope[instructions[1]].Value.(int)-1
 		case USE_DEFAULT_OBJECT_INSTRUCTION:
 			scope[instructions[1]].Value=constructed_Objects[instructions[1]].Value
+		case APPEND_INSTRUCTION:
+			scope[instructions[3]].Value = append(scope[instructions[1]].Value.([]*Object), scope[instructions[2]])
+		case LEN_INSTRUCTION:
+			scope[instructions[2]].Value = len(scope[instructions[1]].Value.([]*Object))
 		}
 	}
 	for i := range scope {
 		if scope[i]!=nil && scope[i].Value != nil {
-			fmt.Print(scope[i].Value, " ")
+			fmt.Print(Object_PrintS(scope[i]), " ")
 		}
 	}
-	fmt.Println()
 	return execution_Result
 }

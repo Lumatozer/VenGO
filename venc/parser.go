@@ -493,6 +493,33 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 					return Fn.Out_Type, nil
 				}
 			}
+			array_Argument:=[]Token{}
+			for _,token:=range code[0].Children[1].Children {
+				if token.Type=="comma" {
+					break
+				}
+				array_Argument = append(array_Argument, token)
+			}
+			if function_Name=="append" {
+				var0_Type,err:=Evaluate_Type(array_Argument, function, program)
+				if err!=nil {
+					return &Type{}, err
+				}
+				if !var0_Type.Is_Array {
+					return &Type{}, errors.New("append function expects the first argument to be an array type")
+				}
+				return var0_Type, nil
+			}
+			if function_Name=="len" {
+				var0_Type,err:=Evaluate_Type(array_Argument, function, program)
+				if err!=nil {
+					return &Type{}, err
+				}
+				if !var0_Type.Is_Array {
+					return &Type{}, errors.New("len function expects the first argument to be an array type")
+				}
+				return &Type{Is_Raw: true, Raw_Type: INT_TYPE}, nil
+			}
 		}
 	}
 	if len(code)>=3 {
@@ -543,7 +570,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 			Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
 			Initialise_Temporary_Unique_Variable(Temp_Var, Var_Type, function, program, temp_Variables)
 			function.Instructions = append(function.Instructions, []string{"set", Temp_Var, strconv.FormatInt(int64(code[0].Num_Value), 10)+";"})
-			return Temp_Var, []string{Temp_Var}, nil
+			return Temp_Var, []string{}, nil
 		}
 		if code[0].Type=="expression" {
 			return Compile_Expression(code[0].Children, function, program, temp_Variables)
@@ -552,20 +579,11 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 			found_Function:=&Function{}
 			function_Name:=""
 			function_Name_To_Find:=Get_Function_Name_From_Call(code[0].Children[0])
-			for Fn_Name, Fn:=range program.Functions {
-				if Fn_Name==function_Name_To_Find {
-					found_Function=Fn
-					function_Name=Fn_Name
-					break
-				}
-			}
-			if len(code[0].Children[1].Children)!=len(found_Function.Arguments) {
-				return out, make([]string, 0), errors.New("function call arguments do not match length of function call")
-			}
 			Variables:=make([]string, 0)
-			call_String:="("
+			Variable_Types:=make([]*Type, 0)
 			for i:=0; len(code[0].Children[1].Children)>i; i+=2 {
 				Var, Occupied_Variable, err:=Compile_Expression([]Token{code[0].Children[1].Children[i]}, function, program, temp_Variables)
+				Variable_Types = append(Variable_Types, function.Scope[Var])
 				if err!=nil {
 					return "", used_Variables, err
 				}
@@ -573,18 +591,53 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 				}
 				Variables = append(Variables, Var)
-				call_String+=Var+", "
 			}
-			call_String=strings.Trim(call_String, ", ")+")"
-			for _,variable:=range Variables {
-				if strings.HasPrefix(variable, "temp.") {
-					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+			if str_index_in_arr(function_Name_To_Find, []string{"append", "len"})!=-1 {
+				if function_Name_To_Find=="append" {
+					if len(Variables)!=2 {
+						return "", make([]string, 0), errors.New("append expects 2 arguments of types [array, array.child]")
+					}
+					if Type_Signature(Variable_Types[0].Child, make([]*Type, 0))!=Type_Signature(Variable_Types[1], make([]*Type, 0)) {
+						return "", make([]string, 0), errors.New("append expects 2 arguments of types [array, array.child]")
+					}
+					Temp_Var:=Generate_Unique_Temporary_Variable(function.Scope[Variables[0]], temp_Variables, function)
+					Initialise_Temporary_Unique_Variable(Temp_Var, function.Scope[Variables[0]], function, program, temp_Variables)
+					function.Instructions = append(function.Instructions, []string{"append", Variables[0], Variables[1], Temp_Var+";"})
+					return Temp_Var, []string{Temp_Var}, nil
 				}
+				if function_Name_To_Find=="len" {
+					if len(Variables)!=1 {
+						return "", make([]string, 0), errors.New("append expects 2 arguments of types [array]")
+					}
+					Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
+					Initialise_Temporary_Unique_Variable(Temp_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
+					function.Instructions = append(function.Instructions, []string{"len", Variables[0], Temp_Var+";"})
+					return Temp_Var, []string{Temp_Var}, nil
+				}
+			} else {
+				for Fn_Name, Fn:=range program.Functions {
+					if Fn_Name==function_Name_To_Find {
+						found_Function=Fn
+						function_Name=Fn_Name
+						break
+					}
+				}
+				if len(code[0].Children[1].Children)!=len(found_Function.Arguments) {
+					return out, make([]string, 0), errors.New("function call arguments do not match length of function call")
+				}
+				call_String:="("
+				call_String=strings.Trim(call_String, ", ")+")"
+				for _,variable:=range Variables {
+					call_String+=variable+", "
+					if strings.HasPrefix(variable, "temp.") {
+						Free_Temporary_Unique_Variable(variable, temp_Variables, function)
+					}
+				}
+				Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
+				Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
+				function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
+				return Temp_Var, []string{Temp_Var}, nil
 			}
-			Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
-			Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
-			function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
-			return Temp_Var, []string{Temp_Var}, nil
 		}
 		return out, used_Variables, errors.New("could not compile expression")
 	}

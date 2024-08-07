@@ -4,9 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"strings"
-	"strconv"
+	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 func str_index_in_str_arr(a string, b []string) int {
@@ -319,5 +320,110 @@ func Copy_Object(object *Object) Object  {
 	if ok {
 		return Object{Value: a}
 	}
+	_,ok=a.([]*Object)
+	if ok {
+		Children:=make([]*Object, 0)
+		for _,Child:=range a.([]*Object) {
+			Children = append(Children, Child)
+		}
+		return Object{Value: Children}
+	}
 	return Object{Value: nil}
+}
+
+func Print_Mapping(Keys []interface{}, Values []*Object) string {
+	out:="{"
+	for i:=range Keys {
+		out+=fmt.Sprint(Keys[i])+"->"+Object_PrintS(Values[i])+", "
+	}
+	out=strings.Trim(out, ", ")
+	return out+"}"
+}
+
+
+func Object_PrintS(o *Object) string {
+	_,ok:=o.Value.(int)
+	if ok {
+		return fmt.Sprint(o.Value)
+	}
+	_,ok=o.Value.(int64)
+	if ok {
+		return fmt.Sprint(o.Value)
+	}
+	_,ok=o.Value.(string)
+	if ok {
+		return fmt.Sprint(o.Value)
+	}
+	_,ok=o.Value.(float32)
+	if ok {
+		return fmt.Sprint(o.Value)
+	}
+	_,ok=o.Value.(float64)
+	if ok {
+		return fmt.Sprint(o.Value)
+	}
+	_,ok=o.Value.(*Object)
+	if ok {
+		return "&{"+Object_PrintS(o.Value.(*Object))+"}"
+	}
+	_,ok=o.Value.(map[int]*Object)
+	if ok {
+		keys:=make([]interface{}, 0)
+		values:=make([]*Object, 0)
+		for key,value:=range o.Value.(map[int]*Object) {
+			keys = append(keys, key)
+			values = append(values, value)
+		}
+		return Print_Mapping(keys, values)
+	}
+	_,ok=o.Value.(map[int64]*Object)
+	if ok {
+		keys:=make([]interface{}, 0)
+		values:=make([]*Object, 0)
+		for key,value:=range o.Value.(map[int64]*Object) {
+			keys = append(keys, key)
+			values = append(values, value)
+		}
+		return Print_Mapping(keys, values)
+	}
+	_,ok=o.Value.(map[string]*Object)
+	if ok {
+		keys:=make([]interface{}, 0)
+		values:=make([]*Object, 0)
+		for key,value:=range o.Value.(map[string]*Object) {
+			keys = append(keys, key)
+			values = append(values, value)
+		}
+		return Print_Mapping(keys, values)
+	}
+	_,ok=o.Value.(map[float32]*Object)
+	if ok {
+		keys:=make([]interface{}, 0)
+		values:=make([]*Object, 0)
+		for key,value:=range o.Value.(map[float32]*Object) {
+			keys = append(keys, key)
+			values = append(values, value)
+		}
+		return Print_Mapping(keys, values)
+	}
+	_,ok=o.Value.(map[float64]*Object)
+	if ok {
+		keys:=make([]interface{}, 0)
+		values:=make([]*Object, 0)
+		for key,value:=range o.Value.(map[float64]*Object) {
+			keys = append(keys, key)
+			values = append(values, value)
+		}
+		return Print_Mapping(keys, values)
+	}
+	_,ok=o.Value.([]*Object)
+	if ok {
+		out:="[ "
+		for _,Child:=range o.Value.([]*Object) {
+			out+=Object_PrintS(Child)+", "
+		}
+		out=strings.Trim(out, ", ")
+		return out+" ]"
+	}
+	return ""
 }

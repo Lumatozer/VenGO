@@ -23,4 +23,6 @@ const (
 	NOT_INSTRUCTION                   int = iota
 	JUMPTO_INSTRUCTION                int = iota
 	USE_DEFAULT_OBJECT_INSTRUCTION    int = iota
+	APPEND_INSTRUCTION                int = iota
+	LEN_INSTRUCTION                   int = iota
 )

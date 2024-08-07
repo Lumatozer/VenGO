@@ -1,0 +1,14 @@
+package main
+
+function main()->void {
+    var a->[int];
+    var b->int;
+    var temp.0_0->[int];
+    append a b temp.0_0;
+    copy a temp.0_0;
+    append a b temp.0_0;
+    copy a temp.0_0;
+    var temp.1_0->int;
+    len a temp.1_0;
+    copy b temp.1_0;
+}

@@ -23,6 +23,9 @@ func Same_Types(Type_A *Type, Type_B *Type) bool {
 }
 
 func Type_Signature(a *Type, traversed []*Type) string {
+	if a==nil {
+		return "nil"
+	}
 	if a.Is_Array {
 		return Hash("array"+Type_Signature(a.Child, traversed))
 	}
