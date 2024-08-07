@@ -20,7 +20,7 @@ func main() {
 		return
 	}
 	Absolute_Path,err:=filepath.Abs(os.Args[1])
-	if strings.HasSuffix(os.Args[1] ,".vi") {
+	if strings.HasSuffix(os.Args[1], ".vi") {
 		tokens:=venc.Tokensier(string(data), false)
 		tokens,err:=venc.Tokens_Parser(tokens, false)
 		if err!=nil {
