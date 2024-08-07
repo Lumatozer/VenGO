@@ -1,4 +1,4 @@
-package main
+package vengine
 
 import (
 	"errors"

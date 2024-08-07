@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
 	"github.com/lumatozer/VenGO/structs"
 	"github.com/lumatozer/VenGO/venc"
+	"github.com/lumatozer/VenGO"
 )
 
-func Load_Packages(program *Program, packages []structs.Package) {
+func Load_Packages(program *vengine.Program, packages []structs.Package) {
 	if program.Is_Dynamic {
 		for _,Package:=range packages {
 			if Package.Name==program.Package_Name {
@@ -31,42 +31,42 @@ func Load_Packages(program *Program, packages []structs.Package) {
 }
 
 func Convert_Raw_Types_For_Vitality(a int8) int8 {
-	if a==INT_TYPE {
+	if a==vengine.INT_TYPE {
 		return venc.INT_TYPE
 	}
-	if a==INT64_TYPE {
+	if a==vengine.INT64_TYPE {
 		return venc.INT64_TYPE
 	}
-	if a==STRING_TYPE {
+	if a==vengine.STRING_TYPE {
 		return venc.STRING_TYPE
 	}
-	if a==FLOAT_TYPE {
+	if a==vengine.FLOAT_TYPE {
 		return venc.FLOAT_TYPE
 	}
-	if a==FLOAT64_TYPE {
+	if a==vengine.FLOAT64_TYPE {
 		return venc.FLOAT64_TYPE
 	}
-	if a==POINTER_TYPE {
+	if a==vengine.POINTER_TYPE {
 		return venc.POINTER_TYPE
 	}
-	if a==VOID_TYPE {
+	if a==vengine.VOID_TYPE {
 		return venc.VOID_TYPE
 	}
 	return 0
 }
 
-func VASM_Type_To_Vitality_Type(a *Type) *venc.Type {
+func VASM_Type_To_Vitality_Type(a *vengine.Type) *venc.Type {
 	if a==nil {
 		return &venc.Type{}
 	}
-	out:=&venc.Type{Is_Array: a.Is_Array, Is_Dict: a.Is_Dict, Is_Raw: a.Raw_Type!=0, Raw_Type: Convert_Raw_Types_For_Vitality(a.Raw_Type), Is_Struct: a.Is_Struct, Is_Pointer: a.Raw_Type==POINTER_TYPE, Child: VASM_Type_To_Vitality_Type(a.Child), Struct_Details: make(map[string]*venc.Type)}
+	out:=&venc.Type{Is_Array: a.Is_Array, Is_Dict: a.Is_Dict, Is_Raw: a.Raw_Type!=0, Raw_Type: Convert_Raw_Types_For_Vitality(a.Raw_Type), Is_Struct: a.Is_Struct, Is_Pointer: a.Raw_Type==vengine.POINTER_TYPE, Child: VASM_Type_To_Vitality_Type(a.Child), Struct_Details: make(map[string]*venc.Type)}
 	for Field,Field_Type:=range a.Struct_Details {
 		out.Struct_Details[Field]=VASM_Type_To_Vitality_Type(Field_Type)
 	}
 	return out
 }
 
-func VASM_Program_To_Vitality_Program(program Program, path string) venc.Program {
+func VASM_Program_To_Vitality_Program(program vengine.Program, path string) venc.Program {
 	venc_Program:=venc.Program{Vitality: false, Path: path, Package_Name: program.Package_Name, Structs: make(map[string]*venc.Type), Functions: make(map[string]*venc.Function), Global_Variables: make(map[string]*venc.Type), Imported_Libraries: make(map[string]*venc.Program)}
 	for Struct:=range program.Structs {
 		venc_Program.Structs[Struct]=VASM_Type_To_Vitality_Type(program.Structs[Struct])
@@ -90,12 +90,12 @@ func VASM_Translator(path string) (venc.Program, error) {
 		fmt.Println(err)
 		return venc.Program{}, err
 	}
-	tokens,err:=Tokenizer(string(data))
+	tokens,err:=vengine.Tokenizer(string(data))
 	if err!=nil {
 		fmt.Println(err)
 		return venc.Program{}, err
 	}
-	VASM_Program, err:=Parser(tokens, path, make(map[string]Program))
+	VASM_Program, err:=vengine.Parser(tokens, path, make(map[string]vengine.Program))
 	if err!=nil {
 		return venc.Program{}, err
 	}
@@ -150,7 +150,7 @@ func main() {
 		}
 		fmt.Println(string(data))
 	}
-	tokens,err:=Tokenizer(string(data))
+	tokens,err:=vengine.Tokenizer(string(data))
 	if err!=nil {
 		fmt.Println(err)
 		return
@@ -160,7 +160,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	program,err:=Parser(tokens, Absolute_Path, make(map[string]Program))
+	program,err:=vengine.Parser(tokens, Absolute_Path, make(map[string]vengine.Program))
 	if err!=nil {
 		fmt.Println(err)
 		return
@@ -172,8 +172,8 @@ func main() {
 			index=i
 		}
 	}
-	Load_Packages(&program, Get_Packages())
-	exec_Result:=Interpreter(&program.Functions[index], Stack{})
+	Load_Packages(&program, vengine.Get_Packages())
+	exec_Result:=vengine.Interpreter(&program.Functions[index], vengine.Stack{})
 	if exec_Result.Error!=nil {
 		fmt.Println(exec_Result.Error)
 		return

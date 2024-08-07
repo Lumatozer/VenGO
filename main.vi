@@ -1,7 +1,7 @@
 package main
 
 import (
-    "packages/print/print.vh" as print
+    "vengine/packages/print/print.vh" as print
 )
 
 var database->{int->int};
