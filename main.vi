@@ -16,6 +16,6 @@ function get(key->int)->int {
 
 function main() {
     var _->void;
-    _=set(1, 10);
-    _=print.print(get(1));
+    set(1, 10);
+    print.print(get(1));
 }

@@ -160,10 +160,10 @@ func Type_Struct_To_Object_Abstract(Type_Object Type) Object_Abstract {
 	if Type_Object.Is_Dict {
 		return Object_Abstract{Is_Mapping: true, Raw_Type: Type_Object.Raw_Type}
 	}
-	if Type_Object.Raw_Type==POINTER_TYPE {
-		return Object_Abstract{Raw_Type: POINTER_TYPE}
+	if Type_Object.Raw_Type!=0 {
+		return Object_Abstract{Raw_Type: Type_Object.Raw_Type}
 	}
-	return Object_Abstract{Is_Array: true, Raw_Type: Type_Object.Raw_Type}
+	return Object_Abstract{}
 }
 
 func Hash(a string) string {
@@ -215,6 +215,7 @@ func Equal_Type(a *Type, b *Type) bool {
 
 func Default_Object_By_Object_Abstract(object_Abstract Object_Abstract) Object {
 	if object_Abstract.Is_Array {
+		fmt.Println("\n\n\n\n", "BRO WHO TF?\n\n\n\n")
 		return Object{Value: make([]*Object, 0)}
 	}
 	if object_Abstract.Is_Mapping {

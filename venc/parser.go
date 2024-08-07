@@ -935,7 +935,7 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 			function.Instructions = append(function.Instructions, []string{"set", Jump_Line_Count_Var})
 			function.Instructions = append(function.Instructions, []string{"not", condition_Variable+";"})
 			function.Instructions = append(function.Instructions, []string{"jump", Jump_Line_Count_Var, condition_Variable+";"})
-			if strings.HasPrefix("temp.", condition_Variable) {
+			if strings.HasPrefix(condition_Variable, "temp.") {
 				Free_Temporary_Unique_Variable(condition_Variable, temp_Variables, function)
 			}
 			instruction_Count:=len(function.Instructions)
@@ -1012,6 +1012,25 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 				return errors.New("continue keyword used outside loop")
 			}
 			function.Instructions = append(function.Instructions, []string{"jumpto", loop_Details.Loop_Details.Continue_Variable+";"})
+			i+=1
+			continue
+		}
+		if code[i].Type=="funcall" {
+			if !(len(code)-i>=2) {
+				return errors.New("semicolon not found after continue keyword")
+			}
+			out,used_Variables,err:=Compile_Expression([]Token{code[i]}, function, program, temp_Variables)
+			if err!=nil {
+				return err
+			}
+			if strings.HasPrefix(out, "temp.") {
+				Free_Temporary_Unique_Variable(out, temp_Variables, function)
+			}
+			for _,Var:=range used_Variables {
+				if strings.HasPrefix(Var, "temp.") {
+					Free_Temporary_Unique_Variable(Var, temp_Variables, function)
+				}
+			}
 			i+=1
 			continue
 		}
