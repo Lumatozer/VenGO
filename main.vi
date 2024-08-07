@@ -1,9 +1,7 @@
 package main
 
 function main() {
-    var a->[int];
-    var b->int;
-    a=append(a, b);
-    a=append(a, b);
-    b=len(a);
+    var a->{int->int};
+    a[1]=5;
+    a[2]=10+a[1];
 }

@@ -521,6 +521,29 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 				return &Type{Is_Raw: true, Raw_Type: INT_TYPE}, nil
 			}
 		}
+		if code[0].Type=="lookup" {
+			parent_Type,err:=Evaluate_Type(code[0].Children[0].Children, function, program)
+			if err!=nil {
+				return &Type{}, err
+			}
+			lookup_Type,err:=Evaluate_Type(code[0].Children[1].Children, function, program)
+			if err!=nil {
+				return &Type{}, err
+			}
+			if parent_Type.Is_Array {
+				if !(lookup_Type.Is_Raw && lookup_Type.Raw_Type==INT_TYPE) {
+					return &Type{}, errors.New("array lookup must be an integer")
+				}
+				return parent_Type.Child, err
+			}
+			if parent_Type.Is_Dict {
+				if !(parent_Type.Raw_Type==lookup_Type.Raw_Type) {
+					return &Type{}, errors.New("lookup type does not match dictionary key type")
+				}
+				return parent_Type.Child, err
+			}
+			return &Type{}, errors.New("invalid type to perform lookup on")
+		}
 	}
 	if len(code)>=3 {
 		TypeA,err:=Evaluate_Type([]Token{code[0]}, function, program)
@@ -570,7 +593,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 			Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
 			Initialise_Temporary_Unique_Variable(Temp_Var, Var_Type, function, program, temp_Variables)
 			function.Instructions = append(function.Instructions, []string{"set", Temp_Var, strconv.FormatInt(int64(code[0].Num_Value), 10)+";"})
-			return Temp_Var, []string{}, nil
+			return Temp_Var, []string{Temp_Var}, nil
 		}
 		if code[0].Type=="expression" {
 			return Compile_Expression(code[0].Children, function, program, temp_Variables)
@@ -637,6 +660,30 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
 				function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
 				return Temp_Var, []string{Temp_Var}, nil
+			}
+		}
+		if code[0].Type=="lookup" {
+			parent_Variable, occuped_Variables, err:=Compile_Expression(code[0].Children[0].Children, function, program, temp_Variables)
+			used_Variables = append(used_Variables, occuped_Variables...)
+			if err!=nil {
+				return "", make([]string, 0), err
+			}
+			lookup_Variable, occuped_Variables, err:=Compile_Expression(code[0].Children[1].Children, function, program, temp_Variables)
+			used_Variables = append(used_Variables, occuped_Variables...)
+			if err!=nil {
+				return "", make([]string, 0), err
+			}
+			Temp_Var:=Generate_Unique_Temporary_Variable(function.Scope[parent_Variable].Child, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Temp_Var, function.Scope[parent_Variable].Child, function, program, temp_Variables)
+			used_Variables = append(used_Variables, Temp_Var)
+			// array lookups and dictionary lookups are soft copies
+			if function.Scope[parent_Variable].Is_Array {
+				function.Instructions = append(function.Instructions, []string{"array_lookup", parent_Variable, lookup_Variable, Temp_Var+";"})
+				return Temp_Var, used_Variables, nil
+			}
+			if function.Scope[parent_Variable].Is_Dict {
+				function.Instructions = append(function.Instructions, []string{"dict_lookup", parent_Variable, lookup_Variable, Temp_Var+";"})
+				return Temp_Var, used_Variables, nil
 			}
 		}
 		return out, used_Variables, errors.New("could not compile expression")
@@ -784,18 +831,26 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 			if Type_Signature(RHS_Type, make([]*Type, 0))!=Type_Signature(LHS_Type, make([]*Type, 0)) {
 				return errors.New("LHS and RHS Types do not match")
 			}
-			RHS,used_Variables,err:=Compile_Expression(expression_Tokens, function, program, temp_Variables)
+			used_Variables:=make([]string, 0)
+			RHS,occupied_Variables,err:=Compile_Expression(expression_Tokens, function, program, temp_Variables)
+			used_Variables = append(used_Variables, occupied_Variables...)
+			if err!=nil {
+				return err
+			}
+			LHS,occupied_Variables,err:=Compile_Expression([]Token{LHS_Token}, function, program, temp_Variables)
+			used_Variables = append(used_Variables, occupied_Variables...)
 			if err!=nil {
 				return err
 			}
 			for _,variable:=range used_Variables {
 				Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 			}
-			if LHS_Token.Type=="variable" {
-				function.Instructions = append(function.Instructions, []string{"copy", LHS_Token.Value, RHS+";"})
-			}
+			function.Instructions = append(function.Instructions, []string{"copy", LHS, RHS+";"})
 			if strings.HasPrefix(RHS, "temp.") {
 				Free_Temporary_Unique_Variable(RHS, temp_Variables, function)
+			}
+			if strings.HasPrefix(LHS, "temp.") {
+				Free_Temporary_Unique_Variable(LHS, temp_Variables, function)
 			}
 			continue
 		}

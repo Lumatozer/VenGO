@@ -120,9 +120,64 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 		case USE_DEFAULT_OBJECT_INSTRUCTION:
 			scope[instructions[1]].Value=constructed_Objects[instructions[1]].Value
 		case APPEND_INSTRUCTION:
-			scope[instructions[3]].Value = append(scope[instructions[1]].Value.([]*Object), scope[instructions[2]])
+			scope[instructions[3]].Value = append(scope[instructions[1]].Value.([]*Object), &Object{Value: scope[instructions[2]].Value})
 		case LEN_INSTRUCTION:
 			scope[instructions[2]].Value = len(scope[instructions[1]].Value.([]*Object))
+		case SOFT_COPY_OBJECT_INSTRUCTION:
+			scope[instructions[1]]=scope[instructions[2]]
+		case ARRAY_TYPE_LOOKUP_INSTRUCTION:
+			scope[instructions[3]]=scope[instructions[1]].Value.([]*Object)[scope[instructions[2]].Value.(int)]
+		case DICT_TYPE_LOOKUP_INSTRUCTION:
+			if instructions[4]==int(INT_TYPE) {
+				dict:=scope[instructions[1]].Value.(map[int]*Object)
+				key:=scope[instructions[2]].Value.(int)
+				value,ok:=dict[key]
+				if !ok {
+					value=&Object{}
+					dict[key]=value
+				}
+				scope[instructions[3]]=value
+			}
+			if instructions[4]==int(INT64_TYPE) {
+				dict:=scope[instructions[1]].Value.(map[int64]*Object)
+				key:=scope[instructions[2]].Value.(int64)
+				value,ok:=dict[key]
+				if !ok {
+					value=&Object{}
+					dict[key]=value
+				}
+				scope[instructions[3]]=value
+			}
+			if instructions[4]==int(STRING_TYPE) {
+				dict:=scope[instructions[1]].Value.(map[string]*Object)
+				key:=scope[instructions[2]].Value.(string)
+				value,ok:=dict[key]
+				if !ok {
+					value=&Object{}
+					dict[key]=value
+				}
+				scope[instructions[3]]=value
+			}
+			if instructions[4]==int(FLOAT_TYPE) {
+				dict:=scope[instructions[1]].Value.(map[float32]*Object)
+				key:=scope[instructions[2]].Value.(float32)
+				value,ok:=dict[key]
+				if !ok {
+					value=&Object{}
+					dict[key]=value
+				}
+				scope[instructions[3]]=value
+			}
+			if instructions[4]==int(FLOAT64_TYPE) {
+				dict:=scope[instructions[1]].Value.(map[float64]*Object)
+				key:=scope[instructions[2]].Value.(float64)
+				value,ok:=dict[key]
+				if !ok {
+					value=&Object{}
+					dict[key]=value
+				}
+				scope[instructions[3]]=value
+			}
 		}
 	}
 	for i := range scope {

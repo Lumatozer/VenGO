@@ -25,4 +25,7 @@ const (
 	USE_DEFAULT_OBJECT_INSTRUCTION    int = iota
 	APPEND_INSTRUCTION                int = iota
 	LEN_INSTRUCTION                   int = iota
+	SOFT_COPY_OBJECT_INSTRUCTION      int = iota
+	ARRAY_TYPE_LOOKUP_INSTRUCTION     int = iota
+	DICT_TYPE_LOOKUP_INSTRUCTION      int = iota
 )

@@ -784,6 +784,34 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i+=3
 			continue
 		}
+		if code[i].Type=="variable" && code[i].Value=="soft_copy" {
+			if len(code)-i<4 {
+				return errors.New("unexpected EOF while parsing copy statement")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid return instruction definition structure")
+			}
+			variableA_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid copy instruction definition structure")
+			}
+			variableB_Index, found:=function.Variable_Scope[code[i+2].Value]
+			if !found {
+				return errors.New("variable '"+code[i+2].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variableA_Index].Object_Type, &program.Object_References[variableB_Index].Object_Type) {
+				return errors.New("return type of function does not match the type being returned")
+			}
+			if code[i+3].Type!="semicolon" {
+				return errors.New("invalid return instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{SOFT_COPY_OBJECT_INSTRUCTION, variableA_Index, variableB_Index})
+			i+=3
+			continue
+		}
 		if code[i].Type=="variable" && code[i].Value=="append" {
 			if len(code)-i<5 {
 				return errors.New("invalid instruction definition structure")
@@ -822,6 +850,88 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 				return errors.New("invalid instruction definition structure")
 			}
 			function.Instructions = append(function.Instructions, []int{APPEND_INSTRUCTION, variable1_Index, variable2_Index, variable3_Index})
+			i+=4
+			continue
+		}
+		if code[i].Type=="variable" && code[i].Value=="array_lookup" {
+			if len(code)-i<5 {
+				return errors.New("invalid instruction definition structure")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable1_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !program.Object_References[variable1_Index].Object_Type.Is_Array {
+				return errors.New("expected type a array while parsing instruction")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable2_Index, found:=function.Variable_Scope[code[i+2].Value]
+			if !found {
+				return errors.New("variable '"+code[i+2].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable2_Index].Object_Type, &Type{Raw_Type: INT_TYPE}) {
+				return errors.New("expected type to be an integer while parsing array_lookup instruction")
+			}
+			if code[i+3].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable3_Index, found:=function.Variable_Scope[code[i+3].Value]
+			if !found {
+				return errors.New("variable '"+code[i+3].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable3_Index].Object_Type, program.Object_References[variable1_Index].Object_Type.Child) {
+				return errors.New("expected type a array.child while parsing instruction")
+			}
+			if code[i+4].Type!="semicolon" {
+				return errors.New("invalid instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{ARRAY_TYPE_LOOKUP_INSTRUCTION, variable1_Index, variable2_Index, variable3_Index})
+			i+=4
+			continue
+		}
+		if code[i].Type=="variable" && code[i].Value=="dict_lookup" {
+			if len(code)-i<5 {
+				return errors.New("invalid instruction definition structure")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable1_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !program.Object_References[variable1_Index].Object_Type.Is_Dict {
+				return errors.New("expected type a dict while parsing instruction")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable2_Index, found:=function.Variable_Scope[code[i+2].Value]
+			if !found {
+				return errors.New("variable '"+code[i+2].Value+"' not found")
+			}
+			if !(program.Object_References[variable2_Index].Object_Type.Raw_Type==program.Object_References[variable1_Index].Object_Type.Raw_Type) {
+				return errors.New("unexpected type of lookup key while parsing dict_lookup instruction")
+			}
+			if code[i+3].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable3_Index, found:=function.Variable_Scope[code[i+3].Value]
+			if !found {
+				return errors.New("variable '"+code[i+3].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable3_Index].Object_Type, program.Object_References[variable1_Index].Object_Type.Child) {
+				return errors.New("expected type a array.child while parsing instruction")
+			}
+			if code[i+4].Type!="semicolon" {
+				return errors.New("invalid instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{DICT_TYPE_LOOKUP_INSTRUCTION, variable1_Index, variable2_Index, variable3_Index, int(program.Object_References[variable1_Index].Object_Type.Raw_Type)})
 			i+=4
 			continue
 		}
