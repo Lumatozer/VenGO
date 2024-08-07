@@ -115,6 +115,23 @@ func Copy_Function(function *Function) *Function {
 }
 
 func Default_Object_By_Type(variable_Type Type) interface{} {
+	if variable_Type.Is_Dict {
+		if variable_Type.Raw_Type==INT_TYPE {
+			return make(map[int]*Object)
+		}
+		if variable_Type.Raw_Type==INT64_TYPE {
+			return make(map[int64]*Object)
+		}
+		if variable_Type.Raw_Type==STRING_TYPE {
+			return make(map[string]*Object)
+		}
+		if variable_Type.Raw_Type==FLOAT_TYPE {
+			return make(map[float32]*Object)
+		}
+		if variable_Type.Raw_Type==FLOAT64_TYPE {
+			return make(map[float64]*Object)
+		}
+	}
 	if variable_Type.Raw_Type==INT_TYPE {
 		return int(0)
 	}
@@ -132,23 +149,6 @@ func Default_Object_By_Type(variable_Type Type) interface{} {
 	}
 	if variable_Type.Is_Array {
 		return make([]*Object, 0)
-	}
-	if variable_Type.Is_Dict {
-		if variable_Type.Raw_Type==INT_TYPE {
-			return make(map[int]*Object)
-		}
-		if variable_Type.Raw_Type==INT64_TYPE {
-			return make(map[int64]*Object)
-		}
-		if variable_Type.Raw_Type==STRING_TYPE {
-			return make(map[string]*Object)
-		}
-		if variable_Type.Raw_Type==FLOAT_TYPE {
-			return make(map[float32]*Object)
-		}
-		if variable_Type.Raw_Type==FLOAT64_TYPE {
-			return make(map[float64]*Object)
-		}
 	}
 	return int(0)
 }

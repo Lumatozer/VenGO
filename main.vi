@@ -1,7 +1,21 @@
 package main
 
+import (
+    "packages/print/print.vh" as print
+)
+
+var database->{int->int};
+
+function set(key->int, value->int) {
+    database[key]=value;
+}
+
+function get(key->int)->int {
+    return database[key];
+}
+
 function main() {
-    var a->{int->int};
-    a[1]=5;
-    a[2]=10+a[1];
+    var _->void;
+    _=set(1, 10);
+    _=print.print(get(1));
 }

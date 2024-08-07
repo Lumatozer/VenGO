@@ -610,9 +610,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				if err!=nil {
 					return "", used_Variables, err
 				}
-				for _,variable:=range Occupied_Variable {
-					Free_Temporary_Unique_Variable(variable, temp_Variables, function)
-				}
+				used_Variables = append(used_Variables, Occupied_Variable...)
 				Variables = append(Variables, Var)
 			}
 			if str_index_in_arr(function_Name_To_Find, []string{"append", "len"})!=-1 {
@@ -626,7 +624,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 					Temp_Var:=Generate_Unique_Temporary_Variable(function.Scope[Variables[0]], temp_Variables, function)
 					Initialise_Temporary_Unique_Variable(Temp_Var, function.Scope[Variables[0]], function, program, temp_Variables)
 					function.Instructions = append(function.Instructions, []string{"append", Variables[0], Variables[1], Temp_Var+";"})
-					return Temp_Var, []string{Temp_Var}, nil
+					return Temp_Var, append(used_Variables, Temp_Var), nil
 				}
 				if function_Name_To_Find=="len" {
 					if len(Variables)!=1 {
@@ -635,7 +633,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 					Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: INT_TYPE}, temp_Variables, function)
 					Initialise_Temporary_Unique_Variable(Temp_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
 					function.Instructions = append(function.Instructions, []string{"len", Variables[0], Temp_Var+";"})
-					return Temp_Var, []string{Temp_Var}, nil
+					return Temp_Var, append(used_Variables, Temp_Var), nil
 				}
 			} else {
 				for Fn_Name, Fn:=range program.Functions {
@@ -645,21 +643,21 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 						break
 					}
 				}
-				if len(code[0].Children[1].Children)!=len(found_Function.Arguments) {
+				if len(Variables)!=len(found_Function.Arguments) {
 					return out, make([]string, 0), errors.New("function call arguments do not match length of function call")
 				}
 				call_String:="("
-				call_String=strings.Trim(call_String, ", ")+")"
 				for _,variable:=range Variables {
 					call_String+=variable+", "
 					if strings.HasPrefix(variable, "temp.") {
 						Free_Temporary_Unique_Variable(variable, temp_Variables, function)
 					}
 				}
+				call_String=strings.Trim(call_String, ", ")+")"
 				Temp_Var:=Generate_Unique_Temporary_Variable(found_Function.Out_Type, temp_Variables, function)
 				Initialise_Temporary_Unique_Variable(Temp_Var, found_Function.Out_Type, function, program, temp_Variables)
 				function.Instructions = append(function.Instructions, []string{"call", function_Name+call_String, Temp_Var+";"})
-				return Temp_Var, []string{Temp_Var}, nil
+				return Temp_Var, append(used_Variables, Temp_Var), nil
 			}
 		}
 		if code[0].Type=="lookup" {

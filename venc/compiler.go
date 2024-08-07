@@ -3,6 +3,7 @@ package venc
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -100,6 +101,7 @@ func Get_Program_Import_Tree(program *Program) map[string]*Program {
 
 func Compile_Program(program *Program) {
 	current_Dir,_:=os.Getwd()
+	Import_Tree:=Get_Program_Import_Tree(program)
 	compiled_Program:=Compile(program)
 	Program_Path:=filepath.Join("distributable", strings.TrimPrefix(program.Path, current_Dir))
 	if strings.HasSuffix(Program_Path, ".vi") {
@@ -110,7 +112,8 @@ func Compile_Program(program *Program) {
 	os.Create(Program_Path)
 	os.WriteFile(Program_Path, []byte(compiled_Program), 0644)
 	old_Dir,_:=filepath.Abs(current_Dir)
-	for Program_Path, Imported_Program:=range Get_Program_Import_Tree(program) {
+	for Program_Path, Imported_Program:=range Import_Tree {
+		fmt.Println(Program_Path)
 		Program_Path=strings.Trim(strings.Trim(Program_Path, "/"), "\\")
 		to_Copy:=true
 		if strings.HasSuffix(Program_Path, ".vi") {
