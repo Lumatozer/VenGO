@@ -1,4 +1,4 @@
-package vengine
+package Vengine
 
 const (
 	SET_INSTRUCTION                   int = iota

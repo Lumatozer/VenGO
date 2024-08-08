@@ -1,4 +1,4 @@
-package vengine
+package Vengine
 
 import (
 	"crypto/sha256"
@@ -454,72 +454,72 @@ func Load_Packages(program *Program, packages []structs.Package) {
 
 func Convert_Raw_Types_For_Vitality(a int8) int8 {
 	if a==INT_TYPE {
-		return venc.INT_TYPE
+		return Venc.INT_TYPE
 	}
 	if a==INT64_TYPE {
-		return venc.INT64_TYPE
+		return Venc.INT64_TYPE
 	}
 	if a==STRING_TYPE {
-		return venc.STRING_TYPE
+		return Venc.STRING_TYPE
 	}
 	if a==FLOAT_TYPE {
-		return venc.FLOAT_TYPE
+		return Venc.FLOAT_TYPE
 	}
 	if a==FLOAT64_TYPE {
-		return venc.FLOAT64_TYPE
+		return Venc.FLOAT64_TYPE
 	}
 	if a==POINTER_TYPE {
-		return venc.POINTER_TYPE
+		return Venc.POINTER_TYPE
 	}
 	if a==VOID_TYPE {
-		return venc.VOID_TYPE
+		return Venc.VOID_TYPE
 	}
 	return 0
 }
 
-func VASM_Type_To_Vitality_Type(a *Type) *venc.Type {
+func VASM_Type_To_Vitality_Type(a *Type) *Venc.Type {
 	if a==nil {
-		return &venc.Type{}
+		return &Venc.Type{}
 	}
-	out:=&venc.Type{Is_Array: a.Is_Array, Is_Dict: a.Is_Dict, Is_Raw: a.Raw_Type!=0, Raw_Type: Convert_Raw_Types_For_Vitality(a.Raw_Type), Is_Struct: a.Is_Struct, Is_Pointer: a.Raw_Type==POINTER_TYPE, Child: VASM_Type_To_Vitality_Type(a.Child), Struct_Details: make(map[string]*venc.Type)}
+	out:=&Venc.Type{Is_Array: a.Is_Array, Is_Dict: a.Is_Dict, Is_Raw: a.Raw_Type!=0, Raw_Type: Convert_Raw_Types_For_Vitality(a.Raw_Type), Is_Struct: a.Is_Struct, Is_Pointer: a.Raw_Type==POINTER_TYPE, Child: VASM_Type_To_Vitality_Type(a.Child), Struct_Details: make(map[string]*Venc.Type)}
 	for Field,Field_Type:=range a.Struct_Details {
 		out.Struct_Details[Field]=VASM_Type_To_Vitality_Type(Field_Type)
 	}
 	return out
 }
 
-func VASM_Program_To_Vitality_Program(program Program, path string) venc.Program {
-	venc_Program:=venc.Program{Vitality: false, Path: path, Package_Name: program.Package_Name, Structs: make(map[string]*venc.Type), Functions: make(map[string]*venc.Function), Global_Variables: make(map[string]*venc.Type), Imported_Libraries: make(map[string]*venc.Program)}
+func VASM_Program_To_Vitality_Program(program Program, path string) Venc.Program {
+	venc_Program:=Venc.Program{Vitality: false, Path: path, Package_Name: program.Package_Name, Structs: make(map[string]*Venc.Type), Functions: make(map[string]*Venc.Function), Global_Variables: make(map[string]*Venc.Type), Imported_Libraries: make(map[string]*Venc.Program)}
 	for Struct:=range program.Structs {
 		venc_Program.Structs[Struct]=VASM_Type_To_Vitality_Type(program.Structs[Struct])
 	}
 	for _,Function:=range program.Functions {
-		venc_Program.Functions[Function.Name]=&venc.Function{Out_Type: VASM_Type_To_Vitality_Type(&Function.Out_Type), Arguments: make([]struct{Name string; Type *venc.Type}, 0), Scope: make(map[string]*venc.Type), Instructions: make([][]string, 0)}
+		venc_Program.Functions[Function.Name]=&Venc.Function{Out_Type: VASM_Type_To_Vitality_Type(&Function.Out_Type), Arguments: make([]struct{Name string; Type *Venc.Type}, 0), Scope: make(map[string]*Venc.Type), Instructions: make([][]string, 0)}
 		for Function_Argument:=range Function.Arguments {
 			Argument_Type:=Function.Arguments[Function_Argument]
-			venc_Program.Functions[Function.Name].Arguments = append(venc_Program.Functions[Function.Name].Arguments, struct{Name string; Type *venc.Type}{Name: Function_Argument, Type: VASM_Type_To_Vitality_Type(&Argument_Type)})
+			venc_Program.Functions[Function.Name].Arguments = append(venc_Program.Functions[Function.Name].Arguments, struct{Name string; Type *Venc.Type}{Name: Function_Argument, Type: VASM_Type_To_Vitality_Type(&Argument_Type)})
 		}
 	}
 	for _,Dependency:=range program.Dependencies {
-		venc_Program.Imported_Libraries[Dependency]=&venc.Program{Path: Dependency}
+		venc_Program.Imported_Libraries[Dependency]=&Venc.Program{Path: Dependency}
 	}
 	return venc_Program
 }
 
-func VASM_Translator(path string) (venc.Program, error) {
+func VASM_Translator(path string) (Venc.Program, error) {
 	data,err:=os.ReadFile(path)
 	if err!=nil {
 		fmt.Println(err)
-		return venc.Program{}, err
+		return Venc.Program{}, err
 	}
 	tokens,err:=Tokenizer(string(data))
 	if err!=nil {
 		fmt.Println(err)
-		return venc.Program{}, err
+		return Venc.Program{}, err
 	}
 	VASM_Program, err:=Parser(tokens, path, make(map[string]Program))
 	if err!=nil {
-		return venc.Program{}, err
+		return Venc.Program{}, err
 	}
 	return VASM_Program_To_Vitality_Program(VASM_Program, path), nil
 }

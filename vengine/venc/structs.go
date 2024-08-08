@@ -1,4 +1,4 @@
-package venc
+package Venc
 
 const (
 	INT_TYPE               int8 = iota

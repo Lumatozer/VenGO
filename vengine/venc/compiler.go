@@ -1,4 +1,4 @@
-package venc
+package Venc
 
 import (
 	"crypto/sha256"
