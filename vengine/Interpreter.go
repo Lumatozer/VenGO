@@ -3,6 +3,7 @@ package Vengine
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"github.com/lumatozer/VenGO/structs"
 )
 
@@ -18,7 +19,8 @@ func Bool2Int(a bool) int {
 	return 0
 }
 
-func Interpreter(function *Function, stack Stack) structs.Execution_Result {
+func Interpreter(function *Function, stack Stack, thread_Mutex *sync.Mutex, sync_databases []int) structs.Execution_Result {
+	defer thread_Mutex.Unlock()
 	execution_Result:=structs.Execution_Result{}
 	scope := make([]*Object, len(function.Base_Program.Rendered_Scope))
 	constructed_Objects:=make(map[int]Object)
@@ -99,7 +101,7 @@ func Interpreter(function *Function, stack Stack) structs.Execution_Result {
 				call_Stack.Locations = append(call_Stack.Locations, function_to_be_Called.Argument_Indexes[i])
 				call_Stack.Objects = append(call_Stack.Objects, scope[instructions[3+i]])
 			}
-			perfomed_Execution:=Interpreter(&function_to_be_Called, call_Stack)
+			perfomed_Execution:=Interpreter(&function_to_be_Called, call_Stack, thread_Mutex, sync_databases)
 			execution_Result.Gas_Used+=perfomed_Execution.Gas_Used
 			if perfomed_Execution.Error!=nil {
 				execution_Result.Error=perfomed_Execution.Error
