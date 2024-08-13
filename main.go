@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/lumatozer/VenGO"
+	"github.com/lumatozer/VenGO/structs"
 	"github.com/lumatozer/VenGO/venc"
 )
 
@@ -82,7 +83,11 @@ func main() {
 		}
 	}
 	Vengine.Load_Packages(&program, Vengine.Get_Packages())
-	exec_Result:=Vengine.Interpreter(&program.Functions[index], Vengine.Stack{}, &sync.Mutex{}, make([]int, 0))
+	exec_Result:=Vengine.Interpreter(&program.Functions[index], Vengine.Stack{}, &sync.Mutex{}, structs.Database_Interface{
+		Locking_Databases: []int{1},
+		DB_Read: DB_Read,
+		DB_Write: DB_Write,
+	})
 	if exec_Result.Error!=nil {
 		fmt.Println(exec_Result.Error)
 		return
