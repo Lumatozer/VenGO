@@ -218,7 +218,6 @@ func Equal_Type(a *Type, b *Type) bool {
 
 func Default_Object_By_Object_Abstract(object_Abstract Object_Abstract) Object {
 	if object_Abstract.Is_Array {
-		fmt.Println("\n\n\n\n", "BRO WHO TF?\n\n\n\n")
 		return Object{Value: make([]*Object, 0)}
 	}
 	if object_Abstract.Is_Mapping {
@@ -327,9 +326,7 @@ func Copy_Object(object *Object) Object  {
 	_,ok=a.([]*Object)
 	if ok {
 		Children:=make([]*Object, 0)
-		for _,Child:=range a.([]*Object) {
-			Children = append(Children, Child)
-		}
+		Children = append(Children, a.([]*Object)...)
 		return Object{Value: Children}
 	}
 	return Object{Value: nil}

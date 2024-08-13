@@ -67,10 +67,6 @@ func main() {
 		return
 	}
 	fmt.Println(tokens)
-	if err!=nil {
-		fmt.Println(err)
-		return
-	}
 	program,err:=Vengine.Parser(tokens, Absolute_Path, make(map[string]Vengine.Program))
 	if err!=nil {
 		fmt.Println(err)
