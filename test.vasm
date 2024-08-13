@@ -1,12 +1,16 @@
 package main
 
-import (
-    "packages/print/print.vh" as print
-)
-
 function main()->void {
-    var a->int;
-    var _->void;
-    set a 5;
-    call print.print(a) _;
+    var count->int;
+    var one->int;
+    var ok->int;
+    var target->int;
+    var jumpto->int;
+    set target 100000000;
+    set jumpto 8;
+    set one 1;
+    add count one count;
+    equals count target ok;
+    jump ok one;
+    jumpto jumpto;
 }

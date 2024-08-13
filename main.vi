@@ -1,21 +1,11 @@
 package main
 
-import (
-    "vengine/packages/print/print.vh" as print
-)
-
-var database->{int->int};
-
-function set(key->int, value->int) {
-    database[key]=value;
-}
-
-function get(key->int)->int {
-    return database[key];
-}
-
 function main() {
-    var _->void;
-    set(1, 10);
-    print.print(get(1));
+    var count->int;
+    for {
+        count=count+1;
+        if (count==100000000) {
+            break;
+        }
+    }
 }
