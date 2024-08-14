@@ -42,6 +42,8 @@ type Function struct {
 	Argument_Indexes       []int
 	External_Function      *func([]*interface{})structs.Execution_Result
 	Constants              Constants
+	Calls                  []int
+	Databases              []int
 }
 
 type Constants struct {

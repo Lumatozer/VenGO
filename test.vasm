@@ -1,6 +1,8 @@
 package main
 
 function main()->void {
-    var a->string;
-    str_set a "hi";
+    var a->int;
+    var key->string;
+    str_set key "a";
+    db_write 1 key a;
 }

@@ -797,14 +797,10 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 				variables = append(variables, code[j].Value)
 			}
 			i=j+1
-			Instructions:=make([]string, 0)
-			Instructions = append(Instructions, "var")
 			for _,variable:=range variables {
 				function.Scope[variable]=variablesType
-				Instructions = append(Instructions, variable)
+				function.Instructions = append(function.Instructions, []string{"var", variable+"->"+Type_Object_To_String(variablesType, program)+";"})
 			}
-			Instructions[len(Instructions)-1]+="->"+Type_Object_To_String(variablesType, program)+";"
-			function.Instructions = append(function.Instructions, Instructions)
 			continue
 		}
 		if len(code)-i>=4 && code[i+1].Type=="operator" && code[i+1].Value=="=" {

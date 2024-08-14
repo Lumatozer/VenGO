@@ -1,6 +1,5 @@
 package main
 
 function main() {
-    var a->string;
-    a="yo";
+    
 }

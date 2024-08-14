@@ -1019,6 +1019,7 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			instructions:=[]int{CALL_INSTRUCTION, function_Index, variable_Index}
 			instructions = append(instructions, variable_Indexes...)
 			function.Instructions = append(function.Instructions, instructions)
+			function.Calls = append(function.Calls, function_Index)
 			i=j+2
 			continue
 		}
