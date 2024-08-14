@@ -51,6 +51,14 @@ type Function struct {
 	Argument_Names         []string
 	Argument_Indexes       []int
 	External_Function      *func([]*interface{})structs.Execution_Result
+	Constants              Constants
+}
+
+type Constants struct {
+	INT_64                 []int64
+	STRING                 []string
+	FLOAT                  []float32
+	FLOAT64                []float64
 }
 
 type Type struct {
