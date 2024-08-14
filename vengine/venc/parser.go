@@ -595,6 +595,12 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 			function.Instructions = append(function.Instructions, []string{"set", Temp_Var, strconv.FormatInt(int64(code[0].Num_Value), 10)+";"})
 			return Temp_Var, []string{Temp_Var}, nil
 		}
+		if code[0].Type=="string" {
+			Temp_Var:=Generate_Unique_Temporary_Variable(&Type{Is_Raw: true, Raw_Type: STRING_TYPE}, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Temp_Var, Var_Type, function, program, temp_Variables)
+			function.Instructions = append(function.Instructions, []string{"str_set", Temp_Var, "\""+code[0].Value+"\""+";"})
+			return Temp_Var, []string{Temp_Var}, nil
+		}
 		if code[0].Type=="expression" {
 			return Compile_Expression(code[0].Children, function, program, temp_Variables)
 		}

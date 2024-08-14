@@ -1,11 +1,6 @@
 package main
 
 function main() {
-    var count->int;
-    for {
-        count=count+1;
-        if (count==100000000) {
-            break;
-        }
-    }
+    var a->string;
+    a="yo";
 }
