@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"github.com/lumatozer/VenGO"
 	"github.com/lumatozer/VenGO/structs"
 	"github.com/lumatozer/VenGO/venc"
@@ -81,16 +82,54 @@ func main() {
 		}
 	}
 	Vengine.Load_Packages(&program, Vengine.Get_Packages())
-	exec_Result:=Vengine.Interpreter(&program.Functions[index], Vengine.Stack{}, &structs.Mutex_Interface{}, structs.Database_Interface{
-		Locking_Databases: []int{1},
-		DB_Read: DB_Read,
-		DB_Write: DB_Write,
-	})
-	if exec_Result.Error!=nil {
-		fmt.Println(exec_Result.Error)
-		return
+	wg:=sync.WaitGroup{}
+	threads:=make([]*structs.Mutex_Interface, 0)
+	n:=2
+	for i := 0; i < n; i++ {
+		threads = append(threads, &structs.Mutex_Interface{Channel: make(chan int)})
 	}
-	if exec_Result.Return_Value!=nil {
-		fmt.Println(exec_Result.Return_Value)
+	for _,thread:=range threads {
+		wg.Add(1)
+		go func(thread *structs.Mutex_Interface) {
+			exec_Result:=Vengine.Interpreter(&program.Functions[index], Vengine.Stack{}, thread, structs.Database_Interface{
+				Locking_Databases: []int{1},
+				DB_Read: DB_Read,
+				DB_Write: DB_Write,
+			})
+			if exec_Result.Error!=nil {
+				fmt.Println(exec_Result.Error)
+				return
+			}
+			if exec_Result.Return_Value!=nil {
+				fmt.Println(exec_Result.Return_Value)
+			}
+			wg.Done()
+			thread.Exited=true
+			thread.Channel <- 0
+		}(thread)
 	}
+	for {
+		to_exit:=true
+		make_sequential:=true
+		for i := 0; i < n; i++ {
+			if !threads[i].Exited {
+				to_exit=false
+			}
+			if !threads[i].Inner_Waiting && !threads[i].Exited {
+				make_sequential=false
+			}
+		}
+		if to_exit {
+			break
+		}
+		if make_sequential {
+			for i := 0; i < n; i++ {
+				threads[i].Channel <- 0
+				<-threads[i].Channel
+			}
+		}
+	}
+	wg.Wait()
+	val,_,_:=DB_Read(1, "hi")
+	fmt.Println(Vengine.Decode_Object(val))
 }

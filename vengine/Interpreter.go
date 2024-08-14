@@ -18,14 +18,7 @@ func Bool2Int(a bool) int {
 	return 0
 }
 
-func On_Exit(thread_Mutex *structs.Mutex_Interface) {
-	if thread_Mutex.Locked {
-		structs.Unlock(thread_Mutex)
-	}
-}
-
 func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_Interface, Database_Interface structs.Database_Interface) structs.Execution_Result {
-	defer On_Exit(thread_Mutex)
 	execution_Result:=structs.Execution_Result{}
 	scope := make([]*Object, len(function.Base_Program.Rendered_Scope))
 	constructed_Objects:=make(map[int]Object)
@@ -188,6 +181,9 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				scope[instructions[3]]=value
 			}
 		case DB_WRITE_INSTRUCTION:
+			thread_Mutex.Inner_Waiting=true
+			<-thread_Mutex.Channel
+			thread_Mutex.Inner_Waiting=false
 			encoded_Object, err:=Encode_Object(struct{Value interface{}}{Value: scope[instructions[3]].Value})
 			if err!=nil {
 				fmt.Println(err)
@@ -201,7 +197,11 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				execution_Result.Error=err
 				return execution_Result
 			}
+			thread_Mutex.Channel <- 0
 		case DB_READ_INSTRUCTION:
+			thread_Mutex.Inner_Waiting=true
+			<-thread_Mutex.Channel
+			thread_Mutex.Inner_Waiting=false
 			encoded_Object, db_gas, err:=Database_Interface.DB_Read(instructions[1], scope[instructions[2]].Value.(string))
 			execution_Result.Gas_Used+=db_gas
 			if err!=nil {
@@ -216,6 +216,7 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				return execution_Result
 			}
 			scope[instructions[3]].Value=obj.Value
+			thread_Mutex.Channel <- 0
 		}
 	}
 	for i := range scope {
@@ -223,5 +224,6 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 			fmt.Print(Object_PrintS(scope[i]), " ")
 		}
 	}
+	fmt.Println()
 	return execution_Result
 }

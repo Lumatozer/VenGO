@@ -1,9 +1,5 @@
 package structs
 
-import (
-	"sync"
-)
-
 type Execution_Result struct {
 	Gas_Used        int
 	Return_Value    interface{}
@@ -22,16 +18,7 @@ type Database_Interface struct {
 }
 
 type Mutex_Interface struct {
-	Locked            bool
-	Mutex             *sync.Mutex
-}
-
-func Lock(m *Mutex_Interface) {
-	m.Mutex.Lock()
-	m.Locked=true
-}
-
-func Unlock(m *Mutex_Interface) {
-	m.Mutex.Unlock()
-	m.Locked=false
+	Inner_Waiting     bool
+	Exited            bool
+	Channel           chan int
 }

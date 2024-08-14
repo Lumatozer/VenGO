@@ -2,8 +2,14 @@ package main
 
 function main() {
     var a->int;
-    a=55;
-    db_write(1, "hi", a);
-    a=74;
-    db_read(1, "hi", a);
+    var i->int;
+    for {
+        if (i==100) {
+            break;
+        }
+        db_read(1, "hi", a);
+        a=a+1;
+        db_write(1, "hi", a);
+        i=i+1;
+    }
 }
