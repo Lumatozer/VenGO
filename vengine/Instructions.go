@@ -32,4 +32,5 @@ const (
 	DB_WRITE_INSTRUCTION              int = iota
 	DB_READ_INSTRUCTION               int = iota
 	LOCK_INSTRUCTION                  int = iota
+	FIELD_ACCESS_INSTRUCTION          int = iota
 )

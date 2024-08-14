@@ -787,6 +787,46 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i+=4
 			continue
 		}
+		if code[i].Type=="variable" && code[i].Value=="field_access" {
+			if len(code)-i<5 {
+				return errors.New("invalid instruction definition structure")
+			}
+			if code[i+1].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable1_Index, found:=function.Variable_Scope[code[i+1].Value]
+			if !found {
+				return errors.New("variable '"+code[i+1].Value+"' not found")
+			}
+			if !program.Object_References[variable1_Index].Object_Type.Is_Struct {
+				return errors.New("expected type a array while parsing instruction")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable2_Index:=len(function.Constants.STRING)
+			field_Type, ok:=program.Object_References[variable1_Index].Object_Type.Struct_Details[code[i+2].Value]
+			if !ok {
+				return errors.New("field does not exist")
+			}
+			function.Constants.STRING = append(function.Constants.STRING, code[i+2].Value)
+			if code[i+3].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable3_Index, found:=function.Variable_Scope[code[i+3].Value]
+			if !found {
+				return errors.New("variable '"+code[i+3].Value+"' not found")
+			}
+			if !Equal_Type(&program.Object_References[variable3_Index].Object_Type, field_Type) {
+				return errors.New("field type does not match the variable")
+			}
+			if code[i+4].Type!="semicolon" {
+				return errors.New("invalid instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{FIELD_ACCESS_INSTRUCTION, variable1_Index, variable2_Index, variable3_Index})
+			i+=4
+			continue
+		}
 		if code[i].Type=="variable" && code[i].Value=="array_lookup" {
 			if len(code)-i<5 {
 				return errors.New("invalid instruction definition structure")

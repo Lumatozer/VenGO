@@ -240,6 +240,13 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				thread_Mutex.Inner_Waiting=false
 				Database_Interface.Sequential=true
 			}
+		case FIELD_ACCESS_INSTRUCTION:
+			Out_Object:=scope[instructions[1]].Value.(map[string]*Object)[function.Constants.STRING[instructions[2]]]
+			if Out_Object==nil {
+				Out_Object=&Object{}
+				scope[instructions[1]].Value.(map[string]*Object)[function.Constants.STRING[instructions[2]]]=Out_Object
+			}
+			scope[instructions[3]]=Out_Object
 		}
 	}
 	for i := range scope {

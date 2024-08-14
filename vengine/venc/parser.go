@@ -550,6 +550,23 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 			}
 			return &Type{}, errors.New("invalid type to perform lookup on")
 		}
+		if code[0].Type=="field_access" {
+			parent_Type,err:=Evaluate_Type([]Token{code[0].Children[0]}, function, program)
+			if err!=nil {
+				return &Type{}, err
+			}
+			if !parent_Type.Is_Struct {
+				return &Type{}, errors.New("parent type must be a struct for a valid field_access")
+			}
+			if code[0].Children[1].Type!="variable" {
+				return &Type{}, errors.New("field access must be of type variable")
+			}
+			field_Type, ok:=parent_Type.Struct_Details[code[0].Children[1].Value]
+			if !ok {
+				return &Type{}, errors.New("field does not exist in struct")
+			}
+			return field_Type, nil
+		}
 	}
 	if len(code)>=3 {
 		TypeA,err:=Evaluate_Type([]Token{code[0]}, function, program)
@@ -715,6 +732,22 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				function.Instructions = append(function.Instructions, []string{"dict_lookup", parent_Variable, lookup_Variable, Temp_Var+";"})
 				return Temp_Var, used_Variables, nil
 			}
+		}
+		if code[0].Type=="field_access" {
+			parent_Variable, occuped_Variables, err:=Compile_Expression([]Token{code[0].Children[0]}, function, program, temp_Variables)
+			used_Variables = append(used_Variables, occuped_Variables...)
+			if err!=nil {
+				return "", make([]string, 0), err
+			}
+
+			child_Type:=function.Scope[parent_Variable].Struct_Details[code[0].Children[1].Value]
+
+			Temp_Var:=Generate_Unique_Temporary_Variable(child_Type, temp_Variables, function)
+			Initialise_Temporary_Unique_Variable(Temp_Var, child_Type, function, program, temp_Variables)
+			used_Variables = append(used_Variables, Temp_Var)
+
+			function.Instructions = append(function.Instructions, []string{"field_access", parent_Variable, code[0].Children[1].Value, Temp_Var+";"})
+			return Temp_Var, used_Variables, nil
 		}
 		return out, used_Variables, errors.New("could not compile expression")
 	}
