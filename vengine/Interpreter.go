@@ -3,7 +3,6 @@ package Vengine
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"github.com/lumatozer/VenGO/structs"
 )
 
@@ -19,8 +18,14 @@ func Bool2Int(a bool) int {
 	return 0
 }
 
-func Interpreter(function *Function, stack Stack, thread_Mutex *sync.Mutex, Database_Interface structs.Database_Interface) structs.Execution_Result {
-	defer thread_Mutex.Unlock()
+func On_Exit(thread_Mutex *structs.Mutex_Interface) {
+	if thread_Mutex.Locked {
+		structs.Unlock(thread_Mutex)
+	}
+}
+
+func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_Interface, Database_Interface structs.Database_Interface) structs.Execution_Result {
+	defer On_Exit(thread_Mutex)
 	execution_Result:=structs.Execution_Result{}
 	scope := make([]*Object, len(function.Base_Program.Rendered_Scope))
 	constructed_Objects:=make(map[int]Object)
@@ -54,6 +59,8 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *sync.Mutex, Data
 		switch opcode := instructions[0]; opcode {
 		case SET_INSTRUCTION:
 			scope[instructions[1]].Value = instructions[2]
+		case STRING_SET_INSTRUCTION:
+			scope[instructions[1]].Value = function.Constants.STRING[instructions[2]]
 		case ADD_INSTRUCTION, SUB_INSTRUCTION, MULT_INSTRUCTION, DIV_INSTRUCTION, FLOOR_INSTRUCTION, MOD_INSTRUCTION, GREATER_INSTRUCTION, SMALLER_INSTRUCTION, AND_INSTRUCTION, OR_INSTRUCTION, XOR_INSTRUCTION, EQUALS_INSTRUCTION, NEQUALS_INSTRUCTION:
 			var1,is_int:=scope[instructions[1]].Value.(int)
 			if !is_int {
