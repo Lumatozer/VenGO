@@ -520,6 +520,12 @@ func Evaluate_Type(code []Token, function *Function, program *Program) (*Type, e
 				}
 				return &Type{Is_Raw: true, Raw_Type: INT_TYPE}, nil
 			}
+			if function_Name=="db_write" {
+				return &Type{Raw_Type: VOID_TYPE}, nil
+			}
+			if function_Name=="db_read" {
+				return &Type{Raw_Type: VOID_TYPE}, nil
+			}
 		}
 		if code[0].Type=="lookup" {
 			parent_Type,err:=Evaluate_Type(code[0].Children[0].Children, function, program)
@@ -619,7 +625,7 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 				used_Variables = append(used_Variables, Occupied_Variable...)
 				Variables = append(Variables, Var)
 			}
-			if str_index_in_arr(function_Name_To_Find, []string{"append", "len"})!=-1 {
+			if str_index_in_arr(function_Name_To_Find, []string{"append", "len", "db_write", "db_read"})!=-1 {
 				if function_Name_To_Find=="append" {
 					if len(Variables)!=2 {
 						return "", make([]string, 0), errors.New("append expects 2 arguments of types [array, array.child]")
@@ -640,6 +646,26 @@ func Compile_Expression(code []Token, function *Function, program *Program, temp
 					Initialise_Temporary_Unique_Variable(Temp_Var, &Type{Is_Raw: true, Raw_Type: INT_TYPE}, function, program, temp_Variables)
 					function.Instructions = append(function.Instructions, []string{"len", Variables[0], Temp_Var+";"})
 					return Temp_Var, append(used_Variables, Temp_Var), nil
+				}
+				if function_Name_To_Find=="db_write" {
+					if len(Variables)!=3 || len(code[0].Children[1].Children)==0 || code[0].Children[1].Children[0].Type!="num" {
+						return "", make([]string, 0), errors.New("db_write expects 3 arguments of type (int literal, string, any)")
+					}
+					if Variable_Types[1].Raw_Type!=STRING_TYPE {
+						return "", make([]string, 0), errors.New("db_write expects 3 arguments of type (int literal, string, any)")
+					}
+					function.Instructions = append(function.Instructions, []string{"db_write", strconv.FormatInt(int64(code[0].Children[1].Children[0].Num_Value), 10), Variables[1], Variables[2]+";"})
+					return "", used_Variables, nil
+				}
+				if function_Name_To_Find=="db_read" {
+					if len(Variables)!=3 || len(code[0].Children[1].Children)==0 || code[0].Children[1].Children[0].Type!="num" {
+						return "", make([]string, 0), errors.New("db_read expects 3 arguments of type (int literal, string, any)")
+					}
+					if Variable_Types[1].Raw_Type!=STRING_TYPE {
+						return "", make([]string, 0), errors.New("db_read expects 3 arguments of type (int literal, string, any)")
+					}
+					function.Instructions = append(function.Instructions, []string{"db_read", strconv.FormatInt(int64(code[0].Children[1].Children[0].Num_Value), 10), Variables[1], Variables[2]+";"})
+					return "", used_Variables, nil
 				}
 			} else {
 				for Fn_Name, Fn:=range program.Functions {

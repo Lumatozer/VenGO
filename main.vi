@@ -1,5 +1,9 @@
 package main
 
 function main() {
-    
+    var a->int;
+    a=55;
+    db_write(1, "hi", a);
+    a=74;
+    db_read(1, "hi", a);
 }
