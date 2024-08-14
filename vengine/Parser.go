@@ -869,6 +869,38 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i+=4
 			continue
 		}
+		if code[i].Type=="variable" && str_index_in_str_arr(code[i].Value, []string{"db_write", "db_read"})!=-1 {
+			instruction:=[]int{DB_WRITE_INSTRUCTION, DB_READ_INSTRUCTION}[str_index_in_str_arr(code[i].Value, []string{"db_write", "db_read"})]
+			if len(code)-i<5 {
+				return errors.New("invalid instruction definition structure")
+			}
+			if code[i+1].Type!="number" {
+				return errors.New("invalid instruction definition structure")
+			}
+			if code[i+2].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable2_Index, found:=function.Variable_Scope[code[i+2].Value]
+			if !found {
+				return errors.New("variable '"+code[i+2].Value+"' not found")
+			}
+			if !(program.Object_References[variable2_Index].Object_Type.Raw_Type==STRING_TYPE) {
+				return errors.New("unexpected type of string while parsing database instruction")
+			}
+			if code[i+3].Type!="variable" {
+				return errors.New("invalid instruction definition structure")
+			}
+			variable3_Index, found:=function.Variable_Scope[code[i+3].Value]
+			if !found {
+				return errors.New("variable '"+code[i+3].Value+"' not found")
+			}
+			if code[i+4].Type!="semicolon" {
+				return errors.New("invalid instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{instruction, int(code[i+1].Float64_Constant), variable2_Index, variable3_Index})
+			i+=4
+			continue
+		}
 		if code[i].Type=="variable" && code[i].Value=="len" {
 			if len(code)-i<4 {
 				return errors.New("invalid instruction definition structure")

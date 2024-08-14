@@ -29,4 +29,6 @@ const (
 	ARRAY_TYPE_LOOKUP_INSTRUCTION     int = iota
 	DICT_TYPE_LOOKUP_INSTRUCTION      int = iota
 	STRING_SET_INSTRUCTION            int = iota
+	DB_WRITE_INSTRUCTION              int = iota
+	DB_READ_INSTRUCTION               int = iota
 )

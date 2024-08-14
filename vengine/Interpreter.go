@@ -187,6 +187,35 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				}
 				scope[instructions[3]]=value
 			}
+		case DB_WRITE_INSTRUCTION:
+			encoded_Object, err:=Encode_Object(struct{Value interface{}}{Value: scope[instructions[3]].Value})
+			if err!=nil {
+				fmt.Println(err)
+				execution_Result.Error=err
+				return execution_Result
+			}
+			db_gas, err:=Database_Interface.DB_Write(instructions[1], scope[instructions[2]].Value.(string), encoded_Object)
+			execution_Result.Gas_Used+=db_gas
+			if err!=nil {
+				fmt.Println(err)
+				execution_Result.Error=err
+				return execution_Result
+			}
+		case DB_READ_INSTRUCTION:
+			encoded_Object, db_gas, err:=Database_Interface.DB_Read(instructions[1], scope[instructions[2]].Value.(string))
+			execution_Result.Gas_Used+=db_gas
+			if err!=nil {
+				fmt.Println(err)
+				execution_Result.Error=err
+				return execution_Result
+			}
+			obj, err:=Decode_Object(encoded_Object)
+			if err!=nil {
+				fmt.Println(err)
+				execution_Result.Error=err
+				return execution_Result
+			}
+			scope[instructions[3]].Value=obj.Value
 		}
 	}
 	for i := range scope {

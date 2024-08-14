@@ -1,16 +1,18 @@
 package Vengine
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"github.com/lumatozer/VenGO/structs"
 	"github.com/lumatozer/VenGO/venc"
-	"os"
 )
 
 func str_index_in_str_arr(a string, b []string) int {
@@ -519,4 +521,20 @@ func VASM_Translator(path string) (Venc.Program, error) {
 		return Venc.Program{}, err
 	}
 	return VASM_Program_To_Vitality_Program(VASM_Program, path), nil
+}
+
+func Encode_Object(a struct{Value interface{}}) ([]byte, error) {
+	buffer := new(bytes.Buffer)
+	encoder:=gob.NewEncoder(buffer)
+	err:=encoder.Encode(a)
+	return buffer.Bytes(), err
+}
+
+func Decode_Object(bytes_buffer []byte) (struct{Value interface{}}, error) {
+	var out struct{Value interface{}}
+	buffer := new(bytes.Buffer)
+	buffer.Write(bytes_buffer)
+	encoder:=gob.NewDecoder(buffer)
+	err:=encoder.Decode(&out)
+	return out, err
 }

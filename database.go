@@ -1,12 +1,18 @@
 package main
 
-import "errors"
+import (
+	"errors"
+)
 
 var Memory_Database map[int]map[string][]byte = make(map[int]map[string][]byte)
 
 func DB_Write(database int, key string, value []byte) (Gas_Used int, Error error) {
 	Gas_Used = 0
 	Error = nil
+	_,ok:=Memory_Database[database]
+	if !ok {
+		Memory_Database[database]=make(map[string][]byte)
+	}
 	Memory_Database[database][key] = value
 	return Gas_Used, Error
 }
