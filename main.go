@@ -127,8 +127,10 @@ func main() {
 		}
 		if make_sequential {
 			for i := 0; i < n; i++ {
-				threads[i].Channel <- 100
-				<-threads[i].Channel
+				if !threads[i].Exited {
+					threads[i].Channel <- 1
+					<-threads[i].Channel
+				}
 			}
 		}
 	}

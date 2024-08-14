@@ -7,7 +7,7 @@ import (
 	"errors"
 )
 
-var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "package", "for"}
+var reserved_tokens = []string{"var", "fn", "if", "while", "continue", "break", "struct", "return", "function", "as", "import", "package", "for", "lock"}
 var types = []string{"int", "int64", "string", "float", "float64", "void"}
 var operators = []string{"+", "-", "*", "/", "^", ">", "<", "=", "&", "!", "|", "&", "%", ":=", "**", "&&", "||", "//"}
 var end_of_statements = []string{";"}

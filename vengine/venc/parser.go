@@ -980,7 +980,7 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 		}
 		if code[i].Type=="sys" && code[i].Value=="for" {
 			if !(len(code)-i>=3) {
-				return errors.New("incomplete if condition declaration found")
+				return errors.New("incomplete for declaration found")
 			}
 			if code[i+1].Type!="bracket_open" && code[i+1].Value!="{" {
 				return errors.New("curly bracket expression expected after for keyword")
@@ -1019,6 +1019,41 @@ func Function_Parser(code []Token, function_definition Function_Definition, func
 			function.Instructions[Variable_Index]=[]string{"set", Loop_Break, strconv.FormatInt(int64(len(function.Instructions))+1, 10)+";"}
 			Free_Temporary_Unique_Variable(Loop_Break, temp_Variables, function)
 			Free_Temporary_Unique_Variable(Loop_Start, temp_Variables, function)
+			continue
+		}
+		if code[i].Type=="sys" && code[i].Value=="lock" {
+			if !(len(code)-i>=3) {
+				return errors.New("incomplete for declaration found")
+			}
+			if code[i+1].Type!="bracket_open" && code[i+1].Value!="{" {
+				return errors.New("curly bracket expression expected after for keyword")
+			}
+			brackets:=0
+			loop_Tokens:=make([]Token, 0)
+			for {
+				i++
+				if i>=len(code) {
+					return errors.New("unexpected EOS during function '"+function_definition.Name+"' parsing")
+				}
+				if code[i].Type=="bracket_open" && code[i].Value=="{" {
+					brackets+=1
+				}
+				if code[i].Type=="bracket_close" && code[i].Value=="}" {
+					brackets-=1
+				}
+				loop_Tokens = append(loop_Tokens, code[i])
+				if brackets==0 {
+					break
+				}
+			}
+			loop_Tokens=loop_Tokens[1:len(loop_Tokens)-1]
+			toChange:=len(function.Instructions)
+			function.Instructions = append(function.Instructions, []string{"lock"})
+			err:=Function_Parser(loop_Tokens, function_definition, function, program, temp_Variables, loop_Details)
+			if err!=nil {
+				return err
+			}
+			function.Instructions[toChange]=[]string{"lock", strconv.FormatInt(int64(len(function.Instructions)-(toChange+1)), 10)+";"}
 			continue
 		}
 		if code[i].Type=="sys" && code[i].Value=="break" {

@@ -1055,6 +1055,17 @@ func Function_Parser(function_Definition *Function_Definition, function *Functio
 			i=j+2
 			continue
 		}
+		if code[i].Type=="variable" && code[i].Value=="lock" {
+			if len(code)-i<3 {
+				return errors.New("invalid lock instruction definition structure")
+			}
+			if code[i+1].Type!="number" || code[i+2].Type!="semicolon" {
+				return errors.New("invalid lock instruction definition structure")
+			}
+			function.Instructions = append(function.Instructions, []int{LOCK_INSTRUCTION, int(code[i+1].Float64_Constant)})
+			i+=2
+			continue
+		}
 		return errors.New("unrecognised instruction token of type '"+code[i].Type+"'")
 	}
 	return nil

@@ -190,7 +190,7 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				scope[instructions[3]]=value
 			}
 		case DB_WRITE_INSTRUCTION:
-			if !Database_Interface.Sequential {
+			if !Database_Interface.Sequential && int_index_in_int_arr(instructions[1], Database_Interface.Locking_Databases)!=-1 {
 				thread_Mutex.Inner_Waiting=true
 				Database_Interface.Sequential_Instructions=<-thread_Mutex.Channel
 				thread_Mutex.Inner_Waiting=false
@@ -210,7 +210,7 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				return execution_Result
 			}
 		case DB_READ_INSTRUCTION:
-			if !Database_Interface.Sequential {
+			if !Database_Interface.Sequential && int_index_in_int_arr(instructions[1], Database_Interface.Locking_Databases)!=-1 {
 				thread_Mutex.Inner_Waiting=true
 				Database_Interface.Sequential_Instructions=<-thread_Mutex.Channel
 				thread_Mutex.Inner_Waiting=false
@@ -230,6 +230,16 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				return execution_Result
 			}
 			scope[instructions[3]].Value=obj.Value
+		case LOCK_INSTRUCTION:
+			if Database_Interface.Sequential {
+				Database_Interface.Sequential_Instructions=instructions[1]
+			} else {
+				thread_Mutex.Inner_Waiting=true
+				<-thread_Mutex.Channel
+				Database_Interface.Sequential_Instructions=instructions[1]
+				thread_Mutex.Inner_Waiting=false
+				Database_Interface.Sequential=true
+			}
 		}
 	}
 	for i := range scope {

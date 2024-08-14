@@ -31,4 +31,5 @@ const (
 	STRING_SET_INSTRUCTION            int = iota
 	DB_WRITE_INSTRUCTION              int = iota
 	DB_READ_INSTRUCTION               int = iota
+	LOCK_INSTRUCTION                  int = iota
 )

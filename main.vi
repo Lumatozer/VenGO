@@ -8,9 +8,11 @@ function main() {
         if (i==100) {
             break;
         }
-        db_read(1, "hi", a);
-        a=a+1;
-        db_write(1, "hi", a);
-        i=i+1;
+        lock {
+            db_read(1, "hi", a);
+            a=a+1;
+            db_write(1, "hi", a);
+            i=i+1;
+        }
     }
 }
