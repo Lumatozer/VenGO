@@ -48,6 +48,15 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 		return (*function.External_Function)(stack_Interfaces)
 	}
 	for i := 0; i < len(function.Instructions); i++ {
+		if Database_Interface.Sequential {
+			if Database_Interface.Sequential_Instructions<=0 {
+				Database_Interface.Sequential=false
+				Database_Interface.Sequential_Instructions=0
+				thread_Mutex.Channel <- 0
+			} else {
+				Database_Interface.Sequential_Instructions-=1
+			}
+		}
 		instructions := function.Instructions[i]
 		switch opcode := instructions[0]; opcode {
 		case SET_INSTRUCTION:
@@ -181,9 +190,12 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				scope[instructions[3]]=value
 			}
 		case DB_WRITE_INSTRUCTION:
-			thread_Mutex.Inner_Waiting=true
-			<-thread_Mutex.Channel
-			thread_Mutex.Inner_Waiting=false
+			if !Database_Interface.Sequential {
+				thread_Mutex.Inner_Waiting=true
+				Database_Interface.Sequential_Instructions=<-thread_Mutex.Channel
+				thread_Mutex.Inner_Waiting=false
+				Database_Interface.Sequential=true
+			}
 			encoded_Object, err:=Encode_Object(struct{Value interface{}}{Value: scope[instructions[3]].Value})
 			if err!=nil {
 				fmt.Println(err)
@@ -197,11 +209,13 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				execution_Result.Error=err
 				return execution_Result
 			}
-			thread_Mutex.Channel <- 0
 		case DB_READ_INSTRUCTION:
-			thread_Mutex.Inner_Waiting=true
-			<-thread_Mutex.Channel
-			thread_Mutex.Inner_Waiting=false
+			if !Database_Interface.Sequential {
+				thread_Mutex.Inner_Waiting=true
+				Database_Interface.Sequential_Instructions=<-thread_Mutex.Channel
+				thread_Mutex.Inner_Waiting=false
+				Database_Interface.Sequential=true
+			}
 			encoded_Object, db_gas, err:=Database_Interface.DB_Read(instructions[1], scope[instructions[2]].Value.(string))
 			execution_Result.Gas_Used+=db_gas
 			if err!=nil {
@@ -216,7 +230,6 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 				return execution_Result
 			}
 			scope[instructions[3]].Value=obj.Value
-			thread_Mutex.Channel <- 0
 		}
 	}
 	for i := range scope {

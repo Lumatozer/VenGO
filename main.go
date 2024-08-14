@@ -95,7 +95,13 @@ func main() {
 				Locking_Databases: []int{1},
 				DB_Read: DB_Read,
 				DB_Write: DB_Write,
+				Sequential_Instructions: -1,
 			})
+
+			wg.Done()
+			thread.Exited=true
+			thread.Channel <- 0
+
 			if exec_Result.Error!=nil {
 				fmt.Println(exec_Result.Error)
 				return
@@ -103,9 +109,6 @@ func main() {
 			if exec_Result.Return_Value!=nil {
 				fmt.Println(exec_Result.Return_Value)
 			}
-			wg.Done()
-			thread.Exited=true
-			thread.Channel <- 0
 		}(thread)
 	}
 	for {
@@ -124,7 +127,7 @@ func main() {
 		}
 		if make_sequential {
 			for i := 0; i < n; i++ {
-				threads[i].Channel <- 0
+				threads[i].Channel <- 100
 				<-threads[i].Channel
 			}
 		}

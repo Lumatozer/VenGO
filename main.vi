@@ -3,6 +3,7 @@ package main
 function main() {
     var a->int;
     var i->int;
+    db_write(1, "hi", a);
     for {
         if (i==100) {
             break;
