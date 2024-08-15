@@ -84,7 +84,7 @@ func main() {
 	Vengine.Load_Packages(&program, Vengine.Get_Packages())
 	wg:=sync.WaitGroup{}
 	threads:=make([]*structs.Mutex_Interface, 0)
-	n:=1
+	n:=2
 	for i := 0; i < n; i++ {
 		threads = append(threads, &structs.Mutex_Interface{Channel: make(chan int)})
 	}

@@ -5,7 +5,7 @@ struct Message {
     Message->string
 }
 
-function chat()->string {
+function chat(model->string, message->[Message])->string {
     var a->string;
     str_set a "response";
     return a;

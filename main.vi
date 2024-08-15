@@ -1,9 +1,25 @@
 package main
 
 import (
-    "llm.vasm" as llm
+    "vengine/packages/print/print.vh" as print
+    "vengine/packages/time/time.vh" as time
 )
 
 function main() {
-    llm.chat();
+    var current_Time i x->int;
+    current_Time=time.Time();
+    db_write(1, "hi", x);
+    for {
+        i=i+1;
+        if (i==1000) {
+            break;
+        }
+        lock {
+            db_read(1, "hi", x);
+            x=x+1;
+            db_write(1, "hi", x);
+        }
+    }
+    print.print(current_Time);
+    print.print(time.Since(current_Time));
 }
