@@ -293,7 +293,7 @@ func Parser(path string, definitions Definitions, imported_Programs map[string]P
 		}
 		imported_Program,recycled_Import:=imported_Programs[Import_Path]
 		if !recycled_Import {
-			if strings.HasSuffix(Import_Path, ".vasm") {
+			if !strings.HasSuffix(Import_Path, ".vi") {
 				imported_Program,err=VASM_Translator(Import_Path)
 				if err!=nil {
 					return program, err

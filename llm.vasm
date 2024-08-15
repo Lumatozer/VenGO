@@ -1,0 +1,12 @@
+package llm
+
+struct Message {
+    Entity->string
+    Message->string
+}
+
+function chat()->string {
+    var a->string;
+    str_set a "response";
+    return a;
+}

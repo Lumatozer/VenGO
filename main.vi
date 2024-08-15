@@ -1,10 +1,9 @@
 package main
 
-struct X {
-    y->string
-}
+import (
+    "llm.vasm" as llm
+)
 
 function main() {
-    var yo->X;
-    yo.y="aeyo";
+    llm.chat();
 }

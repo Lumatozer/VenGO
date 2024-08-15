@@ -82,6 +82,7 @@ type Function_Definition struct {
 	Arguments_Variables    map[string]Token
 	Out_Token              Token
 	Instruction_Tokens     []Token
+	Arguments              []string
 }
 
 type Variable_Definition struct {

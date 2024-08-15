@@ -40,7 +40,7 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 			}
 		}
 	}
-	if function.Base_Program.Is_Dynamic {
+	if function.Base_Program.Is_Dynamic && function.External_Function!=nil {
 		stack_Interfaces:=make([]*interface{}, 0)
 		for _,stack_Object:=range stack.Objects {
 			stack_Interfaces = append(stack_Interfaces, &stack_Object.Value)

@@ -268,6 +268,7 @@ func Definition_Parser(code []Token, codePath string) (Definitions, error) {
 						return definitions, errors.New("expected token of type 'type' during function defintion got '"+code[j].Type+"'")
 					}
 					function_Definition.Arguments_Variables[argument_Names[len(argument_Names)-1]]=code[j]
+					function_Definition.Arguments = append(function_Definition.Arguments, argument_Names[len(argument_Names)-1])
 					last_comma=false
 					continue
 				}
@@ -476,7 +477,8 @@ func Parser(code []Token, filePath string, imported_Programs map[string]Program)
 			return structs.Execution_Result{}
 		}
 		function_Declaration:=Function{Name: Function_Definition.Name, Stack_Spec: make(map[int]Object_Abstract), Arguments: make(map[string]Type), Variable_Scope: copy_base_Function_Variable_Scope, Out_Type: *function_Out_Type, Base_Program: &program, Argument_Indexes: make([]int, 0), External_Function: &sample_Package_Function_Definition}
-		for argument_Name, argument_Type_Token:=range Function_Definition.Arguments_Variables {
+		for _,argument_Name:=range Function_Definition.Arguments {
+			argument_Type_Token:=Function_Definition.Arguments_Variables[argument_Name]
 			argument_Type,err:=Type_Token_To_Struct(argument_Type_Token, &program)
 			if err!=nil {
 				return program, err

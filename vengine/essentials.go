@@ -442,6 +442,8 @@ func Load_Packages(program *Program, packages []structs.Package) {
 					external_Function,ok:=Package.Functions[function.Name]
 					if ok {
 						*program.Functions[i].External_Function=external_Function
+					} else {
+						program.Functions[i].External_Function=nil
 					}
 				}
 			}
