@@ -1,9 +1,8 @@
 package Vengine
 
 import (
-	"errors"
-	"fmt"
 	"github.com/lumatozer/VenGO/structs"
+	"fmt"
 )
 
 type Stack struct {
@@ -63,43 +62,78 @@ func Interpreter(function *Function, stack Stack, thread_Mutex *structs.Mutex_In
 			scope[instructions[1]].Value = instructions[2]
 		case STRING_SET_INSTRUCTION:
 			scope[instructions[1]].Value = function.Constants.STRING[instructions[2]]
-		case ADD_INSTRUCTION, SUB_INSTRUCTION, MULT_INSTRUCTION, DIV_INSTRUCTION, FLOOR_INSTRUCTION, MOD_INSTRUCTION, GREATER_INSTRUCTION, SMALLER_INSTRUCTION, AND_INSTRUCTION, OR_INSTRUCTION, XOR_INSTRUCTION, EQUALS_INSTRUCTION, NEQUALS_INSTRUCTION:
-			var1,is_int:=scope[instructions[1]].Value.(int)
-			if !is_int {
-				execution_Result.Error=errors.New("variable is not of type integer")
-				return execution_Result
+		case ADD_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			scope[instructions[3]].Value = var1 + var2
+		case SUB_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			scope[instructions[3]].Value = var1 - var2
+		case DIV_INSTRUCTION, FLOOR_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			scope[instructions[3]].Value = var1 / var2
+		case MULT_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			scope[instructions[3]].Value = var1 * var2
+		case MOD_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			scope[instructions[3]].Value = var1 % var2
+		case GREATER_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			if var1 > var2 {
+				scope[instructions[3]].Value=1
+			} else {
+				scope[instructions[3]].Value=0
 			}
-			var2,is_int:=scope[instructions[2]].Value.(int)
-			if !is_int {
-				execution_Result.Error=errors.New("variable is not of type integer")
-				return execution_Result
+		case SMALLER_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			if var1 < var2 {
+				scope[instructions[3]].Value=1
+			} else {
+				scope[instructions[3]].Value=0
 			}
-			switch opcode {
-			case ADD_INSTRUCTION:
-				scope[instructions[3]].Value = var1 + var2
-			case SUB_INSTRUCTION:
-				scope[instructions[3]].Value = var1 - var2
-			case DIV_INSTRUCTION, FLOOR_INSTRUCTION:
-				scope[instructions[3]].Value = var1 / var2
-			case MULT_INSTRUCTION:
-				scope[instructions[3]].Value = var1 * var2
-			case MOD_INSTRUCTION:
-				scope[instructions[3]].Value = var1 % var2
-			case GREATER_INSTRUCTION:
-				scope[instructions[3]].Value = Bool2Int(var1 > var2)
-			case SMALLER_INSTRUCTION:
-				scope[instructions[3]].Value = Bool2Int(var1 < var2)
-			case AND_INSTRUCTION:
-				scope[instructions[3]].Value = Bool2Int((var1!=0 && var2!=0))
-			case OR_INSTRUCTION:
-				scope[instructions[3]].Value = Bool2Int((var1!=0 || var2!=0))
-			case EQUALS_INSTRUCTION:
-				scope[instructions[3]].Value = Bool2Int((var1 == var2))
-			case NEQUALS_INSTRUCTION:
-				scope[instructions[3]].Value = Bool2Int((var1 != var2))
-			case XOR_INSTRUCTION:
-				scope[instructions[3]].Value = var1 ^ var2
+		case AND_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			if var1!=0 && var2!=0 {
+				scope[instructions[3]].Value=1
+			} else {
+				scope[instructions[3]].Value=0
 			}
+		case OR_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			if var1!=0 || var2!=0 {
+				scope[instructions[3]].Value=1
+			} else {
+				scope[instructions[3]].Value=0
+			}
+		case EQUALS_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			if var1==var2 {
+				scope[instructions[3]].Value=1
+			} else {
+				scope[instructions[3]].Value=0
+			}
+		case NEQUALS_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			if var1 != var2 {
+				scope[instructions[3]].Value=1
+			} else {
+				scope[instructions[3]].Value=0
+			}
+		case XOR_INSTRUCTION:
+			var1:=scope[instructions[1]].Value.(int)
+			var2:=scope[instructions[2]].Value.(int)
+			scope[instructions[3]].Value=var1 ^ var2
 		case RETURN_INSTRUCTION:
 			execution_Result.Return_Value=scope[instructions[1]].Value
 			return execution_Result
