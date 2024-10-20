@@ -1,9 +1,0 @@
-import (
-    "grammar.vi" as grammar
-    "std" as std
-)
-
-function _start(a bytes)->(bytes) {
-    bytes_append a, a;
-    return a;
-}

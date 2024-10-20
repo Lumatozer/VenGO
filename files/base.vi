@@ -1,0 +1,56 @@
+package main
+
+use std::io as io
+use std
+
+type GIF struct {
+    b:fn():int
+}
+
+type errorStruct=struct {
+    Error fn():string
+}
+
+type error = *errorStruct
+
+impl error new(a:string, b:fn():string):error {
+    function:fn():string=fn() {
+        return a;
+    }
+    var finalError:error=&make(struct{Error fn():string}, {
+        Error: fn():string {
+                return "hi";
+            }
+    })
+    *finalError::Error=fn():string {
+        return a;
+    }
+    return finalError;
+}
+
+impl error alter(a:*error) {
+    error.new(hello);
+}
+
+fn println(strings:[]any):(int, error) {
+    n:=io::print(strings);
+    if n==0 {
+        return n, error::new("buffer could not be written");
+    } else {
+        return n, nil;
+    }
+}
+
+fn main(args:int | string, b:GIF):int {
+    b::b=fn():int {
+        return 1;
+    }
+    b=args as int + 1;
+    if args is int {
+        return 1;
+    }
+    spin println("1", "2");
+    a=make(channel, int);
+    a.send(10);
+    a.recv();
+}

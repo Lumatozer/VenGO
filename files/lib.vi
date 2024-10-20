@@ -1,9 +1,0 @@
-var called->int;
-
-function hello(n->int)->int {
-    var one->int;
-    set one 1;
-    add called one called;
-    add one n n;
-    return n;
-}
