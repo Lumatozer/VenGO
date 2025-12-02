@@ -5,13 +5,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/lumatozer/VenC"
+	"github.com/lumatozer/VenGO"
 )
 
 func main() {
 	data, _ := os.ReadFile("test.wasm")
 
 	start := time.Now().Local().UnixMilli()
-	_, err := venc.CompileWasm(data)
+	_, err := vengine.CompileWasm(data)
 	fmt.Println(time.Now().Local().UnixMilli() - start, err)
 }

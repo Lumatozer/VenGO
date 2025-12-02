@@ -1,4 +1,4 @@
-package venc
+package vengine
 
 import (
 	"github.com/bytecodealliance/wasmtime-go/v39"
