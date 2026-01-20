@@ -1,12 +1,6 @@
-module github.com/lumatozer/Vengine
+module venc
 
 go 1.25.0
-
-replace vengine => ./vengine
-
-replace venc => ./venc
-
-require venc v0.0.0
 
 require (
 	golang.org/x/mod v0.32.0 // indirect

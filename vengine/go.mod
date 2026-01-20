@@ -1,4 +1,4 @@
-module github.com/lumatozer/VenGO
+module vengine
 
 go 1.25
 
