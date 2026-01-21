@@ -1,7 +1,6 @@
 package venc
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"os"
@@ -10,7 +9,7 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-func CompilerPackage(directory string) {
+func CompilePackage(directory string) {
 	cfg := &packages.Config{
 		Mode: packages.NeedName |
 			packages.NeedTypes |
@@ -32,16 +31,20 @@ func CompilerPackage(directory string) {
 
 	var type_info map[string]*Venc_Type = make(map[string]*Venc_Type)
 
+	function_map := []*Function_Type{}
+
 	for _, pkg := range pkgs {
-		buildTypeGraph(pkg, type_info)
+		function_map = append(function_map, buildFunctionTypeGraph(pkg, type_info)...)
 	}
 }
 
-func buildTypeGraph(pkg *packages.Package, type_info map[string]*Venc_Type) {
+func buildFunctionTypeGraph(pkg *packages.Package, type_info map[string]*Venc_Type) []*Function_Type {
 	scope := pkg.Types.Scope()
 
 	names := scope.Names()
 	sort.Strings(names)
+
+	functions := []*Function_Type{}
 
 	for _, name := range names {
 		if !ast.IsExported(name) {
@@ -55,33 +58,25 @@ func buildTypeGraph(pkg *packages.Package, type_info map[string]*Venc_Type) {
 
 		sig := fn.Type().(*types.Signature)
 
-		results := sig.Results()
-
-		// add logic for function construction
-
-		for i := 0; i < results.Len(); i++ {
-			result := results.At(i)
-			Get_Type(result.Type(), type_info)
-		}
+		function := Function_Type{}
+		function.Name = pkg.PkgPath + "." + fn.Name()
 
 		params := sig.Params()
 
 		for i := 0; i < params.Len(); i++ {
 			param := params.At(i)
-			Get_Type(param.Type(), type_info)
+			function.Parameter_Keys = append(function.Parameter_Keys, param.Name())
+			function.Parameter_Types = append(function.Parameter_Types, Get_Type(param.Type(), type_info))
 		}
 
-		fmt.Println(type_info)
+		results := sig.Results()
+		for i := 0; i < results.Len(); i++ {
+			result := results.At(i)
+			function.Results = append(function.Results, Get_Type(result.Type(), type_info))
+		}
 
-		// the_type := sig.Results().At(0).Type()
-
-		// fmt.Println(the_type, "->", types.Unalias(the_type.Underlying()))
-
-		// fmt.Printf(
-		// 	"%s.%s %s\n",
-		// 	pkg.PkgPath,
-		// 	fn.Name(),
-		// 	types.TypeString(sig, nil),
-		// )
+		functions = append(functions, &function)
 	}
+
+	return functions
 }

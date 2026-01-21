@@ -22,5 +22,5 @@ func main() {
 		return
 	}
 
-	venc.CompilerPackage(os.Args[1])
+	venc.CompilePackage(os.Args[1])
 }

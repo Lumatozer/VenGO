@@ -13,3 +13,10 @@ func isNumeric(t types.Type) bool {
 		return false
 	}
 }
+
+type Function_Type struct {
+	Name string
+	Parameter_Keys []string
+	Parameter_Types []*Venc_Type
+	Results []*Venc_Type
+}

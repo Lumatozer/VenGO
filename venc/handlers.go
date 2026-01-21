@@ -52,6 +52,15 @@ func Get_Type(t types.Type, type_info map[string]*Venc_Type) *Venc_Type {
 		final_type := underlying.String()
 
 		out_type.Kind = Number_Kind
+
+		if info&(types.IsString) != 0 {
+			out_type.Kind = String_Kind
+		}
+
+		if info&(types.IsBoolean) != 0 {
+			out_type.Kind = Bool_Kind
+		}
+
 		out_type.String_Value = &final_type
 	
 	case *types.Struct:
